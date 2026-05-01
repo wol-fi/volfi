@@ -1,4 +1,4 @@
-# volfi
+# volfi v0.1.0
 
 `volfi` is a small C++ research prototype for fast Black-Scholes implied variance on the projected out-of-the-money call side.
 
@@ -18,6 +18,10 @@ $$
 
 Thus the implemented fast path only has to solve the positive-moneyness OTM problem.
 
+## Version
+
+This release is `volfi v0.1.0`: the first public research prototype of the OTM-projected implied-variance kernel.
+
 ## Method
 
 The implementation uses:
@@ -25,7 +29,8 @@ The implementation uses:
 1. a domain-specialized rational seed for implied variance $w$;
 2. one Halley refinement;
 3. analytic GIG-density derivative structure;
-4. an OTM-only fast kernel.
+4. an OTM-only fast kernel;
+5. an optional precomputed OTM context for fixed $h$.
 
 The current implementation is a research kernel, not a global production replacement for Jaeckel's LetsBeRational.
 
@@ -84,17 +89,56 @@ double w = volfi::implied_variance_otm(h, c_otm);
 double v = volfi::implied_volatility_otm(h, c_otm, t);
 ```
 
+For repeated evaluations at the same moneyness $h$, use the precomputed context:
+
+```cpp
+volfi::otm_context ctx(h);
+double w = volfi::implied_variance_otm(ctx, c_otm);
+```
+
+The context stores $h$, $h^2$, $\exp(h/2)$, and $\exp(h)$, avoiding repeated computation of these terms in the hot path.
+
 The header also contains a normalized-call helper that projects ITM calls to the OTM side:
 
 ```cpp
 double w = volfi::implied_variance_call_normalised(k, c);
 ```
 
-## Reference benchmark with LetsBeRational comparison
+## Test results
+
+### Current OTM-grid benchmark
+
+This benchmark uses the bundled OTM code with 5000 repetitions of the 164-case grid.
+
+```text
+compiler: g++ 14.2.0
+flags: -Ofast -march=native -ffp-contract=fast -fno-math-errno
+cases: 164
+repetitions per timing run: 5000
+evaluations per timing run: 820000
+runs: 9
+reported unit: nanoseconds per implied-volatility evaluation
+```
+
+Accuracy:
+
+| variant | mean abs variance error | max abs variance error | max rel variance error | mean abs volatility error | max abs volatility error | max rel volatility error |
+|---|---:|---:|---:|---:|---:|---:|
+| direct OTM kernel | `4.17e-16` | `2.66e-15` | `9.49e-14` | `1.96e-16` | `8.88e-16` | `4.74e-14` |
+| precomputed OTM context | `4.17e-16` | `2.66e-15` | `9.49e-14` | `1.96e-16` | `8.88e-16` | `4.74e-14` |
+
+Timing:
+
+| variant | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
+|---|---:|---:|---:|---:|
+| direct OTM kernel | `93.98` | `93.75` | `--` | `--` |
+| precomputed OTM context | `89.81` | `89.97` | `--` | `--` |
+
+The precomputed context stores moneyness-only terms and improves scalar speed by about `4%` in this benchmark.
+
+### Reference benchmark with LetsBeRational comparison
 
 The reference comparison used the same 164-case OTM grid and native C++ loops.
-
-Benchmark setup:
 
 ```text
 compiler: g++
@@ -104,22 +148,7 @@ evaluations per run: 30000 x 164
 reported unit: nanoseconds per implied-volatility evaluation
 ```
 
-The LetsBeRational comparison used the normalized implied-volatility routine from the `LetsBeRational.7z` distribution published at `http://www.jaeckel.org/`, not py_vollib and not a Python wrapper.
-
-Hardware/software setting reported by the execution environment:
-
-```text
-OS/kernel: Linux 4.4.0, x86_64
-CPU vendor: GenuineIntel
-CPU model name reported by container: unknown
-CPU count reported by container: 56
-Threads per core: 1
-Cores per socket: 56
-Socket count: 1
-Reported CPU MHz: 2793.439
-Hypervisor vendor: Microsoft
-Memory reported by container: 4 GiB
-```
+The LetsBeRational comparison used the normalized implied-volatility routine from the supplied LetsBeRational shared library, not py_vollib and not a Python wrapper.
 
 Accuracy on the 164-case grid:
 
@@ -151,8 +180,39 @@ $$
 
 On this benchmark grid, the specialized OTM implied-variance kernel is therefore about `2.3x` faster than the normalized LetsBeRational call while retaining absolute volatility errors below `1e-14`.
 
+### Precomputed-context micro-benchmark
+
+A separate micro-benchmark tested whether precomputing moneyness-only terms improves speed. The context stores $h^2$, $\exp(h/2)$, and $\exp(h)$.
+
+| variant | median ns/eval | mean ns/eval | max abs volatility error |
+|---|---:|---:|---:|
+| original OTM kernel | `93.75` | `93.98` | `7.22e-16` |
+| precomputed OTM context | `89.97` | `89.81` | `6.66e-16` |
+
+The improvement is about `4%` on that scalar benchmark.
+
+## Hardware/software setting
+
+Hardware/software setting reported by the execution environment:
+
+```text
+OS/kernel: Linux 4.4.0, x86_64
+compiler: g++ (Debian 14.2.0-19) 14.2.0
+CPU vendor: GenuineIntel
+CPU model name reported by container: unknown
+CPU count reported by container: 56
+Threads per core: 1
+Cores per socket: 56
+Socket count: 1
+Reported CPU MHz: 2793.439
+Hypervisor vendor: Microsoft
+Memory reported by container: 4 GiB
+CPU flags include: AVX2, AVX512F, AVX512DQ, AVX512CD, AVX512BW, AVX512VL, FMA
+```
+
 ## Caveats
 
 - The comparison is domain-specific.
 - LetsBeRational is a global solver; this implementation is specialized to the stated OTM-projected grid.
-- Released under the MIT License. See `LICENSE`.
+- The source bundle does not include LetsBeRational source or binaries.
+- No license has been selected in this prototype bundle. Add a license before making reuse terms explicit.
