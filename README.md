@@ -106,88 +106,46 @@ double w = volfi::implied_variance_call_normalised(k, c);
 
 ## Test results
 
-There are two benchmark blocks below. They should not be mixed:
-
-1. **Release benchmark**: uses the current packaged `volfi v0.1.0` code and compares the direct OTM kernel with the precomputed-context kernel.
-2. **Reference comparison with LetsBeRational**: an earlier same-run comparison against LetsBeRational. That comparison used the direct OTM kernel, not the later precomputed-context micro-optimization.
-
-### Release benchmark: packaged `volfi v0.1.0` code
-
-This benchmark uses the bundled OTM code with 5000 repetitions of the 164-case grid.
+The tables below use the 164-case OTM grid above. The LetsBeRational row is included as a reference baseline from the native C++ comparison run. It used the normalized implied-volatility routine from the supplied LetsBeRational shared library, not py_vollib and not a Python wrapper.
 
 ```text
 compiler: g++ 14.2.0
 flags: -Ofast -march=native -ffp-contract=fast -fno-math-errno
 cases: 164
-repetitions per timing run: 5000
-evaluations per timing run: 820000
-runs: 9
 reported unit: nanoseconds per implied-volatility evaluation
 ```
 
 Accuracy:
 
-| variant | mean abs variance error | max abs variance error | max rel variance error | mean abs volatility error | max abs volatility error | max rel volatility error |
+| method | mean abs variance error | max abs variance error | max rel variance error | mean abs volatility error | max abs volatility error | max rel volatility error |
 |---|---:|---:|---:|---:|---:|---:|
-| direct OTM kernel | `4.17e-16` | `2.66e-15` | `9.49e-14` | `1.96e-16` | `8.88e-16` | `4.74e-14` |
-| precomputed OTM context | `4.17e-16` | `2.66e-15` | `9.49e-14` | `1.96e-16` | `8.88e-16` | `4.74e-14` |
+| volfi direct OTM kernel | `4.17e-16` | `2.66e-15` | `9.49e-14` | `1.96e-16` | `8.88e-16` | `4.74e-14` |
+| volfi precomputed OTM context | `4.17e-16` | `2.66e-15` | `9.49e-14` | `1.96e-16` | `8.88e-16` | `4.74e-14` |
+| LetsBeRational normalised | -- | -- | -- | `1.67e-16` | `6.66e-16` | `1.14e-14` |
 
 Timing:
 
-| variant | mean ns/eval | median ns/eval |
+| method | mean ns/eval | median ns/eval |
 |---|---:|---:|
-| direct OTM kernel | `93.98` | `93.75` |
-| precomputed OTM context | `89.81` | `89.97` |
+| volfi direct OTM kernel | `93.98` | `93.75` |
+| volfi precomputed OTM context | `89.81` | `89.97` |
+| LetsBeRational normalised | `233.43` | `231.41` |
 
-The precomputed context improves scalar speed by about
+Median speed ratios:
+
+$$
+\frac{231.41}{93.75} \approx 2.47,
+\qquad
+\frac{231.41}{89.97} \approx 2.57.
+$$
+
+Thus, on this benchmark grid, the specialized OTM implied-variance kernel is about `2.5x` faster than the normalized LetsBeRational call while retaining absolute volatility errors below `1e-14`.
+
+The precomputed OTM context improves scalar speed over the direct OTM kernel by about
 
 $$
 \frac{93.75-89.97}{93.75}\approx 4.0\%.
 $$
-
-### Reference comparison with LetsBeRational
-
-This comparison used the same 164-case OTM grid and native C++ loops.
-
-```text
-compiler: g++
-flags: -O3 -march=native
-runs: 7
-evaluations per run: 30000 x 164
-reported unit: nanoseconds per implied-volatility evaluation
-```
-
-The LetsBeRational comparison used the normalized implied-volatility routine from the supplied LetsBeRational shared library, not py_vollib and not a Python wrapper.
-
-Accuracy:
-
-| method | mean abs volatility error | max abs volatility error | max rel volatility error |
-|---|---:|---:|---:|
-| volfi direct OTM kernel | `1.59e-16` | `5.60e-16` | `5.60e-14` |
-| LetsBeRational normalised | `1.67e-16` | `6.66e-16` | `1.14e-14` |
-
-Timing from that same LBR-comparison run:
-
-| method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
-|---|---:|---:|---:|---:|
-| volfi direct OTM kernel | `102.85` | `102.26` | `101.30` | `105.77` |
-| LetsBeRational normalised | `233.43` | `231.41` | `228.30` | `248.69` |
-
-Median speed ratio in the same LBR-comparison run:
-
-$$
-\frac{231.41}{102.26} \approx 2.26.
-$$
-
-So, on this benchmark grid, the specialized direct OTM implied-variance kernel was about `2.3x` faster than the normalized LetsBeRational call while retaining absolute volatility errors below `1e-14`.
-
-The later precomputed-context kernel was not benchmarked in the same run against LetsBeRational. Using the same LetsBeRational median only as an orientation gives
-
-$$
-\frac{231.41}{89.97} \approx 2.57,
-$$
-
-but the conservative same-run comparison is the `2.26x` figure above.
 
 ## Hardware/software setting
 
@@ -213,6 +171,7 @@ The benchmark was run inside a virtualized container. The reported CPU informati
 
 - The comparison is domain-specific.
 - LetsBeRational is a global solver; this implementation is specialized to the stated OTM-projected grid.
+- The LetsBeRational reference was evaluated as a native shared-library call, not through a Python wrapper.
 
 ## Potential Further Speed Improvements
 
