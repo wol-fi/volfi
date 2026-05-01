@@ -106,7 +106,12 @@ double w = volfi::implied_variance_call_normalised(k, c);
 
 ## Test results
 
-### Current OTM-grid benchmark
+There are two benchmark blocks below. They should not be mixed:
+
+1. **Release benchmark**: uses the current packaged `volfi v0.1.0` code and compares the direct OTM kernel with the precomputed-context kernel.
+2. **Reference comparison with LetsBeRational**: an earlier same-run comparison against LetsBeRational. That comparison used the direct OTM kernel, not the later precomputed-context micro-optimization.
+
+### Release benchmark: packaged `volfi v0.1.0` code
 
 This benchmark uses the bundled OTM code with 5000 repetitions of the 164-case grid.
 
@@ -129,16 +134,20 @@ Accuracy:
 
 Timing:
 
-| variant | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
-|---|---:|---:|---:|---:|
-| direct OTM kernel | `93.98` | `93.75` | `--` | `--` |
-| precomputed OTM context | `89.81` | `89.97` | `--` | `--` |
+| variant | mean ns/eval | median ns/eval |
+|---|---:|---:|
+| direct OTM kernel | `93.98` | `93.75` |
+| precomputed OTM context | `89.81` | `89.97` |
 
-The precomputed context stores moneyness-only terms and improves scalar speed by about `4%` in this benchmark.
+The precomputed context improves scalar speed by about
 
-### Reference benchmark with LetsBeRational comparison
+$$
+\frac{93.75-89.97}{93.75}\approx 4.0\%.
+$$
 
-The reference comparison used the same 164-case OTM grid and native C++ loops.
+### Reference comparison with LetsBeRational
+
+This comparison used the same 164-case OTM grid and native C++ loops.
 
 ```text
 compiler: g++
@@ -150,46 +159,35 @@ reported unit: nanoseconds per implied-volatility evaluation
 
 The LetsBeRational comparison used the normalized implied-volatility routine from the supplied LetsBeRational shared library, not py_vollib and not a Python wrapper.
 
-Accuracy on the 164-case grid:
+Accuracy:
 
 | method | mean abs volatility error | max abs volatility error | max rel volatility error |
 |---|---:|---:|---:|
-| volfi OTM kernel | `1.59e-16` | `5.60e-16` | `5.60e-14` |
+| volfi direct OTM kernel | `1.59e-16` | `5.60e-16` | `5.60e-14` |
 | LetsBeRational normalised | `1.67e-16` | `6.66e-16` | `1.14e-14` |
 
-Variance accuracy for the volfi OTM kernel:
-
-| metric | value |
-|---|---:|
-| mean absolute variance error | `3.26e-16` |
-| max absolute variance error | `1.78e-15` |
-| max relative variance error | `1.12e-13` |
-
-Timing:
+Timing from that same LBR-comparison run:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi OTM kernel | `102.85` | `102.26` | `101.30` | `105.77` |
+| volfi direct OTM kernel | `102.85` | `102.26` | `101.30` | `105.77` |
 | LetsBeRational normalised | `233.43` | `231.41` | `228.30` | `248.69` |
 
-Median speed ratio:
+Median speed ratio in the same LBR-comparison run:
 
 $$
 \frac{231.41}{102.26} \approx 2.26.
 $$
 
-On this benchmark grid, the specialized OTM implied-variance kernel is therefore about `2.3x` faster than the normalized LetsBeRational call while retaining absolute volatility errors below `1e-14`.
+So, on this benchmark grid, the specialized direct OTM implied-variance kernel was about `2.3x` faster than the normalized LetsBeRational call while retaining absolute volatility errors below `1e-14`.
 
-### Precomputed-context micro-benchmark
+The later precomputed-context kernel was not benchmarked in the same run against LetsBeRational. Using the same LetsBeRational median only as an orientation gives
 
-A separate micro-benchmark tested whether precomputing moneyness-only terms improves speed. The context stores $h^2$, $\exp(h/2)$, and $\exp(h)$.
+$$
+\frac{231.41}{89.97} \approx 2.57,
+$$
 
-| variant | median ns/eval | mean ns/eval | max abs volatility error |
-|---|---:|---:|---:|
-| original OTM kernel | `93.75` | `93.98` | `7.22e-16` |
-| precomputed OTM context | `89.97` | `89.81` | `6.66e-16` |
-
-The improvement is about `4%` on that scalar benchmark.
+but the conservative same-run comparison is the `2.26x` figure above.
 
 ## Hardware/software setting
 
@@ -199,7 +197,7 @@ Hardware/software setting reported by the execution environment:
 OS/kernel: Linux 4.4.0, x86_64
 compiler: g++ (Debian 14.2.0-19) 14.2.0
 CPU vendor: GenuineIntel
-CPU model name reported by container: unknown
+CPU model name reported by container: not exposed
 CPU count reported by container: 56
 Threads per core: 1
 Cores per socket: 56
@@ -209,6 +207,8 @@ Hypervisor vendor: Microsoft
 Memory reported by container: 4 GiB
 CPU flags include: AVX2, AVX512F, AVX512DQ, AVX512CD, AVX512BW, AVX512VL, FMA
 ```
+
+The benchmark was run inside a virtualized container. The reported CPU information should therefore be interpreted as environment metadata, not as a precise physical-machine specification.
 
 ## Caveats
 
