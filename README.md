@@ -171,7 +171,6 @@ The benchmark was run inside a virtualized container. The reported CPU informati
 
 - The comparison is domain-specific.
 - LetsBeRational is a global solver; this implementation is specialized to the stated OTM-projected grid.
-- The LetsBeRational reference was evaluated as a native shared-library call, not through a Python wrapper.
 
 ## Potential Further Speed Improvements
 
