@@ -155,5 +155,4 @@ On this benchmark grid, the specialized OTM implied-variance kernel is therefore
 
 - The comparison is domain-specific.
 - LetsBeRational is a global solver; this implementation is specialized to the stated OTM-projected grid.
-- The source bundle does not include LetsBeRational source or binaries.
-- No license has been selected in this prototype bundle. Add a license before making reuse terms explicit.
+- Released under the MIT License. See `LICENSE`.
