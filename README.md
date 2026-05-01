@@ -197,7 +197,6 @@ Hardware/software setting reported by the execution environment:
 OS/kernel: Linux 4.4.0, x86_64
 compiler: g++ (Debian 14.2.0-19) 14.2.0
 CPU vendor: GenuineIntel
-CPU model name reported by container: not exposed
 CPU count reported by container: 56
 Threads per core: 1
 Cores per socket: 56
