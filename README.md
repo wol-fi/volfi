@@ -1,6 +1,6 @@
-# vol-fi
+# volfi
 
-`vol-fi` is a small C++ research prototype for fast Black-Scholes implied variance on the projected out-of-the-money call side.
+`volfi` is a small C++ research prototype for fast Black-Scholes implied variance on the projected out-of-the-money call side.
 
 The core problem is reduced to
 
@@ -125,10 +125,10 @@ Accuracy on the 164-case grid:
 
 | method | mean abs volatility error | max abs volatility error | max rel volatility error |
 |---|---:|---:|---:|
-| vol-fi OTM kernel | `1.59e-16` | `5.60e-16` | `5.60e-14` |
+| volfi OTM kernel | `1.59e-16` | `5.60e-16` | `5.60e-14` |
 | LetsBeRational normalised | `1.67e-16` | `6.66e-16` | `1.14e-14` |
 
-Variance accuracy for the vol-fi OTM kernel:
+Variance accuracy for the volfi OTM kernel:
 
 | metric | value |
 |---|---:|
@@ -140,7 +140,7 @@ Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| vol-fi OTM kernel | `102.85` | `102.26` | `101.30` | `105.77` |
+| volfi OTM kernel | `102.85` | `102.26` | `101.30` | `105.77` |
 | LetsBeRational normalised | `233.43` | `231.41` | `228.30` | `248.69` |
 
 Median speed ratio:
