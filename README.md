@@ -213,5 +213,15 @@ The benchmark was run inside a virtualized container. The reported CPU informati
 
 - The comparison is domain-specific.
 - LetsBeRational is a global solver; this implementation is specialized to the stated OTM-projected grid.
-- The source bundle does not include LetsBeRational source or binaries.
-- No license has been selected in this prototype bundle. Add a license before making reuse terms explicit.
+
+## Potential Further Speed Improvements
+
+The current implementation is already close to the scalar fast path: a rational variance seed plus one Halley refinement. Further improvements would likely require changing the approximation structure rather than only simplifying algebra.
+
+The most promising direction is to split the OTM domain into several regions and fit separate lower-degree rational seeds. A more accurate branchwise seed may allow replacing Halley by a cheaper Newton step, or omitting refinement in parts of the domain.
+
+A second opportunity is to reduce the cost of the residual evaluation. The Halley step still evaluates normal-CDF-like terms. Tailored Cody/Remez approximations on the restricted benchmark domain, or branch rules that drop negligible terms, could reduce this cost.
+
+For fixed strike grids, more quantities can be precomputed. The current optimized version precomputes $h^2$, $\exp(h/2)$, and $\exp(h)$. Since the seed depends on $a=h/(1+h)$, the bivariate rational approximation could also be collapsed into a univariate polynomial in the price transform for each fixed $h$.
+
+Finally, a batch/SIMD API may improve throughput for volatility-surface construction. The current benchmark measures scalar latency; vectorized evaluation over many strikes and maturities could give larger gains than further scalar micro-optimizations.
