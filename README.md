@@ -104,7 +104,7 @@ evaluations per run: 30000 x 164
 reported unit: nanoseconds per implied-volatility evaluation
 ```
 
-The LetsBeRational comparison used the normalized implied-volatility routine from the supplied LetsBeRational shared library, not py_vollib and not a Python wrapper.
+The LetsBeRational comparison used the normalized implied-volatility routine from the `LetsBeRational.7z` distribution published at `http://www.jaeckel.org/`, not py_vollib and not a Python wrapper.
 
 Hardware/software setting reported by the execution environment:
 
