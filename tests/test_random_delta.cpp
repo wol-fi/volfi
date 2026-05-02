@@ -17,7 +17,7 @@ inline double qnorm0(double p){
 inline double qnorm2(double p){ double x=qnorm0(p); for(int i=0;i<2;i++){double e=volfi::phi_cdf(x)-p; double u=e*sr2pi*std::exp(0.5*x*x); x-=u/(1+0.5*x*u);} return x; }
 int main(){
  std::mt19937_64 rng(1234567);
- std::uniform_real_distribution<double> unif(0.5,0.99);
+ std::uniform_real_distribution<double> unif(0.01,0.9);
  int nd=5000,n=0,nbad=0; double mav=0,mxv=0,mrv=0,wdelta=0,wv=0,wh=0,wc=0;
  for(int id=0; id<nd; ++id){
   double delta=unif(rng), z=qnorm2(delta);
@@ -32,6 +32,6 @@ int main(){
    mav+=ev; if(ev>mxv){mxv=ev; wdelta=delta; wv=v; wh=h; wc=c;} mrv=std::max(mrv,ev/v); if(ev>1e-14) nbad++; n++;
   }
  }
- std::printf("random_deltas %d cases %d\nmean_abs_vol %.17g\nmax_abs_vol %.17g\nmax_rel_vol %.17g\nnum_abs_vol_gt_1e-14 %d\nworst_delta %.17g\nworst_v %.17g\nworst_h %.17g\nworst_c %.17g\n",nd,n,mav/n,mxv,mrv,nbad,wdelta,wv,wh,wc);
+ std::printf("random_deltas %d cases %d\ndelta_distribution uniform_0.01_0.9\nmean_abs_vol %.17g\nmax_abs_vol %.17g\nmax_rel_vol %.17g\nnum_abs_vol_gt_1e-14 %d\nworst_delta %.17g\nworst_v %.17g\nworst_h %.17g\nworst_c %.17g\n",nd,n,mav/n,mxv,mrv,nbad,wdelta,wv,wh,wc);
  return mxv<1e-14?0:1;
 }

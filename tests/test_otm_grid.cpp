@@ -3,7 +3,8 @@
 #include <cstdio>
 #include <volfi/volfi.hpp>
 
-constexpr int ncase=164;
+constexpr int ndelta=11;
+constexpr int ncase=41*ndelta;
 constexpr double sr2pi=2.50662827463100050241576528481104525;
 
 inline double qnorm0(double p){
@@ -24,12 +25,12 @@ inline double qnorm2(double p){
 }
 
 int main(){
- double delta[4]={0.55,0.70,0.80,0.95};
+ double delta[ndelta]={0.01,0.05,0.10,0.20,0.30,0.40,0.50,0.60,0.70,0.80,0.90};
  double mav=0,mxv=0;
  int ix=0;
  for(int iv=0;iv<41;iv++){
   double v=(iv==0)?0.01:0.05*iv;
-  for(int id=0;id<4;id++){
+  for(int id=0;id<ndelta;id++){
    double k=v*(0.5*v-qnorm2(delta[id]));
    double h=std::fabs(k), w=v*v;
    volfi::otm_context q(h);

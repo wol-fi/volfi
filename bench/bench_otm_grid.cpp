@@ -5,7 +5,8 @@
 #include <ctime>
 #include <vector>
 
-constexpr int ncase=164;
+constexpr int ndelta=11;
+constexpr int ncase=41*ndelta;
 constexpr int reps=5000;
 constexpr int runs=9;
 constexpr double sr2pi=2.50662827463100050241576528481104525;
@@ -64,14 +65,14 @@ template<class F> void acc(const char* name,F f,const double* wt,const double* v
 }
 
 int main(){
- double delta[4]={0.55,0.70,0.80,0.95};
+ double delta[ndelta]={0.01,0.05,0.10,0.20,0.30,0.40,0.50,0.60,0.70,0.80,0.90};
  double c[ncase],wt[ncase],vt[ncase];
  std::vector<volfi::otm_context> q;
  q.reserve(ncase);
  int ix=0;
  for(int iv=0;iv<41;iv++){
   double v=(iv==0)?0.01:0.05*iv;
-  for(int id=0;id<4;id++){
+  for(int id=0;id<ndelta;id++){
    double k=v*(0.5*v-qnorm2(delta[id]));
    double h=std::fabs(k), w=v*v;
    q.emplace_back(h);
