@@ -1,5 +1,7 @@
 # volfi v0.1.6
 
+(---Code currently under revision; far OTM wing insufficient accuracy---)
+
 `volfi` is a C++ research prototype for fast Black-Scholes implied variance on the projected out-of-the-money call side.
 
 The core problem is reduced to
