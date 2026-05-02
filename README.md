@@ -234,6 +234,6 @@ The most promising direction is to split the OTM domain into additional regions 
 
 A second opportunity is to reduce the cost of the residual evaluation. The Halley step still evaluates normal-CDF-like terms. Tailored Cody/Remez approximations on the restricted benchmark domain, or branch rules that drop negligible terms, could reduce this cost.
 
-For fixed strike grids, more quantities can be precomputed. Since the seed depends on $a=h/(1+h)$, the bivariate rational approximation could be collapsed further into univariate price-transform polynomials for each fixed $h$.
+For fixed strike grids, additional quantities can still be precomputed. v0.1.6 already collapses the high-price branch into fixed-$h$ polynomial coefficients. The same idea could be extended to the lower-price branches, replacing bivariate rational evaluations by fixed-$h$ univariate price-transform evaluations. The gain may be modest, however, because the Halley residual dominates runtime.
 
 Finally, a batch/SIMD API may improve throughput for volatility-surface construction. The current benchmark measures scalar latency; vectorized evaluation over many strikes and maturities could give larger gains than further scalar micro-optimizations.
