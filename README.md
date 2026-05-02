@@ -1,4 +1,4 @@
-# volfi v0.1.5
+# volfi v0.1.6
 
 `volfi` is a C++ research prototype for fast Black-Scholes implied variance on the projected out-of-the-money call side.
 
@@ -33,7 +33,7 @@ $$
 
 ## Version
 
-`volfi v0.1.5` is a precomputed-context OTM implied-variance kernel with a local transition seed for robustness on fixed and randomized OTM grids.
+`volfi v0.1.6` is a precomputed-context OTM implied-variance kernel for fast Black-Scholes inversion on fixed and randomized projected OTM grids.
 
 ## Method
 
@@ -107,7 +107,7 @@ volfi::otm_context ctx(h);
 double w = volfi::implied_variance_otm(ctx, c_otm);
 ```
 
-The precomputed context is the preferred fast path in `v0.1.5`.
+The precomputed context is the preferred fast path in `v0.1.6`.
 
 The header also contains a normalized-call helper that projects ITM calls to the OTM side:
 
@@ -118,8 +118,6 @@ double w = volfi::implied_variance_call_normalised(k, c);
 ## Test results
 
 The LetsBeRational reference was evaluated through its native shared-library interface using `NormalisedImpliedBlackVolatility`, not through `py_vollib` or a Python wrapper.
-
-An additional fixed-grid and random-grid rerun on another Linux machine is included in the `Additional Tests` section at the end of this README.
 
 ### Fixed OTM grid vs. LetsBeRational
 
@@ -134,8 +132,7 @@ Benchmark setting:
 
 ```text
 LBR revision: 1520
-compiler: g++ 14.2.0
-flags: -Ofast -march=native -ffp-contract=fast -fno-math-errno
+compiler: g++ 11.4.0
 cases: 164
 repetitions per timing run: 5000
 evaluations per timing run: 820000
@@ -147,20 +144,20 @@ Accuracy:
 
 | method | mean abs volatility error | max abs volatility error | max rel volatility error | errors > 1e-14 |
 |---|---:|---:|---:|---:|
-| volfi | `1.41e-16` | `6.66e-16` | `1.42e-14` | 0 |
-| LetsBeRational | `1.46e-16` | `6.66e-16` | `1.44e-14` | 0 |
+| volfi | `1.53e-16` | `6.66e-16` | `1.18e-14` | 0 |
+| LetsBeRational | `1.61e-16` | `8.88e-16` | `1.73e-14` | 0 |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi | `60.81` | `60.25` | `59.79` | `64.35` |
-| LetsBeRational | `165.04` | `164.15` | `163.65` | `168.77` |
+| volfi | `53.90` | `54.22` | `51.61` | `56.78` |
+| LetsBeRational | `158.79` | `159.79` | `155.38` | `161.36` |
 
 Median speed ratio:
 
 $$
-\frac{164.15}{60.25}\approx 2.72.
+\frac{159.79}{54.22}\approx 2.95.
 $$
 
 ### Random OTM grid vs. LetsBeRational
@@ -187,54 +184,25 @@ Accuracy:
 
 | method | mean abs volatility error | max abs volatility error | max rel volatility error | errors > 1e-14 |
 |---|---:|---:|---:|---:|
-| volfi | `1.44e-16` | `1.11e-15` | `6.80e-14` | 0 |
-| LetsBeRational | `1.77e-16` | `1.33e-15` | `4.51e-14` | 0 |
+| volfi | `1.52e-16` | `1.11e-15` | `6.12e-14` | 0 |
+| LetsBeRational | `2.02e-16` | `1.55e-15` | `4.01e-14` | 0 |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi | `65.81` | `65.75` | `65.48` | `66.19` |
-| LetsBeRational | `171.45` | `171.54` | `170.32` | `172.39` |
+| volfi | `57.96` | `57.57` | `56.29` | `60.27` |
+| LetsBeRational | `169.40` | `170.34` | `165.20` | `172.83` |
 
 Median speed ratio:
 
 $$
-\frac{171.54}{65.75}\approx 2.61.
+\frac{170.34}{57.57}\approx 2.96.
 $$
 
-On both the fixed and randomized OTM benchmarks, `volfi v0.1.5` is faster than the normalized LetsBeRational call while retaining absolute volatility errors around machine precision.
+On both the fixed and randomized OTM benchmarks, `volfi v0.1.6` is about three times faster than LetsBeRational on this projected OTM domain while retaining absolute volatility errors around machine precision.
 
 ## Hardware/software setting
-
-```text
-OS/kernel: Linux 4.4.0, x86_64
-compiler: g++ (Debian 14.2.0-19) 14.2.0
-CPU vendor: GenuineIntel
-CPU count reported by container: 56
-Threads per core: 1
-Cores per socket: 56
-Socket count: 1
-Reported CPU MHz: 2793.439
-Hypervisor vendor: Microsoft
-Memory reported by container: 4 GiB
-CPU flags include: AVX2, AVX512F, AVX512DQ, AVX512CD, AVX512BW, AVX512VL, FMA
-```
-
-The benchmark was run inside a virtualized container. The reported CPU information should therefore be interpreted as environment metadata, not as a precise physical-machine specification.
-
-## Caveats
-
-- The comparison is domain-specific.
-- LetsBeRational is a global solver; this implementation is specialized to the stated OTM-projected domain.
-- Benchmark timings were measured inside a virtualized container and may differ across machines, compilers, and libm implementations.
-- Median timings are the preferred scalar-latency summary.
-
-## Additional Tests
-
-Additional Linux rerun on a separate laptop using `volfi v0.1.5` and the native LetsBeRational shared library.
-
-Hardware/software setting:
 
 ```text
 OS/kernel: Linux 6.6.87.2-microsoft-standard-WSL2 x86_64 GNU/Linux
@@ -249,74 +217,14 @@ Memory reported: 7.60 GiB
 CPU flags include: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr
 ```
 
-### Fixed OTM grid vs. LetsBeRational
+The benchmark was run on a local laptop inside WSL2. Timings will still vary with compiler, libm implementation, power state, and host scheduling.
 
-Grid:
+## Caveats
 
-$$
-v\in\{0.01,0.05,0.10,\ldots,2.00\},\qquad
-\Delta\in\{0.55,0.70,0.80,0.95\}.
-$$
-
-Accuracy:
-
-| method | mean abs volatility error | max abs volatility error | max rel volatility error |
-|---|---:|---:|---:|
-| volfi | `1.41e-16` | `6.66e-16` | `1.18e-14` |
-| LetsBeRational | `1.61e-16` | `8.88e-16` | `1.73e-14` |
-
-Timing:
-
-| method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
-|---|---:|---:|---:|---:|
-| volfi | `64.82` | `64.52` | `63.00` | `68.26` |
-| LetsBeRational | `153.97` | `152.60` | `148.59` | `164.07` |
-
-Median speed ratio:
-
-$$
-\frac{152.60}{64.52}\approx 2.37.
-$$
-
-### Random OTM grid vs. LetsBeRational
-
-Randomization:
-
-$$
-v\sim U(0.01,2.0),\qquad \Delta\sim U(0.5,0.99).
-$$
-
-Benchmark setting:
-
-```text
-accuracy cases: 200000
-random seed: 20260502
-timing cases: 5000
-repetitions per timing run: 1000
-evaluations per timing run: 5000000
-runs: 9
-reported unit: nanoseconds per implied-volatility evaluation
-```
-
-Accuracy:
-
-| method | mean abs volatility error | max abs volatility error | max rel volatility error |
-|---|---:|---:|---:|
-| volfi | `1.52e-16` | `1.11e-15` | `6.12e-14` |
-| LetsBeRational | `2.02e-16` | `1.55e-15` | `4.01e-14` |
-
-Timing:
-
-| method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
-|---|---:|---:|---:|---:|
-| volfi | `72.75` | `70.86` | `67.18` | `88.03` |
-| LetsBeRational | `168.68` | `166.51` | `163.19` | `192.10` |
-
-Median speed ratio:
-
-$$
-\frac{166.51}{70.86}\approx 2.35.
-$$
+- The comparison is domain-specific.
+- LetsBeRational is a global solver; this implementation is specialized to the stated OTM-projected domain.
+- Benchmark timings may differ across machines, compilers, WSL configurations, and libm implementations.
+- Median timings are the preferred scalar-latency summary.
 
 ## Potential further speed improvements
 
