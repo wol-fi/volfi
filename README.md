@@ -19,7 +19,7 @@ $$
 At the forward strike, the inversion collapses to the normal-quantile formula
 
 $$
-v = 2\Phi^{-1}\!\left(c+\frac12\right),
+v = 2\Phi^{-1}\!\left(\frac{1+c}{2}\right),
 \qquad w=v^2.
 $$
 
