@@ -235,18 +235,6 @@ The benchmark was run inside a virtualized container. The reported CPU informati
 - Benchmark timings were measured inside a virtualized container and may differ across machines, compilers, and libm implementations.
 - Median timings are the preferred scalar-latency summary.
 
-## Potential further speed improvements
-
-Further improvements will likely require changing the approximation structure rather than only simplifying algebra.
-
-The most promising direction is to split the OTM domain into additional regions and fit lower-degree rational seeds. A more accurate branchwise seed may allow replacing Halley by a cheaper Newton step, or omitting refinement in parts of the domain.
-
-A second opportunity is to reduce the cost of the residual evaluation. The Halley step still evaluates normal-CDF-like terms. Tailored Cody/Remez approximations on the restricted benchmark domain, or branch rules that drop negligible terms, could reduce this cost.
-
-For fixed strike grids, more quantities can be precomputed. Since the seed depends on $a=h/(1+h)$, the bivariate rational approximation could be collapsed further into univariate price-transform polynomials for each fixed $h$.
-
-Finally, a batch/SIMD API may improve throughput for volatility-surface construction. The current benchmark measures scalar latency; vectorized evaluation over many strikes and maturities could give larger gains than further scalar micro-optimizations.
-
 ## Additional Tests
 
 Additional Linux rerun on a separate laptop using `volfi v0.1.5` and the native LetsBeRational shared library.
@@ -334,3 +322,15 @@ Median speed ratio:
 $$
 \frac{166.51}{70.86}\approx 2.35.
 $$
+
+## Potential further speed improvements
+
+Further improvements will likely require changing the approximation structure rather than only simplifying algebra.
+
+The most promising direction is to split the OTM domain into additional regions and fit lower-degree rational seeds. A more accurate branchwise seed may allow replacing Halley by a cheaper Newton step, or omitting refinement in parts of the domain.
+
+A second opportunity is to reduce the cost of the residual evaluation. The Halley step still evaluates normal-CDF-like terms. Tailored Cody/Remez approximations on the restricted benchmark domain, or branch rules that drop negligible terms, could reduce this cost.
+
+For fixed strike grids, more quantities can be precomputed. Since the seed depends on $a=h/(1+h)$, the bivariate rational approximation could be collapsed further into univariate price-transform polynomials for each fixed $h$.
+
+Finally, a batch/SIMD API may improve throughput for volatility-surface construction. The current benchmark measures scalar latency; vectorized evaluation over many strikes and maturities could give larger gains than further scalar micro-optimizations.
