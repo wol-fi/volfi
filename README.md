@@ -73,99 +73,92 @@ For normalized calls:
 double w = volfi::implied_variance_call_normalised(k, c);
 ```
 
-## Benchmarks Vs. LetsBeRational
+## Performance Test
 
-LetsBeRational was evaluated through its native shared-library interface using `NormalisedImpliedBlackVolatility`.
+The performance comparison was run against LetsBeRational through its native shared-library interface using `NormalisedImpliedBlackVolatility`.
 
-### Fixed Projected OTM Grid
+Test grids:
 
-Grid:
-
-$$
-v \in \{0.01, 0.05, 0.10, \ldots, 2.00\}, \qquad
-\Delta \in \{0.55, 0.70, 0.80, 0.95\}.
-$$
-
-These are ITM call deltas before exact projection to the normalized OTM-call side.
-
-Accuracy:
-
-| method | mean abs vol error | max abs vol error | max rel vol error |
-|---|---:|---:|---:|
-| volfi | `1.52e-16` | `6.66e-16` | `1.42e-14` |
-| LetsBeRational | `1.53e-16` | `6.66e-16` | `1.46e-14` |
-
-Timing:
-
-| method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
-|---|---:|---:|---:|---:|
-| volfi | `44.04` | `41.03` | `39.23` | `64.28` |
-| LetsBeRational | `166.26` | `150.62` | `143.90` | `288.77` |
-
-Median speed ratio:
-
-$$
-\frac{150.62}{41.03} \approx 3.67.
-$$
-
-### Fixed True OTM Grid
-
-Grid:
+- Fixed grid:
 
 $$
 v \in \{0.01, 0.05, 0.10, \ldots, 2.00\}, \qquad
-\Delta \in \{0.05, 0.20, 0.30, 0.45\}.
+\Delta \in \{0.01, 0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90\}.
 $$
+
+- Random grid:
+
+$$
+v \sim U(0.01, 2.0), \qquad \Delta \sim U(0.01, 0.9).
+$$
+
+### Fixed Grid
+
+Benchmark setting:
+
+```text
+cases: 451
+repetitions per timing run: 5000
+evaluations per timing run: 2255000
+runs: 9
+reported unit: nanoseconds per implied-volatility evaluation
+```
 
 Accuracy:
 
 | method | mean abs vol error | max abs vol error | max rel vol error |
 |---|---:|---:|---:|
-| volfi | `1.80e-16` | `8.88e-16` | `2.31e-14` |
-| LetsBeRational | `1.54e-16` | `4.44e-16` | `2.22e-14` |
+| volfi | `1.86e-16` | `1.33e-15` | `5.46e-14` |
+| LetsBeRational | `1.64e-16` | `7.77e-16` | `2.32e-14` |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi | `57.89` | `57.53` | `52.89` | `67.19` |
-| LetsBeRational | `184.38` | `183.32` | `168.94` | `195.39` |
+| volfi | `53.01` | `51.80` | `49.08` | `60.41` |
+| LetsBeRational | `188.10` | `181.23` | `176.99` | `211.33` |
 
 Median speed ratio:
 
 $$
-\frac{183.32}{57.53} \approx 3.19.
+\frac{181.23}{51.80} \approx 3.50.
 $$
 
-### Random True OTM Grid
+### Random Grid
 
-Randomization:
+Benchmark setting:
 
-$$
-v \sim U(0.01,2.0), \qquad \Delta \sim U(0.01,0.5).
-$$
+```text
+accuracy cases: 200000
+random seed: 20260502
+timing cases: 5000
+repetitions per timing run: 1000
+evaluations per timing run: 5000000
+runs: 9
+reported unit: nanoseconds per implied-volatility evaluation
+```
 
 Accuracy:
 
 | method | mean abs vol error | max abs vol error | max rel vol error |
 |---|---:|---:|---:|
-| volfi | `1.75e-16` | `1.11e-15` | `4.00e-14` |
-| LetsBeRational | `1.58e-16` | `1.11e-15` | `2.10e-14` |
+| volfi | `1.60e-16` | `1.55e-15` | `5.01e-14` |
+| LetsBeRational | `1.72e-16` | `1.33e-15` | `3.68e-14` |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi | `66.82` | `67.73` | `60.81` | `73.87` |
-| LetsBeRational | `198.29` | `187.69` | `184.84` | `237.09` |
+| volfi | `55.88` | `55.48` | `54.19` | `59.38` |
+| LetsBeRational | `168.77` | `166.35` | `164.75` | `179.06` |
 
 Median speed ratio:
 
 $$
-\frac{187.69}{67.73} \approx 2.77.
+\frac{166.35}{55.48} \approx 3.00.
 $$
 
-Across these projected and true OTM benchmarks, `volfi v0.1.7` remains at machine-precision accuracy and is roughly `2.8x` to `3.7x` faster than LetsBeRational on this domain.
+On these widened fixed and random grids, `volfi v0.1.7` remains at machine-precision accuracy and is about `3x` to `3.5x` faster than LetsBeRational.
 
 ## Hardware/Software Setting
 
