@@ -152,13 +152,13 @@ Accuracy:
 
 | method | mean abs variance error | max abs variance error | max rel variance error | mean abs volatility error | max abs volatility error | max rel volatility error |
 |---|---:|---:|---:|---:|---:|---:|
-| volfi precomputed OTM context | `3.15e-16` | `2.66e-15` | `2.83e-14` | `1.34e-16` | `6.66e-16` | `1.42e-14` |
+| volfi | `3.15e-16` | `2.66e-15` | `2.83e-14` | `1.34e-16` | `6.66e-16` | `1.42e-14` |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi precomputed OTM context | `62.43` | `61.69` | `60.12` | `67.16` |
+| volfi | `62.43` | `61.69` | `60.12` | `67.16` |
 
 ### Edge deltas
 
@@ -183,7 +183,7 @@ seed: 1234567
 
 | method | mean abs volatility error | max abs volatility error | max rel volatility error | abs error > 1e-14 |
 |---|---:|---:|---:|---:|
-| volfi precomputed OTM context | `1.51e-16` | `1.11e-15` | `9.61e-14` | 0 |
+| volfi | `1.51e-16` | `1.11e-15` | `9.61e-14` | 0 |
 
 ### Random delta and random volatility, compared with LetsBeRational
 
@@ -202,7 +202,7 @@ Accuracy:
 
 | method | mean abs volatility error | max abs volatility error | max rel volatility error | abs error > 1e-14 |
 |---|---:|---:|---:|---:|
-| volfi precomputed OTM context | `1.44e-16` | `1.11e-15` | `6.80e-14` | 0 |
+| volfi | `1.44e-16` | `1.11e-15` | `6.80e-14` | 0 |
 | LetsBeRational normalised | `1.77e-16` | `1.33e-15` | `4.51e-14` | 0 |
 
 Timing:
@@ -217,7 +217,7 @@ reported unit: nanoseconds per implied-volatility evaluation
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi precomputed OTM context | `73.98` | `68.34` | `66.58` | `93.07` |
+| volfi | `73.98` | `68.34` | `66.58` | `93.07` |
 | LetsBeRational normalised | `201.62` | `194.12` | `173.09` | `243.29` |
 
 Median speed ratio:
