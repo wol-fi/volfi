@@ -2,6 +2,8 @@
 
 `volfi` is a C++ research prototype for fast Black-Scholes implied variance on the projected out-of-the-money call side.
 
+Working paper: [An Explicit Solution to Black-Scholes Implied Volatility](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6649499).
+
 The core problem is reduced to
 
 $$
