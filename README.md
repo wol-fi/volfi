@@ -2,37 +2,28 @@
 
 `volfi` is a C++ research prototype for fast Black-Scholes implied variance on the projected out-of-the-money call side.
 
-Working paper: [An Explicit Solution to Black-Scholes Implied Volatility](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6649499).
-
 The core problem is reduced to
 
 $$
 h = |\log(K/F)| > 0, \qquad w = \sigma^2T, \qquad w = Q_h(c_*),
 $$
 
-where $c_*$ is the normalized OTM-call price and $w$ is total implied variance.
+where $c_*$ is the normalized OTM-call price and $w$ is total implied variance. ITM calls are mapped exactly to the OTM side before entering the kernel:
 
+$$
+\tilde c = 1 + \frac{F}{K}(c - 1), \qquad h=-\log(K/F).
+$$
+
+Working paper: [An Explicit Solution to Black-Scholes Implied Volatility](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6649499).
 The closed-form identity underlying the kernel is the variance-space quantile representation
 
 $$
 w = v^2 = \mathcal F^{-1}_{GIG}\left(c_*;\frac12,\frac14,h^2\right),\qquad h>0.
 $$
 
-Equivalently, using the inverse Gaussian quantile on the OTM call side,
-
-$$
-w = \frac{4}{\mathcal F^{-1}_{IG}\!\left(1-c_*;\frac{2}{h},1\right)},\qquad h>0.
-$$
-
-Here "closed-form" means analytically explicit: the Black-Scholes root search is replaced by a specified distributional quantile. Numerically, that quantile is still a non-elementary special-function evaluation.
+Here "closed-form" means analytically explicit: the Black-Scholes root search is replaced by a specified distributional quantile. Numerically, that quantile is still a non-elementary special-function.
 
 The implementation evaluates this map $Q_h(c_*)$ directly and refines the result in implied-variance space.
-
-ITM calls are mapped exactly to the OTM side before entering the kernel:
-
-$$
-\tilde c = 1 + \frac{F}{K}(c - 1), \qquad h=-\log(K/F).
-$$
 
 At the forward strike, the inversion collapses to
 
