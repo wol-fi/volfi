@@ -110,6 +110,8 @@ double w = volfi::implied_variance_call_normalised(k, c);
 
 The LetsBeRational reference was evaluated through its native shared-library interface using `NormalisedImpliedBlackVolatility`, not through `py_vollib` or a Python wrapper.
 
+An additional fixed-grid and random-grid rerun on another Linux machine is included in the `Additional Tests` section at the end of this README.
+
 ### Fixed OTM grid vs. LetsBeRational
 
 Grid:
@@ -136,14 +138,14 @@ Accuracy:
 
 | method | mean abs volatility error | max abs volatility error | max rel volatility error | errors > 1e-14 |
 |---|---:|---:|---:|---:|
-| volfi precomputed | `1.41e-16` | `6.66e-16` | `1.42e-14` | 0 |
+| volfi | `1.41e-16` | `6.66e-16` | `1.42e-14` | 0 |
 | LetsBeRational normalised | `1.46e-16` | `6.66e-16` | `1.44e-14` | 0 |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi precomputed | `60.81` | `60.25` | `59.79` | `64.35` |
+| volfi | `60.81` | `60.25` | `59.79` | `64.35` |
 | LetsBeRational normalised | `165.04` | `164.15` | `163.65` | `168.77` |
 
 Median speed ratio:
@@ -176,14 +178,14 @@ Accuracy:
 
 | method | mean abs volatility error | max abs volatility error | max rel volatility error | errors > 1e-14 |
 |---|---:|---:|---:|---:|
-| volfi precomputed | `1.44e-16` | `1.11e-15` | `6.80e-14` | 0 |
+| volfi | `1.44e-16` | `1.11e-15` | `6.80e-14` | 0 |
 | LetsBeRational normalised | `1.77e-16` | `1.33e-15` | `4.51e-14` | 0 |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi precomputed | `65.81` | `65.75` | `65.48` | `66.19` |
+| volfi | `65.81` | `65.75` | `65.48` | `66.19` |
 | LetsBeRational normalised | `171.45` | `171.54` | `170.32` | `172.39` |
 
 Median speed ratio:
@@ -230,3 +232,76 @@ A second opportunity is to reduce the cost of the residual evaluation. The Halle
 For fixed strike grids, more quantities can be precomputed. Since the seed depends on $a=h/(1+h)$, the bivariate rational approximation could be collapsed further into univariate price-transform polynomials for each fixed $h$.
 
 Finally, a batch/SIMD API may improve throughput for volatility-surface construction. The current benchmark measures scalar latency; vectorized evaluation over many strikes and maturities could give larger gains than further scalar micro-optimizations.
+
+## Additional Tests
+
+Additional Linux rerun on a separate laptop using `volfi v0.1.5` and the native LetsBeRational shared library.
+
+### Fixed OTM grid vs. LetsBeRational
+
+Grid:
+
+$$
+v\in\{0.01,0.05,0.10,\ldots,2.00\},\qquad
+\Delta\in\{0.55,0.70,0.80,0.95\}.
+$$
+
+Accuracy:
+
+| method | mean abs volatility error | max abs volatility error | max rel volatility error |
+|---|---:|---:|---:|
+| volfi | `1.41e-16` | `6.66e-16` | `1.18e-14` |
+| LetsBeRational normalised | `1.61e-16` | `8.88e-16` | `1.73e-14` |
+
+Timing:
+
+| method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
+|---|---:|---:|---:|---:|
+| volfi | `64.82` | `64.52` | `63.00` | `68.26` |
+| LetsBeRational normalised | `153.97` | `152.60` | `148.59` | `164.07` |
+
+Median speed ratio:
+
+$$
+\frac{152.60}{64.52}\approx 2.37.
+$$
+
+### Random OTM grid vs. LetsBeRational
+
+Randomization:
+
+$$
+v\sim U(0.01,2.0),\qquad \Delta\sim U(0.5,0.99).
+$$
+
+Benchmark setting:
+
+```text
+accuracy cases: 200000
+random seed: 20260502
+timing cases: 5000
+repetitions per timing run: 1000
+evaluations per timing run: 5000000
+runs: 9
+reported unit: nanoseconds per implied-volatility evaluation
+```
+
+Accuracy:
+
+| method | mean abs volatility error | max abs volatility error | max rel volatility error |
+|---|---:|---:|---:|
+| volfi | `1.52e-16` | `1.11e-15` | `6.12e-14` |
+| LetsBeRational normalised | `2.02e-16` | `1.55e-15` | `4.01e-14` |
+
+Timing:
+
+| method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
+|---|---:|---:|---:|---:|
+| volfi | `72.75` | `70.86` | `67.18` | `88.03` |
+| LetsBeRational normalised | `168.68` | `166.51` | `163.19` | `192.10` |
+
+Median speed ratio:
+
+$$
+\frac{166.51}{70.86}\approx 2.35.
+$$
