@@ -24,6 +24,8 @@ $$
 w = \frac{4}{\mathcal F^{-1}_{IG}\!\left(1-c_*;\frac{2}{h},1\right)},\qquad h>0.
 $$
 
+Here "closed-form" means analytically explicit: the Black-Scholes root search is replaced by a specified distributional quantile. Numerically, that quantile is still a non-elementary special-function evaluation, and `volfi` approximates this map directly.
+
 The implementation approximates this map $Q_h(c_*)$ directly and refines the result in implied-variance space.
 
 ITM calls are mapped exactly to the OTM side before entering the kernel:
