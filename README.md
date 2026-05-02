@@ -151,13 +151,13 @@ Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi | `53.90` | `54.22` | `51.61` | `56.78` |
-| LetsBeRational | `158.79` | `159.79` | `155.38` | `161.36` |
+| volfi | `46.56` | `46.38` | `46.27` | `47.69` |
+| LetsBeRational | `133.31` | `132.54` | `131.98` | `137.14` |
 
 Median speed ratio:
 
 $$
-\frac{159.79}{54.22}\approx 2.95.
+\frac{132.54}{46.38}\approx 2.86.
 $$
 
 ### Random OTM grid vs. LetsBeRational
@@ -191,16 +191,16 @@ Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi | `57.96` | `57.57` | `56.29` | `60.27` |
-| LetsBeRational | `169.40` | `170.34` | `165.20` | `172.83` |
+| volfi | `50.46` | `50.47` | `50.14` | `50.88` |
+| LetsBeRational | `145.35` | `145.09` | `142.50` | `148.26` |
 
 Median speed ratio:
 
 $$
-\frac{170.34}{57.57}\approx 2.96.
+\frac{145.09}{50.47}\approx 2.87.
 $$
 
-On both the fixed and randomized OTM benchmarks, `volfi v0.1.6` is about three times faster than LetsBeRational on this projected OTM domain while retaining absolute volatility errors around machine precision.
+On both the fixed and randomized OTM benchmarks, `volfi v0.1.6` is roughly `2.9x` faster than LetsBeRational on this projected OTM domain while retaining absolute volatility errors around machine precision.
 
 ## Hardware/software setting
 
