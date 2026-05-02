@@ -169,22 +169,6 @@ The same $v\in\{0.01,0.05,\ldots,2.00\}$ grid was tested at two edge deltas.
 | `0.52` | 41 | `1.41e-16` | `4.44e-16` | `1.25e-15` |
 | `0.99` | 41 | `2.14e-16` | `7.49e-16` | `3.11e-14` |
 
-### Random delta grid
-
-Random test with fixed total-volatility grid:
-
-```text
-random deltas: 5000
-cases: 205000
-Delta ~ Uniform(0.5, 0.99)
-v in {0.01, 0.05, 0.10, ..., 2.00}
-seed: 1234567
-```
-
-| method | mean abs volatility error | max abs volatility error | max rel volatility error | abs error > 1e-14 |
-|---|---:|---:|---:|---:|
-| volfi | `1.51e-16` | `1.11e-15` | `9.61e-14` | 0 |
-
 ### Random delta and random volatility, compared with LetsBeRational
 
 Randomized comparison against LetsBeRational revision 1520:
