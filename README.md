@@ -57,14 +57,16 @@ This is intended for production-style surface construction where many prices are
 
 ## Scope
 
-Fixed OTM grid:
+Fixed call-delta grid, projected to the OTM side:
 
 $$
 v\in\{0.01,0.05,0.10,\ldots,2.00\},\qquad
 \Delta\in\{0.55,0.70,0.80,0.95\}.
 $$
 
-Random OTM grid:
+These are call-delta levels above `0.5`, so they correspond to ITM calls before exact projection to the OTM-call representation.
+
+Random call-delta grid, projected to the OTM side:
 
 $$
 v\sim U(0.01,2.0),\qquad \Delta\sim U(0.5,0.99).
@@ -119,7 +121,9 @@ double w = volfi::implied_variance_call_normalised(k, c);
 
 The LetsBeRational reference was evaluated through its native shared-library interface using `NormalisedImpliedBlackVolatility`, not through `py_vollib` or a Python wrapper.
 
-### Fixed OTM grid vs. LetsBeRational
+All benchmark cases are parameterized by call delta first and then projected exactly to the normalized OTM-call representation before inversion.
+
+### Fixed Call-Delta Grid Projected To OTM vs. LetsBeRational
 
 Grid:
 
@@ -127,6 +131,8 @@ $$
 v\in\{0.01,0.05,0.10,\ldots,2.00\},\qquad
 \Delta\in\{0.55,0.70,0.80,0.95\}.
 $$
+
+Equivalent OTM call-delta levels would be `0.45, 0.30, 0.20, 0.05`.
 
 Benchmark setting:
 
@@ -160,13 +166,15 @@ $$
 \frac{132.54}{46.38}\approx 2.86.
 $$
 
-### Random OTM grid vs. LetsBeRational
+### Random Call-Delta Grid Projected To OTM vs. LetsBeRational
 
 Randomization:
 
 $$
 v\sim U(0.01,2.0),\qquad \Delta\sim U(0.5,0.99).
 $$
+
+This is a random ITM call-delta grid before exact projection to the normalized OTM-call side.
 
 Benchmark setting:
 
@@ -200,7 +208,7 @@ $$
 \frac{145.09}{50.47}\approx 2.87.
 $$
 
-On both the fixed and randomized OTM benchmarks, `volfi v0.1.6` is roughly `2.9x` faster than LetsBeRational on this projected OTM domain while retaining absolute volatility errors around machine precision.
+On both the fixed and randomized call-delta benchmarks, after exact projection to the OTM side, `volfi v0.1.6` is roughly `2.9x` faster than LetsBeRational on this projected OTM domain while retaining absolute volatility errors around machine precision.
 
 ## Hardware/software setting
 
