@@ -237,6 +237,21 @@ Finally, a batch/SIMD API may improve throughput for volatility-surface construc
 
 Additional Linux rerun on a separate laptop using `volfi v0.1.5` and the native LetsBeRational shared library.
 
+Hardware/software setting:
+
+```text
+OS/kernel: Linux 6.6.87.2-microsoft-standard-WSL2 x86_64 GNU/Linux
+compiler: g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
+CPU model: 11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz
+CPU cores reported: 8
+Threads per core: 2
+Cores per socket: 4
+Socket count: 1
+Hypervisor vendor: Microsoft
+Memory reported: 7.60 GiB
+CPU flags include: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr
+```
+
 ### Fixed OTM grid vs. LetsBeRational
 
 Grid:
