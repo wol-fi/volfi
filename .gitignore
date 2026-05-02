@@ -1,0 +1,12 @@
+.extracted/
+build/
+*.o
+*.obj
+*.exe
+bench_otm_grid
+test_atm
+test_edge_grid
+test_otm_grid
+test_random_delta
+test_random_v_delta
+third_party/
