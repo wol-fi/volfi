@@ -88,8 +88,30 @@ inline double qnorm(double p){
  return x;
 }
 
+
+constexpr double zms=-4.4011276822493945;
+constexpr double zss=0.16747956324199254;
+constexpr double hms=0.01293895694136293;
+constexpr double hss=0.0087720871074343;
+inline double seed_special(double z,double h){
+ double x=(z-zms)/zss, b=(h-hms)/hss;
+ double p=1.9824543241912973e-03 +
+  b*(1.3829842832221552e-03 + b*(3.4781201417790817e-04 + b*(3.9755024130303165e-05 + b*1.4113385810810924e-06))) +
+  x*(-2.2376459422309299e-05 + b*(-3.6063623630474610e-05 + b*(-2.0920379318785791e-06 + b*4.9689070185865509e-07))) +
+  x*x*(-5.4521231235349445e-06 + b*(1.2674698147385701e-06 + b*7.7051052511133711e-07)) +
+  x*x*x*(-3.5943234380675379e-07 + b*8.1680989517480964e-08) +
+  x*x*x*x*3.7307269230174555e-09;
+ double q=1.0 +
+  b*(0.30637531297734777 + b*(0.03693864784873599 + b*0.0004217962789505)) +
+  x*(-0.24524673997378268 + b*(-0.04821700360562556 + b*(-0.00305355883504744))) +
+  x*x*(0.02297453253120546 + b*0.00231141630834904) +
+  x*x*x*(-0.000867616054944);
+ return p/q;
+}
+
 inline double seed_otm(const otm_context& q,double c){
  double z=std::log(c/(1-c));
+ if(c>0.01 && c<0.015 && q.h<0.025) return seed_special(z,q.h);
  if(c>cmax3){double x=(z-zm4)/zs4; return horner7(q.p4,x)/horner7(q.q4,x);}
  if(c>cmax2){double x=(z-zm3)/zs3; return peval3(x,q.b3)/qeval3(x,q.b3);}
  if(c>cmax1){double x=(z-zm2)/zs2; return peval2(x,q.b2)/qeval2(x,q.b2);}
@@ -129,7 +151,6 @@ inline double halley_variance(double w,const otm_context& q,double c){
 inline double implied_variance_otm(const otm_context& q,double c){
  double w=seed_otm(q,c);
  w=halley_variance(w,q,c);
- if(c>0.01 && c<0.015 && q.h<0.025) w=halley_variance(w,q,c);
  return w;
 }
 
