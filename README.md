@@ -1,6 +1,6 @@
 # volfi v0.1.6
 
-`volfi` is a C++-first research prototype for fast Black-Scholes implied variance on the projected out-of-the-money call side.
+`volfi` is a C++ research prototype for fast Black-Scholes implied variance on the projected out-of-the-money call side.
 
 The core problem is reduced to
 
@@ -72,19 +72,15 @@ $$
 v\sim U(0.01,2.0),\qquad \Delta\sim U(0.5,0.99).
 $$
 
-## Repository layout
+## Files
 
 ```text
 include/volfi/volfi.hpp          flagship C++ header
 bench/bench_otm_grid.cpp         C++ fixed-grid benchmark
 tests/                           C++ accuracy and robustness tests
-bindings/R/volfiR/               R package translation via Rcpp
-bindings/R/bench_volfiR.R       local R benchmark/test script
 Makefile                         simple C++ build entry point
 CMakeLists.txt                   optional C++ CMake build
 ```
-
-The C++ implementation remains the canonical source. Language translations and wrappers live under `bindings/`.
 
 ## Build
 
