@@ -160,15 +160,6 @@ Timing:
 |---|---:|---:|---:|---:|
 | volfi | `62.43` | `61.69` | `60.12` | `67.16` |
 
-### Edge deltas
-
-The same $v\in\{0.01,0.05,\ldots,2.00\}$ grid was tested at two edge deltas.
-
-| delta | cases | mean abs volatility error | max abs volatility error | max rel volatility error |
-|---:|---:|---:|---:|---:|
-| `0.52` | 41 | `1.41e-16` | `4.44e-16` | `1.25e-15` |
-| `0.99` | 41 | `2.14e-16` | `7.49e-16` | `3.11e-14` |
-
 ### Random delta and random volatility, compared with LetsBeRational
 
 Randomized comparison against LetsBeRational revision 1520:
