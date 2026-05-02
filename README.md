@@ -13,7 +13,7 @@ where $c_*$ is the normalized OTM-call price and $w$ is total implied variance.
 The closed-form identity underlying the kernel is the variance-space quantile representation
 
 $$
-w = v^2 = \mathcal F^{-1}_{GIG}\!\left(c_*;\frac12,\frac14,h^2\right),\qquad h>0.
+w = v^2 = \mathcal F^{-1}_{GIG}\left(c_*;\frac12,\frac14,h^2\right),\qquad h>0.
 $$
 
 Equivalently, using the inverse Gaussian quantile on the OTM call side,
