@@ -148,14 +148,14 @@ Accuracy:
 | method | mean abs volatility error | max abs volatility error | max rel volatility error | errors > 1e-14 |
 |---|---:|---:|---:|---:|
 | volfi | `1.41e-16` | `6.66e-16` | `1.42e-14` | 0 |
-| LetsBeRational normalised | `1.46e-16` | `6.66e-16` | `1.44e-14` | 0 |
+| LetsBeRational | `1.46e-16` | `6.66e-16` | `1.44e-14` | 0 |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
 | volfi | `60.81` | `60.25` | `59.79` | `64.35` |
-| LetsBeRational normalised | `165.04` | `164.15` | `163.65` | `168.77` |
+| LetsBeRational | `165.04` | `164.15` | `163.65` | `168.77` |
 
 Median speed ratio:
 
@@ -188,14 +188,14 @@ Accuracy:
 | method | mean abs volatility error | max abs volatility error | max rel volatility error | errors > 1e-14 |
 |---|---:|---:|---:|---:|
 | volfi | `1.44e-16` | `1.11e-15` | `6.80e-14` | 0 |
-| LetsBeRational normalised | `1.77e-16` | `1.33e-15` | `4.51e-14` | 0 |
+| LetsBeRational | `1.77e-16` | `1.33e-15` | `4.51e-14` | 0 |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
 | volfi | `65.81` | `65.75` | `65.48` | `66.19` |
-| LetsBeRational normalised | `171.45` | `171.54` | `170.32` | `172.39` |
+| LetsBeRational | `171.45` | `171.54` | `170.32` | `172.39` |
 
 Median speed ratio:
 
@@ -263,14 +263,14 @@ Accuracy:
 | method | mean abs volatility error | max abs volatility error | max rel volatility error |
 |---|---:|---:|---:|
 | volfi | `1.41e-16` | `6.66e-16` | `1.18e-14` |
-| LetsBeRational normalised | `1.61e-16` | `8.88e-16` | `1.73e-14` |
+| LetsBeRational | `1.61e-16` | `8.88e-16` | `1.73e-14` |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
 | volfi | `64.82` | `64.52` | `63.00` | `68.26` |
-| LetsBeRational normalised | `153.97` | `152.60` | `148.59` | `164.07` |
+| LetsBeRational | `153.97` | `152.60` | `148.59` | `164.07` |
 
 Median speed ratio:
 
@@ -303,14 +303,14 @@ Accuracy:
 | method | mean abs volatility error | max abs volatility error | max rel volatility error |
 |---|---:|---:|---:|
 | volfi | `1.52e-16` | `1.11e-15` | `6.12e-14` |
-| LetsBeRational normalised | `2.02e-16` | `1.55e-15` | `4.01e-14` |
+| LetsBeRational | `2.02e-16` | `1.55e-15` | `4.01e-14` |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
 | volfi | `72.75` | `70.86` | `67.18` | `88.03` |
-| LetsBeRational normalised | `168.68` | `166.51` | `163.19` | `192.10` |
+| LetsBeRational | `168.68` | `166.51` | `163.19` | `192.10` |
 
 Median speed ratio:
 
