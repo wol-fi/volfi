@@ -10,6 +10,20 @@ $$
 
 where $c_*$ is the normalized OTM-call price and $w$ is total implied variance.
 
+The closed-form identity underlying the kernel is the variance-space quantile representation
+
+$$
+w = v^2 = \mathcal F^{-1}_{GIG}\!\left(c_*;\frac12,\frac14,h^2\right),\qquad h>0.
+$$
+
+Equivalently, using the inverse Gaussian quantile on the OTM call side,
+
+$$
+w = \frac{4}{\mathcal F^{-1}_{IG}\!\left(1-c_*;\frac{2}{h},1\right)},\qquad h>0.
+$$
+
+The implementation approximates this map $Q_h(c_*)$ directly and refines the result in implied-variance space.
+
 ITM calls are mapped exactly to the OTM side before entering the kernel:
 
 $$
