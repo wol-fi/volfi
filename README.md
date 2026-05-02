@@ -228,12 +228,12 @@ The benchmark was run on a local laptop inside WSL2. Timings will still vary wit
 
 ## Potential further speed improvements
 
-Further improvements will likely require changing the approximation structure rather than only simplifying algebra.
+Further improvements will likely require changing the approximation/refinement structure rather than only simplifying algebra.
 
-The most promising direction is to split the OTM domain into additional regions and fit lower-degree rational seeds. A more accurate branchwise seed may allow replacing Halley by a cheaper Newton step, or omitting refinement in parts of the domain.
+The most promising direction is to split the OTM domain into additional regions and fit lower-degree or more accurate rational seeds. A sufficiently accurate branchwise seed may allow omitting refinement in parts of the domain. Replacing Halley by Newton is possible, but the gain may be limited unless the residual evaluation is also simplified, since the residual evaluation dominates the cost.
 
 A second opportunity is to reduce the cost of the residual evaluation. The Halley step still evaluates normal-CDF-like terms. Tailored Cody/Remez approximations on the restricted benchmark domain, or branch rules that drop negligible terms, could reduce this cost.
 
-For fixed strike grids, additional quantities can still be precomputed. v0.1.6 already collapses the high-price branch into fixed-$h$ polynomial coefficients. The same idea could be extended to the lower-price branches, replacing bivariate rational evaluations by fixed-$h$ univariate price-transform evaluations. The gain may be modest, however, because the Halley residual dominates runtime.
+For fixed strike grids, additional quantities can still be precomputed. v0.1.6 already collapses the high-price branch into fixed-h polynomial coefficients. The same idea could be extended to the lower-price branches, replacing bivariate rational evaluations by fixed-h univariate price-transform evaluations. The expected gain is probably smaller than reducing or avoiding the refinement step.
 
-Finally, a batch/SIMD API may improve throughput for volatility-surface construction. The current benchmark measures scalar latency; vectorized evaluation over many strikes and maturities could give larger gains than further scalar micro-optimizations.
+Finally, a batch/SIMD API may improve throughput for volatility-surface construction. The current implementation processes vector inputs as scalar C++ evaluations. Explicit branch grouping and vectorized exp/erfc/CDF approximations could give larger gains than further scalar micro-optimizations.
