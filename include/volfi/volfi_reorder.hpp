@@ -135,9 +135,8 @@ inline double seed_wing(double c,const otm_context& q){
 }
 
 inline double seed_otm(const otm_context& q,double c){
- if(__builtin_expect(c>0.13,1)){double x=(c-zm4)/zs4; return horner7(q.p4,x)/horner7(q.q4,x);}
- if(__builtin_expect(q.h>0.6,0)) return seed_wing(c,q);
- if(c>cmax3){double x=(c-zm4)/zs4; return horner7(q.p4,x)/horner7(q.q4,x);}
+ if(__builtin_expect(q.h>0.6 && c<0.13,0)) return seed_wing(c,q);
+ if(__builtin_expect(c>cmax3,1)){double x=(c-zm4)/zs4; return horner7(q.p4,x)/horner7(q.q4,x);}
  double z=std::log(c/(1-c));
  if(__builtin_expect(c>0.01 && c<0.015 && q.h<0.025,0)) return seed_special(z,q.h);
  if(c>cmax2){double x=(z-zm3)/zs3; return peval3(x,q.b3)/qeval3(x,q.b3);}

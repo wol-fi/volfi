@@ -1,87 +1,47 @@
-# volfi v0.1.6
+# volfi v0.1.7
+`volfi` is a C++ research prototype for fast Black-Scholes implied variance on the normalized out-of-the-money call side.
 
-(---Code currently under revision; far OTM wing insufficient accuracy---)
+This `v0.1.7` release is the wing-speed update: it extends the previous projected-OTM kernel with a precomputed log-`c` wing seed for the true raw OTM-call domain while keeping the projected ITM-to-OTM path.
 
-`volfi` is a C++ research prototype for fast Black-Scholes implied variance on the projected out-of-the-money call side.
+## Core setup
 
-The core problem is reduced to
-
-$$
-h = |\log(K/F)| > 0, \qquad w = \sigma^2T, \qquad w = Q_h(c_*),
-$$
-
-where $c_*$ is the normalized OTM-call price and $w$ is total implied variance. ITM calls are mapped exactly to the OTM side before entering the kernel:
+The normalized problem is
 
 $$
-\tilde c = 1 + \frac{F}{K}(c - 1), \qquad h=-\log(K/F).
+h = |\log(K/F)| > 0, \qquad w = \sigma^2 T, \qquad w = Q_h(c_*),
 $$
 
-Working paper: [An Explicit Solution to Black-Scholes Implied Volatility](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6649499).
-The closed-form identity underlying the kernel is the variance-space quantile representation
+where `c_*` is the normalized OTM-call price and `w` is total implied variance.
+
+For normalized calls, ITM prices are projected exactly to the OTM side before inversion:
 
 $$
-w = v^2 = \mathcal F^{-1}_{GIG}\left(c_*;\frac12,\frac14,h^2\right),\qquad h>0.
+\tilde c = 1 + \frac{F}{K}(c - 1), \qquad h = -\log(K/F).
 $$
 
-Here "closed-form" means analytically explicit: the Black-Scholes root search is replaced by a specified distributional quantile. Numerically, that quantile is still a non-elementary special-function.
-
-The implementation evaluates this map $Q_h(c_*)$ directly and refines the result in implied-variance space.
-
-At the forward strike, the inversion collapses to
+At the forward strike the inversion reduces to
 
 $$
-v = 2\Phi^{-1}\left(\frac{1+c}{2}\right),\qquad w=v^2.
+v = 2\Phi^{-1}\left(\frac{1+c}{2}\right), \qquad w = v^2.
 $$
 
-## Version
+## What Changed In v0.1.7
 
-`volfi v0.1.6` is a precomputed-context OTM implied-variance kernel for fast Black-Scholes inversion on fixed and randomized projected OTM grids.
+- Keeps the precomputed `otm_context` fast path.
+- Adds a wing seed for the true OTM-call region.
+- Adds explicit fixed-grid and randomized true-OTM tests.
+- Preserves the projected call-delta benchmark path from the earlier release.
 
-## Method
-
-The implementation uses:
-
-1. exact OTM projection for non-ATM calls;
-2. a precomputed OTM context for fixed moneyness $h$;
-3. a domain-specialized rational seed for implied variance $w$;
-4. a local rational seed in a small transition region;
-5. one Halley refinement using analytic density-derivative structure.
-
-The precomputed context stores moneyness-only quantities:
-
-$$
-h,\qquad h^2,\qquad \exp(h/2),\qquad \exp(h).
-$$
-
-This is intended for production-style surface construction where many prices are inverted on a fixed strike/moneyness grid.
-
-`volfi` is a research kernel, not a global production replacement for Jaeckel's LetsBeRational. The comparison below is restricted to the stated projected OTM domain.
-
-## Scope
-
-Fixed call-delta grid, projected to the OTM side:
-
-$$
-v\in\{0.01,0.05,0.10,\ldots,2.00\},\qquad
-\Delta\in\{0.55,0.70,0.80,0.95\}.
-$$
-
-These are call-delta levels above `0.5`, so they correspond to ITM calls before exact projection to the OTM-call representation.
-
-Random call-delta grid, projected to the OTM side:
-
-$$
-v\sim U(0.01,2.0),\qquad \Delta\sim U(0.5,0.99).
-$$
-
-## Files
+## Layout
 
 ```text
-include/volfi/volfi.hpp          flagship C++ header
-bench/bench_otm_grid.cpp         C++ fixed-grid benchmark
-tests/                           C++ accuracy and robustness tests
-Makefile                         simple C++ build entry point
-CMakeLists.txt                   optional C++ CMake build
+include/volfi/volfi.hpp            flagship header
+include/volfi/volfi_reorder.hpp    alternate ordering helpers
+include/volfi/volfi_logc_libm.hpp  log-c wing support
+tests/                             projected-OTM and true-OTM tests
+bench/bench_otm_grid.cpp           fixed projected-grid benchmark
+Makefile                           simple build entry point
+CMakeLists.txt                     optional CMake build
 ```
 
 ## Build
@@ -107,108 +67,107 @@ volfi::otm_context ctx(h);
 double w = volfi::implied_variance_otm(ctx, c_otm);
 ```
 
-The precomputed context is the preferred fast path in `v0.1.6`.
-
-The header also contains a normalized-call helper that projects ITM calls to the OTM side:
+For normalized calls:
 
 ```cpp
 double w = volfi::implied_variance_call_normalised(k, c);
 ```
 
-## Test results
+## Benchmarks Vs. LetsBeRational
 
-The LetsBeRational reference was evaluated through its native shared-library interface using `NormalisedImpliedBlackVolatility`, not through `py_vollib` or a Python wrapper.
+LetsBeRational was evaluated through its native shared-library interface using `NormalisedImpliedBlackVolatility`.
 
-All benchmark cases are parameterized by call delta first and then projected exactly to the normalized OTM-call representation before inversion.
-
-### Fixed Call-Delta Grid Projected To OTM vs. LetsBeRational
+### Fixed Projected OTM Grid
 
 Grid:
 
 $$
-v\in\{0.01,0.05,0.10,\ldots,2.00\},\qquad
-\Delta\in\{0.55,0.70,0.80,0.95\}.
+v \in \{0.01, 0.05, 0.10, \ldots, 2.00\}, \qquad
+\Delta \in \{0.55, 0.70, 0.80, 0.95\}.
 $$
 
-Equivalent OTM call-delta levels would be `0.45, 0.30, 0.20, 0.05`.
-
-Benchmark setting:
-
-```text
-LBR revision: 1520
-compiler: g++ 11.4.0
-cases: 164
-repetitions per timing run: 5000
-evaluations per timing run: 820000
-runs: 9
-reported unit: nanoseconds per implied-volatility evaluation
-```
+These are ITM call deltas before exact projection to the normalized OTM-call side.
 
 Accuracy:
 
-| method | mean abs volatility error | max abs volatility error | max rel volatility error | errors > 1e-14 |
-|---|---:|---:|---:|---:|
-| volfi | `1.53e-16` | `6.66e-16` | `1.18e-14` | 0 |
-| LetsBeRational | `1.61e-16` | `8.88e-16` | `1.73e-14` | 0 |
+| method | mean abs vol error | max abs vol error | max rel vol error |
+|---|---:|---:|---:|
+| volfi | `1.52e-16` | `6.66e-16` | `1.42e-14` |
+| LetsBeRational | `1.53e-16` | `6.66e-16` | `1.46e-14` |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi | `46.56` | `46.38` | `46.27` | `47.69` |
-| LetsBeRational | `133.31` | `132.54` | `131.98` | `137.14` |
+| volfi | `44.04` | `41.03` | `39.23` | `64.28` |
+| LetsBeRational | `166.26` | `150.62` | `143.90` | `288.77` |
 
 Median speed ratio:
 
 $$
-\frac{132.54}{46.38}\approx 2.86.
+\frac{150.62}{41.03} \approx 3.67.
 $$
 
-### Random Call-Delta Grid Projected To OTM vs. LetsBeRational
+### Fixed True OTM Grid
+
+Grid:
+
+$$
+v \in \{0.01, 0.05, 0.10, \ldots, 2.00\}, \qquad
+\Delta \in \{0.05, 0.20, 0.30, 0.45\}.
+$$
+
+Accuracy:
+
+| method | mean abs vol error | max abs vol error | max rel vol error |
+|---|---:|---:|---:|
+| volfi | `1.80e-16` | `8.88e-16` | `2.31e-14` |
+| LetsBeRational | `1.54e-16` | `4.44e-16` | `2.22e-14` |
+
+Timing:
+
+| method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
+|---|---:|---:|---:|---:|
+| volfi | `57.89` | `57.53` | `52.89` | `67.19` |
+| LetsBeRational | `184.38` | `183.32` | `168.94` | `195.39` |
+
+Median speed ratio:
+
+$$
+\frac{183.32}{57.53} \approx 3.19.
+$$
+
+### Random True OTM Grid
 
 Randomization:
 
 $$
-v\sim U(0.01,2.0),\qquad \Delta\sim U(0.5,0.99).
+v \sim U(0.01,2.0), \qquad \Delta \sim U(0.01,0.5).
 $$
-
-This is a random ITM call-delta grid before exact projection to the normalized OTM-call side.
-
-Benchmark setting:
-
-```text
-accuracy cases: 200000
-random seed: 20260502
-timing cases: 5000
-repetitions per timing run: 1000
-evaluations per timing run: 5000000
-runs: 9
-reported unit: nanoseconds per implied-volatility evaluation
-```
 
 Accuracy:
 
-| method | mean abs volatility error | max abs volatility error | max rel volatility error | errors > 1e-14 |
-|---|---:|---:|---:|---:|
-| volfi | `1.52e-16` | `1.11e-15` | `6.12e-14` | 0 |
-| LetsBeRational | `2.02e-16` | `1.55e-15` | `4.01e-14` | 0 |
+| method | mean abs vol error | max abs vol error | max rel vol error |
+|---|---:|---:|---:|
+| volfi | `1.75e-16` | `1.11e-15` | `4.00e-14` |
+| LetsBeRational | `1.58e-16` | `1.11e-15` | `2.10e-14` |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi | `50.46` | `50.47` | `50.14` | `50.88` |
-| LetsBeRational | `145.35` | `145.09` | `142.50` | `148.26` |
+| volfi | `66.82` | `67.73` | `60.81` | `73.87` |
+| LetsBeRational | `198.29` | `187.69` | `184.84` | `237.09` |
 
 Median speed ratio:
 
 $$
-\frac{145.09}{50.47}\approx 2.87.
+\frac{187.69}{67.73} \approx 2.77.
 $$
 
-On both the fixed and randomized call-delta benchmarks, after exact projection to the OTM side, `volfi v0.1.6` is roughly `2.9x` faster than LetsBeRational on this projected OTM domain while retaining absolute volatility errors around machine precision.
+Across these projected and true OTM benchmarks, `volfi v0.1.7` remains at machine-precision accuracy and is roughly `2.8x` to `3.7x` faster than LetsBeRational on this domain.
 
-## Hardware/software setting
+## Hardware/Software Setting
 
 ```text
 OS/kernel: Linux 6.6.87.2-microsoft-standard-WSL2 x86_64 GNU/Linux
@@ -220,14 +179,11 @@ Cores per socket: 4
 Socket count: 1
 Hypervisor vendor: Microsoft
 Memory reported: 7.60 GiB
-CPU flags include: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr
 ```
-
-The benchmark was run on a local laptop inside WSL2. Timings will still vary with compiler, libm implementation, power state, and host scheduling.
 
 ## Caveats
 
+- This is a research kernel, not a global replacement for LetsBeRational.
 - The comparison is domain-specific.
-- LetsBeRational is a global solver; this implementation is specialized to the stated OTM-projected domain.
-- Benchmark timings may differ across machines, compilers, WSL configurations, and libm implementations.
-- Median timings are the preferred scalar-latency summary.
+- Timings vary across machines, compilers, libm implementations, and host scheduling.
+- Median latency is the preferred scalar speed summary.
