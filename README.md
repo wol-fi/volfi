@@ -79,7 +79,13 @@ double w = volfi::implied_variance_call_normalised(k, c);
 
 The performance comparison was run against LetsBeRational through its native shared-library interface using `NormalisedImpliedBlackVolatility`.
 
-The repository includes `bench/bench_lbr_compare.cpp`, but not the LetsBeRational source or binary. To reproduce the side-by-side comparison, fetch `LetsBeRational.7z` separately and build or link it locally.
+The repository includes `bench/bench_lbr_compare.cpp`, but not the LetsBeRational source or binary. To reproduce the side-by-side comparison, fetch [LetsBeRational.7z](http://www.jaeckel.org/LetsBeRational.7z) separately and build or link it locally.
+
+Minimal setup used for the comparison:
+
+- obtain the upstream LetsBeRational source from the archive above
+- build LetsBeRational locally as a native library or compile its source into a local benchmark build
+- point `bench/bench_lbr_compare.cpp` at that local copy and benchmark `NormalisedImpliedBlackVolatility`
 
 Test grids:
 
