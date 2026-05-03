@@ -1,6 +1,0 @@
-useDynLib(volfiR, .registration = TRUE)
-importFrom(Rcpp, evalCpp)
-export(iv)
-export(vol)
-export(iv_atm)
-export(black)
