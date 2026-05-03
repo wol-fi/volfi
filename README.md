@@ -51,7 +51,7 @@ tests/                             projected-OTM and true-OTM tests
 bench/bench_otm_grid.cpp           fixed projected-grid benchmark
 bench/bench_lbr_compare.cpp        optional volfi vs LetsBeRational comparison driver
 Makefile                           simple build entry point
-CMakeLists.txt                     optional CMake build
+CMakeLists.txt                     optional CMake build for core tests and standalone benchmark
 ```
 
 ## Build
@@ -67,6 +67,8 @@ To override the compiler:
 ```bash
 make CXX=g++
 ```
+
+The optional CMake build covers the core tests and standalone `volfi` benchmark. The LetsBeRational comparison is a Makefile/manual target because it depends on a separately obtained local LetsBeRational build.
 
 ## Minimal API
 
@@ -184,7 +186,7 @@ $$
 \frac{166.35}{55.48} \approx 3.00.
 $$
 
-On these widened fixed and random grids, `volfi v0.1.7` remains at machine-precision accuracy and is about `3x` to `3.5x` faster than LetsBeRational.
+On Black prices generated over these fixed and random grids, `volfi v0.1.7` recovers the input volatility to near machine precision and is about `3x` to `3.5x` faster than LetsBeRational in this benchmark setup.
 
 ## Hardware/Software Setting
 
@@ -205,3 +207,4 @@ Memory reported: 7.60 GiB
 - This is a research kernel, not a global replacement for LetsBeRational.
 - The comparison is domain-specific.
 - Timings vary across machines, compilers, libm implementations, and host scheduling.
+- The current implementation targets GCC/Clang-like compilers.
