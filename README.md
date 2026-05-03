@@ -43,6 +43,7 @@ include/volfi/volfi_reorder.hpp    alternate ordering helpers
 include/volfi/volfi_logc_libm.hpp  log-c wing support
 tests/                             projected-OTM and true-OTM tests
 bench/bench_otm_grid.cpp           fixed projected-grid benchmark
+bench/bench_lbr_compare.cpp        optional volfi vs LetsBeRational comparison driver
 Makefile                           simple build entry point
 CMakeLists.txt                     optional CMake build
 ```
@@ -79,6 +80,8 @@ double w = volfi::implied_variance_call_normalised(k, c);
 ## Performance Test
 
 The performance comparison was run against LetsBeRational through its native shared-library interface using `NormalisedImpliedBlackVolatility`.
+
+The repository includes `bench/bench_lbr_compare.cpp`, but not the LetsBeRational source or binary. To reproduce the side-by-side comparison, fetch `LetsBeRational.7z` separately and build or link it locally.
 
 Test grids:
 
