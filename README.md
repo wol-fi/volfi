@@ -6,9 +6,9 @@ It implements an efficient implied-volatility solver based on the inverse-Gaussi
 
 For out-of-the-money normalized calls with forward log-moneyness `k > 0`, normalized call price `c`, and total implied volatility `v = sigma sqrt(T)`, the variance-space representation is
 
-$$
+```math
 v(k,c)^2 = \mathcal{F}^{-1}_{GIG}\left(c; \frac{1}{2}, \frac{1}{4}, k^2\right), \qquad k > 0.
-$$
+```
 
 This `v0.1.7` release is the wing-speed update: it extends the previous projected-OTM kernel with a precomputed log-`c` wing seed for the true raw OTM-call domain while keeping the projected ITM-to-OTM path.
 
@@ -20,23 +20,15 @@ The formula above makes total variance the natural inversion variable. For fixed
 
 The same choice also gives a compact correction step. With residual `R_h(w) = F_h(w) - c_*`, density `f_h(w) = F_h'(w)`, and log-density derivative `ell_h(w) = f_h'(w) / f_h(w)`, one Halley correction is
 
-$$
-w_1
-=
-w_0
--
-\frac{2R_h(w_0)}{2f_h(w_0)-R_h(w_0)\ell_h(w_0)}.
-$$
+```math
+w_1 = w_0 - \frac{2R_h(w_0)}{2f_h(w_0)-R_h(w_0)\ell_h(w_0)}.
+```
 
 For the GIG family used here,
 
-$$
-\ell_h(w)
-=
--\frac{1}{2w}
--\frac18
-+\frac{h^2}{2w^2}.
-$$
+```math
+\ell_h(w) = -\frac{1}{2w} - \frac{1}{8} + \frac{h^2}{2w^2}.
+```
 
 Thus the correction is expressed through the GIG density and its logarithmic derivative in the native variable `w`. In volatility space, the corresponding residual is `G(v) = F_h(v^2) - c_*`, which introduces extra chain-rule terms from `w = v^2`.
 
@@ -46,23 +38,23 @@ The method still evaluates a residual. The point is that the residual is the GIG
 
 The normalized problem is
 
-$$
+```math
 h = |\log(K/F)| > 0, \qquad w = \sigma^2 T, \qquad w = Q_h(c_*),
-$$
+```
 
 where `c_*` is the normalized OTM-call price and `w` is total implied variance.
 
 For normalized calls, ITM prices are projected exactly to the OTM side before inversion:
 
-$$
+```math
 \tilde c = 1 + \frac{F}{K}(c - 1), \qquad h = -\log(K/F).
-$$
+```
 
 At the forward strike the inversion reduces to
 
-$$
+```math
 v = 2\Phi^{-1}\left(\frac{1+c}{2}\right), \qquad w = v^2.
-$$
+```
 
 ## What Changed In v0.1.7
 
@@ -139,16 +131,16 @@ Test grids:
 
 - Fixed grid:
 
-$$
+```math
 v \in \{0.01, 0.05, 0.10, \ldots, 2.00\}, \qquad
 \Delta \in \{0.01, 0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90\}.
-$$
+```
 
 - Random grid:
 
-$$
+```math
 v \sim U(0.01, 2.0), \qquad \Delta \sim U(0.01, 0.9).
-$$
+```
 
 ### Fixed Grid
 
@@ -178,9 +170,9 @@ Timing:
 
 Median speed ratio:
 
-$$
+```math
 \frac{181.23}{51.80} \approx 3.50.
-$$
+```
 
 ### Random Grid
 
@@ -212,9 +204,9 @@ Timing:
 
 Median speed ratio:
 
-$$
+```math
 \frac{166.35}{55.48} \approx 3.00.
-$$
+```
 
 On Black prices generated over these fixed and random grids, `volfi v0.1.7` recovers the input volatility to near machine precision and is about `3x` to `3.5x` faster than LetsBeRational in this benchmark setup.
 
