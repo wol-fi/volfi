@@ -48,3 +48,6 @@ add_test(NAME random_delta COMMAND test_random_delta)
 add_test(NAME random_v_delta COMMAND test_random_v_delta)
 add_test(NAME random_true_otm COMMAND test_random_true_otm)
 add_test(NAME atm COMMAND test_atm)
+
+# The LetsBeRational comparison benchmark is intentionally built through the Makefile,
+# because it depends on a separately obtained local LetsBeRational build.
