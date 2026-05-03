@@ -76,8 +76,7 @@ bm <- bench::mark(
   check = FALSE
 )
 
-ns_per_eval <- median(as.numeric(bm$time)) * 1e9 / n
-c(ns_per_eval = ns_per_eval)
+bm$median
 ```
 
 ## OTM path
