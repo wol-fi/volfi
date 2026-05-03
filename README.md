@@ -14,31 +14,18 @@ This `v0.1.7` release is the wing-speed update: it extends the previous projecte
 
 ## Why variance space?
 
-The representation above changes the approximation target from normalized volatility to total variance. For fixed positive moneyness, let $F_h(w)=F_{GIG}(w;1/2,1/4,h^2)$ with $w=v^2$. Then the OTM inversion problem is $w=F_h^{-1}(c_*)$.
+The formula above makes total variance the natural inversion variable. For fixed positive moneyness, write `F_h` for the corresponding GIG distribution function. Then the OTM inversion is simply the quantile problem `w = F_h^{-1}(c_*)`.
 
-`volfi` therefore fits branchwise rational seeds to the variance quantile $c_* \mapsto F_h^{-1}(c_*)$, rather than to its square root $c_* \mapsto \sqrt{F_h^{-1}(c_*)}$.
+`volfi` fits and corrects this variance quantile directly. A volatility-space method instead targets its square root. This difference matters because the square-root map is strongly curved near small variance, while the GIG representation is already expressed in `w`.
 
-This is useful because the square-root map is most nonlinear near small variance, whereas the GIG representation identifies total variance itself as the natural quantile variable.
-
-The correction step is also formulated in the same variable. With
-
-$$
-R_h(w)=F_h(w)-c_*,
-\qquad
-f_h(w)=F_h'(w),
-\qquad
-\ell_h(w)=\frac{f_h'(w)}{f_h(w)},
-$$
-
-one analytic Halley correction has the compact form
+The same choice also gives a compact correction step. With residual `R_h(w) = F_h(w) - c_*`, density `f_h(w) = F_h'(w)`, and log-density derivative `ell_h(w) = f_h'(w) / f_h(w)`, one Halley correction is
 
 $$
 w_1
 =
 w_0
 -
-\frac{2R_h(w_0)}
-{2f_h(w_0)-R_h(w_0)\ell_h(w_0)}.
+\frac{2R_h(w_0)}{2f_h(w_0)-R_h(w_0)\ell_h(w_0)}.
 $$
 
 For the GIG family used here,
@@ -51,17 +38,9 @@ $$
 +\frac{h^2}{2w^2}.
 $$
 
-Thus the derivative structure is simple in total variance. A volatility-space method instead differentiates
+Thus the correction is expressed through the GIG density and its logarithmic derivative in the native variable `w`. In volatility space, the corresponding residual is `G(v) = F_h(v^2) - c_*`, which introduces extra chain-rule terms from `w = v^2`.
 
-$$
-G(v)=F_h(v^2)-c_*,
-$$
-
-which introduces additional chain-rule terms from $w=v^2$.
-
-The distinction is not that `volfi` avoids residual evaluation. The single correction step evaluates the GIG-CDF residual $F_h(w)-c_*$ using its equivalent closed-form evaluator. The algorithm is therefore best viewed as a direct total-variance GIG-quantile method rather than a volatility-space implied-volatility solver.
-
-In repeated inversions on fixed strike or moneyness grids, the moneyness-dependent quantities in this representation can also be precomputed in `otm_context`.
+The method still evaluates a residual. The point is that the residual is the GIG-CDF residual in total-variance space, evaluated through its equivalent closed form. In repeated inversions on fixed strike or moneyness grids, the moneyness-dependent quantities can also be precomputed in `otm_context`.
 
 ## Core setup
 
