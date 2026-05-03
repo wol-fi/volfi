@@ -1,4 +1,13 @@
 # volfi v0.1.7
+
+## License / use restrictions
+
+This repository is source-available, not open source. The code and accompanying materials are published for inspection, reproducibility review, and academic timestamping only.
+
+Use, copying, modification, redistribution, sublicensing, sale, commercialization, incorporation into another project, or creation of derivative works requires prior written permission from Wolfgang Schadner.
+
+Use of this implementation, benchmark design, coefficients, generated approximants, or derived algorithmic materials as the basis for an academic publication, technical report, commercial product, or redistributed implementation also requires prior written permission from Wolfgang Schadner.
+
 `volfi` is a C++ research prototype for fast Black-Scholes implied variance on the normalized out-of-the-money call side.
 
 This `v0.1.7` release is the wing-speed update: it extends the previous projected-OTM kernel with a precomputed log-`c` wing seed for the true raw OTM-call domain while keeping the projected ITM-to-OTM path.
