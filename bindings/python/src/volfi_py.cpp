@@ -1,10 +1,17 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
+#ifndef __GNUC__
+#ifndef __builtin_expect
+#define __builtin_expect(x, y) (x)
+#endif
+#endif
 #include <volfi/volfi.hpp>
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace py = pybind11;
