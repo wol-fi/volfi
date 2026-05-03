@@ -72,6 +72,7 @@ include/volfi/volfi_logc_libm.hpp  log-c wing support
 tests/                             projected-OTM and true-OTM tests
 bench/bench_otm_grid.cpp           fixed projected-grid benchmark
 bench/bench_lbr_compare.cpp        optional volfi vs LetsBeRational comparison driver
+docs/technical_note/               technical documentation (.tex and .pdf)
 Makefile                           simple build entry point
 CMakeLists.txt                     optional CMake build for core tests and standalone benchmark
 ```
