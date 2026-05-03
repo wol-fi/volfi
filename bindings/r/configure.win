@@ -1,0 +1,9 @@
+dir.create("src/volfi", recursive = TRUE, showWarnings = FALSE)
+local_header <- file.path("..", "..", "include", "volfi", "volfi.hpp")
+out <- file.path("src", "volfi", "volfi.hpp")
+if (file.exists(local_header)) {
+  file.copy(local_header, out, overwrite = TRUE)
+} else {
+  download.file("https://raw.githubusercontent.com/wol-fi/volfi/main/include/volfi/volfi.hpp", out, quiet = TRUE)
+}
+stopifnot(file.exists(out), file.info(out)$size > 0)
