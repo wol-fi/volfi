@@ -1,0 +1,7 @@
+library(volfiR)
+library(bench)
+h <- rep(c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 1), length.out = 164)
+cp <- rep(c(0.0001, 0.001, 0.01, 0.05, 0.1, 0.25, 0.5), length.out = 164)
+tt <- rep(1, length(cp))
+ctx <- volfi_ctx(h)
+mark(volfi_iv(ctx, cp, tt), volfi_iv_otm(h, cp, tt), iterations = 1000, check = FALSE)
