@@ -1,5 +1,5 @@
-#ifndef VOLFI_VOLFI_HPP
-#define VOLFI_VOLFI_HPP
+#ifndef VOLFI_VOLFI_LOGC_LIBM_HPP
+#define VOLFI_VOLFI_LOGC_LIBM_HPP
 
 #include <cmath>
 #include <limits>
