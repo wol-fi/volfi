@@ -205,4 +205,3 @@ Memory reported: 7.60 GiB
 - This is a research kernel, not a global replacement for LetsBeRational.
 - The comparison is domain-specific.
 - Timings vary across machines, compilers, libm implementations, and host scheduling.
-- Median latency is the preferred scalar speed summary.
