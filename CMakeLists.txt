@@ -29,20 +29,6 @@ target_link_libraries(test_atm PRIVATE volfi)
 add_executable(bench_otm_grid bench/bench_otm_grid.cpp)
 target_link_libraries(bench_otm_grid PRIVATE volfi)
 
-add_library(lets_be_rational STATIC
-  third_party/LetsBeRational/lets_be_rational.cpp
-  third_party/LetsBeRational/normaldistribution.cpp
-  third_party/LetsBeRational/rationalcubic.cpp
-  third_party/LetsBeRational/erf_cody.cpp
-)
-target_include_directories(lets_be_rational PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/LetsBeRational
-)
-target_compile_definitions(lets_be_rational PUBLIC NO_XL_API)
-
-add_executable(bench_lbr_compare bench/bench_lbr_compare.cpp)
-target_link_libraries(bench_lbr_compare PRIVATE volfi lets_be_rational)
-
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
  target_compile_options(test_otm_grid PRIVATE -O2)
  target_compile_options(test_true_otm_grid PRIVATE -O2)
@@ -52,8 +38,6 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
  target_compile_options(test_random_true_otm PRIVATE -O2)
  target_compile_options(test_atm PRIVATE -O2)
  target_compile_options(bench_otm_grid PRIVATE -Ofast -march=native -ffp-contract=fast -fno-math-errno)
- target_compile_options(lets_be_rational PRIVATE -Ofast -march=native -ffp-contract=fast -fno-math-errno)
- target_compile_options(bench_lbr_compare PRIVATE -Ofast -march=native -ffp-contract=fast -fno-math-errno)
 endif()
 
 enable_testing()
