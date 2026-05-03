@@ -1,0 +1,2 @@
+url <- "https://raw.githubusercontent.com/wol-fi/volfi/main/include/volfi/volfi.hpp"
+download.file(url, file.path("src", "volfi.hpp"), mode = "wb", quiet = TRUE)
