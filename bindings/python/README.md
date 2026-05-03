@@ -17,7 +17,7 @@ pip install "git+https://github.com/wol-fi/volfi.git#subdirectory=bindings/pytho
 ```python
 import numpy as np
 import volfi
-from math import erf, log, sqrt
+from math import erf, sqrt
 
 
 def cdf(x):
@@ -79,6 +79,23 @@ for _ in range(100):
 
 print({"median_ns_per_eval": float(np.median(runs))})
 ```
+
+## Benchmark against py_vollib LetsBeRational
+
+Install `py_vollib` and run the included benchmark demo.
+
+```bash
+pip install py_vollib
+python bindings/python/examples/bench_vollib.py
+```
+
+The benchmark uses the same random grid as above:
+
+```text
+v ~ U(0.01, 2.0), Delta ~ U(0.01, 0.9)
+```
+
+It reports accuracy summaries for both methods and median nanoseconds per evaluation.
 
 ## OTM context path
 
