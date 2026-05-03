@@ -70,11 +70,14 @@ c(
   q99_abs_error = unname(quantile(abs(e), 0.99))
 )
 
-bench::mark(
+bm <- bench::mark(
   volfi_iv_call(f, k, d, t, p),
   iterations = 100,
   check = FALSE
 )
+
+ns_per_eval <- as.numeric(median(bm$time)) * 1e9 / n
+c(ns_per_eval = ns_per_eval)
 ```
 
 ## OTM path
