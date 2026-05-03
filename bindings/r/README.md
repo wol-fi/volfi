@@ -34,38 +34,56 @@ c(price = p, true_vol = v, estimated_vol = v_hat, error = v_hat - v)
 
 ## Accuracy and speed on 10,000 calls
 
-Generate 10,000 Black call prices with known volatility, invert them, and measure error and runtime.
+Generate 10,000 Black call prices on the random grid
+
+```text
+v ~ U(0.01, 2.0), Delta ~ U(0.01, 0.9)
+```
+
+then invert them and measure error and runtime with `bench`.
 
 ```r
+install.packages("bench")
+library(bench)
+
 set.seed(1)
 
 n <- 1e4
 f <- rep(100, n)
-k <- exp(runif(n, log(70), log(140)))
-d <- rep(0.98, n)
-t <- runif(n, 0.05, 3)
-v <- runif(n, 0.05, 1)
+d <- rep(1, n)
+t <- rep(1, n)
+v <- runif(n, 0.01, 2.0)
+delta <- runif(n, 0.01, 0.9)
+s <- v * sqrt(t)
+k <- f * exp(0.5 * s^2 - qnorm(delta) * s)
 p <- bs_call(f, k, d, t, v)
 
-tm <- system.time(v_hat <- volfi_iv_call(f, k, d, t, p))
+v_hat <- volfi_iv_call(f, k, d, t, p)
 e <- v_hat - v
 
 c(
   n = n,
-  elapsed_sec = unname(tm["elapsed"]),
+  na = sum(is.na(v_hat)),
+  nonfinite = sum(!is.finite(v_hat)),
   max_abs_error = max(abs(e)),
   mean_abs_error = mean(abs(e)),
   q99_abs_error = unname(quantile(abs(e), 0.99))
+)
+
+bench::mark(
+  volfi_iv_call(f, k, d, t, p),
+  iterations = 100,
+  check = FALSE
 )
 ```
 
 ## OTM path
 
-For repeated OTM inversions, precompute the OTM context once.
+For repeated OTM inversions, precompute the OTM context once. Use OTM prices: calls for `K >= F`, puts transformed by put-call parity for `K < F`.
 
 ```r
 h <- abs(log(k / f))
-c_otm <- p / (d * f)
+c_otm <- ifelse(k >= f, p, p + d * (k - f)) / (d * pmin(f, k))
 ctx <- volfi_ctx(h)
 w <- volfi_w(ctx, c_otm)
 iv <- volfi_iv(ctx, c_otm, t)
