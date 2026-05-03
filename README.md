@@ -95,6 +95,14 @@ Minimal setup used for the comparison:
 - build LetsBeRational locally as a native library or compile its source into a local benchmark build
 - point `bench/bench_lbr_compare.cpp` at that local copy and benchmark `NormalisedImpliedBlackVolatility`
 
+Example build command:
+
+```bash
+make bench_lbr_compare CXX=g++ \
+  LBR_INCLUDE=/path/to/LetsBeRational \
+  LBR_LIBDIR=/path/to/LetsBeRational/Linux
+```
+
 Test grids:
 
 - Fixed grid:
