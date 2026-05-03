@@ -1,0 +1,7 @@
+useDynLib(volfiR, .registration = TRUE)
+importFrom(Rcpp, evalCpp)
+export(iv_otm)
+export(vol_otm)
+export(iv_atm)
+export(iv_call_norm)
+export(black_otm)
