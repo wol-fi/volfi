@@ -1,0 +1,5 @@
+iv_otm <- function(h, c) .Call(`_volfiR_iv_otm`, h, c)
+vol_otm <- function(h, c, t) .Call(`_volfiR_vol_otm`, h, c, t)
+iv_atm <- function(c) .Call(`_volfiR_iv_atm`, c)
+iv_call_norm <- function(k, c) .Call(`_volfiR_iv_call_norm`, k, c)
+black_otm <- function(w, h) .Call(`_volfiR_black_otm`, w, h)
