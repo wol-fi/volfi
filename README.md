@@ -12,6 +12,33 @@ $$
 
 This `v0.1.7` release is the wing-speed update: it extends the previous projected-OTM kernel with a precomputed log-`c` wing seed for the true raw OTM-call domain while keeping the projected ITM-to-OTM path.
 
+## Why variance space?
+
+The representation above changes the inversion target from normalized volatility to total variance. Instead of solving $c \mapsto v$, `volfi` estimates $c_* \mapsto w = v^2$ directly. This has several practical advantages compared with volatility-space inversion methods (e.g., LetsBeRational):
+
+- the probabilistic identity identifies total variance `w` itself as the
+  natural quantile variable;
+- the fitted target is the GIG variance quantile, not its square root;
+- this avoids warping the approximation target by the square-root map,
+  which is most nonlinear near small variance;
+- the GIG density has simple logarithmic derivatives in `w`, giving a
+  compact analytic Halley correction in variance space;
+- moneyness-dependent quantities can be precomputed in `otm_context`,
+  making repeated inversions on fixed strike or moneyness grids cheaper.
+
+The distinction is not that `volfi` avoids price residual evaluation.
+The single correction step evaluates the GIG-CDF residual
+
+$$
+F_h(w)-c_*,
+\qquad
+F_h(w)=F_{GIG}\left(w;\frac12,\frac14,h^2\right),
+$$
+
+using its equivalent closed-form evaluator. The algorithm is therefore
+best viewed as a direct total-variance GIG-quantile method rather than a
+volatility-space implied-volatility solver.
+
 ## Core setup
 
 The normalized problem is
