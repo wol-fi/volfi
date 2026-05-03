@@ -1,3 +1,0 @@
-#!/bin/sh
-set -e
-"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "download.file('https://raw.githubusercontent.com/wol-fi/volfi/main/include/volfi/volfi.hpp', file.path('src','volfi.hpp'), mode='wb', quiet=TRUE)"
