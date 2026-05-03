@@ -1,0 +1,12 @@
+Package: volfiR
+Type: Package
+Title: R Bindings for volfi
+Version: 0.1.0
+Authors@R: person("Wolfgang", "Schadner", email = "wolfgang.schadner@uni.li", role = c("aut", "cre"))
+Description: R bindings for the volfi C++ research kernel for normalized Black-Scholes implied variance.
+License: file LICENSE
+Encoding: UTF-8
+Imports: Rcpp
+LinkingTo: Rcpp
+SystemRequirements: C++11
+RoxygenNote: 7.3.2
