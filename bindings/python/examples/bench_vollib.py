@@ -4,7 +4,7 @@ from statistics import NormalDist
 
 import numpy as np
 import volfi
-from py_vollib.black.implied_volatility import implied_volatility as lbr_iv
+from py_vollib.black.implied_volatility import implied_volatility as vollib_LBR_iv
 
 
 def cdf(x):
@@ -42,7 +42,7 @@ def main():
     p = bs_call(f, k, d, t, v)
 
     vv = volfi.iv_call(f, k, d, t, p)
-    vl = np.array([lbr_iv(float(p[i]), float(f[i]), float(k[i]), float(r[i]), float(t[i]), "c") for i in range(n)])
+    vl = np.array([vollib_LBR_iv(float(p[i]), float(f[i]), float(k[i]), float(r[i]), float(t[i]), "c") for i in range(n)])
 
     ev = vv - v
     el = vl - v
@@ -50,22 +50,22 @@ def main():
     print({
         "n": n,
         "volfi_nan": int(np.isnan(vv).sum()),
-        "lbr_nan": int(np.isnan(vl).sum()),
+        "vollib_LBR_nan": int(np.isnan(vl).sum()),
         "volfi_max_abs_error": float(np.max(np.abs(ev))),
-        "lbr_max_abs_error": float(np.max(np.abs(el))),
+        "vollib_LBR_max_abs_error": float(np.max(np.abs(el))),
         "volfi_mean_abs_error": float(np.mean(np.abs(ev))),
-        "lbr_mean_abs_error": float(np.mean(np.abs(el))),
+        "vollib_LBR_mean_abs_error": float(np.mean(np.abs(el))),
         "volfi_q99_abs_error": float(np.quantile(np.abs(ev), 0.99)),
-        "lbr_q99_abs_error": float(np.quantile(np.abs(el), 0.99)),
+        "vollib_LBR_q99_abs_error": float(np.quantile(np.abs(el), 0.99)),
     })
 
     volfi_ns = med_ns(lambda: volfi.iv_call(f, k, d, t, p), n)
-    lbr_ns = med_ns(lambda: [lbr_iv(float(p[i]), float(f[i]), float(k[i]), 0.0, float(t[i]), "c") for i in range(n)], n)
+    vollib_LBR_ns = med_ns(lambda: [vollib_LBR_iv(float(p[i]), float(f[i]), float(k[i]), 0.0, float(t[i]), "c") for i in range(n)], n)
 
     print({
         "volfi_median_ns_per_eval": volfi_ns,
-        "lbr_median_ns_per_eval": lbr_ns,
-        "speedup": lbr_ns / volfi_ns,
+        "vollib_LBR_median_ns_per_eval": vollib_LBR_ns,
+        "speedup": vollib_LBR_ns / volfi_ns,
     })
 
 
