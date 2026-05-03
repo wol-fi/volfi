@@ -3,8 +3,8 @@
 Minimal Rcpp wrapper for `volfi` v0.1.7.
 
 ```r
-install.packages("Rcpp")
-install.packages("bindings/r", repos = NULL, type = "source")
+install.packages("remotes")
+remotes::install_github("wol-fi/volfi", subdir = "bindings/r")
 ```
 
 ```r
