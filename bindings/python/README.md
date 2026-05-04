@@ -53,7 +53,7 @@ f = np.full(n, 100.0)
 d = np.ones(n)
 t = np.ones(n)
 v = rng.uniform(0.01, 2.0, n)
-delta = rng.uniform(0.01, 0.9, n)
+delta = rng.uniform(0.01, 0.99, n)
 q = np.vectorize(NormalDist().inv_cdf)(delta)
 s = v * np.sqrt(t)
 k = f * np.exp(0.5 * s * s - q * s)
@@ -92,7 +92,7 @@ python bindings/python/examples/bench_vollib.py
 The benchmark uses the same random grid as above:
 
 ```text
-v ~ U(0.01, 2.0), Delta ~ U(0.01, 0.9)
+v ~ U(0.01, 2.0), Delta ~ U(0.01, 0.99)
 ```
 
 It reports accuracy summaries for both methods and median nanoseconds per evaluation.
