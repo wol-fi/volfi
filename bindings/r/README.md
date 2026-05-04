@@ -37,7 +37,7 @@ c(price = p, true_vol = v, estimated_vol = v_hat, error = v_hat - v)
 Generate 10,000 Black call prices on the random grid
 
 ```text
-v ~ U(0.01, 2.0), Delta ~ U(0.01, 0.9)
+v ~ U(0.01, 2.0), Delta ~ U(0.01, 0.99)
 ```
 
 then invert them and measure error and runtime with `bench`.
@@ -53,7 +53,7 @@ f <- rep(100, n)
 d <- rep(1, n)
 t <- rep(1, n)
 v <- runif(n, 0.01, 2.0)
-delta <- runif(n, 0.01, 0.9)
+delta <- runif(n, 0.01, 0.99)
 s <- v * sqrt(t)
 k <- f * exp(0.5 * s^2 - qnorm(delta) * s)
 p <- bs_call(f, k, d, t, v)
