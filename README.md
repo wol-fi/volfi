@@ -1,6 +1,6 @@
 # volfi v0.1.7
 
-`volfi` is a C++ research prototype for fast Black-Scholes implied variance.
+`volfi` is a C++ research prototype for fast Black-Scholes implied variance. Untested [Python](https://github.com/wol-fi/volfi/tree/main/bindings/python) and [R](https://github.com/wol-fi/volfi/tree/main/bindings/R) translations are also available.
 
 It implements an efficient implied-volatility solver based on the inverse-Gaussian / generalized-inverse-Gaussian quantile representation in [An Explicit Solution to Black-Scholes Implied Volatility](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6649499).
 
