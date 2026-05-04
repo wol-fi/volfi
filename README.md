@@ -10,8 +10,6 @@ For out-of-the-money normalized calls with forward log-moneyness `k > 0`, normal
 v(k,c)^2 = \mathcal{F}^{-1}_{GIG}\left(c; \frac{1}{2}, \frac{1}{4}, k^2\right), \qquad k > 0.
 ```
 
-This `v0.1.7` release is the wing-speed update: it extends the previous projected-OTM kernel with a precomputed log-`c` wing seed for the true raw OTM-call domain while keeping the projected ITM-to-OTM path.
-
 ## Why variance space?
 
 The formula above makes total variance the natural inversion variable. For fixed positive moneyness, write `F_h` for the corresponding GIG distribution function. Then the OTM inversion is simply the quantile problem `w = F_h^{-1}(c_*)`.
@@ -56,7 +54,11 @@ At the forward strike the inversion reduces to
 v = 2\Phi^{-1}\left(\frac{1+c}{2}\right), \qquad w = v^2.
 ```
 
+For put options, use put-call parity for a transformation into a call.
+
 ## What Changed In v0.1.7
+
+This `v0.1.7` release is the wing-speed update: it extends the previous projected-OTM kernel with a precomputed log-`c` wing seed for the true raw OTM-call domain while keeping the projected ITM-to-OTM path.
 
 - Keeps the precomputed `otm_context` fast path.
 - Adds a wing seed for the true OTM-call region.
