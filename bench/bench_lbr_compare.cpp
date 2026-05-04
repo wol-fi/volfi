@@ -143,7 +143,7 @@ CaseData make_fixed_grid(const std::array<double, N>& delta) {
 CaseData make_random_grid(int ncase, std::uint64_t seed) {
   std::mt19937_64 gen(seed);
   std::uniform_real_distribution<double> dv(0.01, 2.0);
-  std::uniform_real_distribution<double> dd(0.01, 0.9);
+  std::uniform_real_distribution<double> dd(0.01, 0.99);
   CaseData data;
   data.q.reserve(ncase);
   data.c.reserve(ncase);
@@ -164,7 +164,7 @@ CaseData make_random_grid(int ncase, std::uint64_t seed) {
 }
 
 void run_fixed() {
-  auto data = make_fixed_grid(std::array<double, 11>{0.01, 0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90});
+  auto data = make_fixed_grid(std::array<double, 13>{0.01, 0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 0.95, 0.99});
   const int ncase = static_cast<int>(data.c.size());
   std::printf("grid fixed_otm\n");
   std::printf("cases %d\n", ncase);
