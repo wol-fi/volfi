@@ -136,13 +136,13 @@ Test grids:
 
 ```math
 v \in \{0.01, 0.05, 0.10, \ldots, 2.00\}, \qquad
-\Delta \in \{0.01, 0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90\}.
+\Delta \in \{0.01, 0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 0.95, 0.99\}.
 ```
 
 - Random grid:
 
 ```math
-v \sim U(0.01, 2.0), \qquad \Delta \sim U(0.01, 0.9).
+v \sim U(0.01, 2.0), \qquad \Delta \sim U(0.01, 0.99).
 ```
 
 ### Fixed Grid
@@ -150,9 +150,9 @@ v \sim U(0.01, 2.0), \qquad \Delta \sim U(0.01, 0.9).
 Benchmark setting:
 
 ```text
-cases: 451
+cases: 533
 repetitions per timing run: 5000
-evaluations per timing run: 2255000
+evaluations per timing run: 2665000
 runs: 9
 reported unit: nanoseconds per implied-volatility evaluation
 ```
@@ -161,20 +161,20 @@ Accuracy:
 
 | method | mean abs vol error | max abs vol error | max rel vol error |
 |---|---:|---:|---:|
-| volfi | `1.86e-16` | `1.33e-15` | `5.46e-14` |
-| LetsBeRational | `1.64e-16` | `7.77e-16` | `2.32e-14` |
+| volfi | `1.86e-16` | `1.33e-15` | `5.48e-14` |
+| LetsBeRational | `1.62e-16` | `7.77e-16` | `2.32e-14` |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi | `53.01` | `51.80` | `49.08` | `60.41` |
-| LetsBeRational | `188.10` | `181.23` | `176.99` | `211.33` |
+| volfi | `48.29` | `48.53` | `46.29` | `49.42` |
+| LetsBeRational | `169.37` | `169.62` | `163.93` | `174.12` |
 
 Median speed ratio:
 
 ```math
-\frac{181.23}{51.80} \approx 3.50.
+\frac{169.62}{48.53} \approx 3.49.
 ```
 
 ### Random Grid
@@ -195,23 +195,23 @@ Accuracy:
 
 | method | mean abs vol error | max abs vol error | max rel vol error |
 |---|---:|---:|---:|
-| volfi | `1.60e-16` | `1.55e-15` | `5.01e-14` |
-| LetsBeRational | `1.72e-16` | `1.33e-15` | `3.68e-14` |
+| volfi | `1.61e-16` | `1.55e-15` | `6.51e-14` |
+| LetsBeRational | `1.72e-16` | `1.33e-15` | `4.80e-14` |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi | `55.88` | `55.48` | `54.19` | `59.38` |
-| LetsBeRational | `168.77` | `166.35` | `164.75` | `179.06` |
+| volfi | `51.89` | `51.60` | `51.31` | `53.42` |
+| LetsBeRational | `159.44` | `157.70` | `153.91` | `180.18` |
 
 Median speed ratio:
 
 ```math
-\frac{166.35}{55.48} \approx 3.00.
+\frac{157.70}{51.60} \approx 3.06.
 ```
 
-On Black prices generated over these fixed and random grids, `volfi v0.1.7` recovers the input volatility to near machine precision and is about `3x` to `3.5x` faster than LetsBeRational in this benchmark setup.
+On Black prices generated over these fixed and random grids, `volfi v0.1.7` recovers the input volatility to near machine precision and is about `3.1x` to `3.5x` faster than LetsBeRational in this benchmark setup.
 
 ## Hardware/Software Setting
 
