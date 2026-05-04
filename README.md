@@ -230,7 +230,7 @@ Memory reported: 7.60 GiB
 ## Caveats
 
 - This is a research kernel, not a global replacement for LetsBeRational.
-- The comparison is domain-specific.
+- The comparison is domain-specific. The randomized tests were conducted over delta values from 0.01 to 0.99 and total implied volatility values from 0.01 to 2.0.
 - Timings vary across machines, compilers, libm implementations, and host scheduling.
 - The current implementation targets GCC/Clang-like compilers.
 
