@@ -1,11 +1,7 @@
-# Research Preview / No Trading Use
+# Notice
 
-`volfi` is source-available research software released under the PolyForm Noncommercial License 1.0.0.
+`volfi` is released under the BSD 3-Clause License. See `LICENSE` for the full license terms.
 
-You may inspect, test, benchmark, reproduce, and evaluate the software for noncommercial research purposes.
+If this software, method, benchmark, or documentation influences research, software, internal development, or published results, please cite the repository and the accompanying technical note.
 
-You may not use this software, or any derivative work based on it, for live trading, production pricing, risk management, execution systems, commercial analytics, or any commercial financial service without a separate written license from the author.
-
-No commercial or trading license is currently offered while the algorithm remains under development.
-
-This notice clarifies the author's intent and does not replace `LICENSE`. If this notice conflicts with `LICENSE` or a separate written agreement, the license or written agreement controls.
+This software is provided as a research kernel and without warranty. It is not a drop-in replacement for production pricing, risk-management, execution, or model-validation systems without independent validation and appropriate integration work.
