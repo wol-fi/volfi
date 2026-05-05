@@ -229,7 +229,7 @@ Memory reported: 7.60 GiB
 
 ## Caveats
 
-- This is a research kernel, not a global replacement for LetsBeRational.
+- This is a research kernel, not a drop-in replacement for well-tested existing routines.
 - The comparison is domain-specific. The randomized tests were conducted over delta values from 0.01 to 0.99 and total implied volatility values from 0.01 to 2.0.
 - Benchmarks were conducted on normalized Black calls. Empirical use requires additional computation for quote normalization, parity transformations, and supported-domain checks.
 - Timings vary across machines, compilers, libm implementations, and host scheduling.
