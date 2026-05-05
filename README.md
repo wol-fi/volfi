@@ -235,10 +235,10 @@ Memory reported: 7.60 GiB
 - Timings vary across machines, compilers, libm implementations, and host scheduling.
 - The current implementation targets GCC/Clang-like compilers.
 
-## License / Research Preview
+## License
 
-`volfi` is source-available research software under the PolyForm Noncommercial License 1.0.0.
+`volfi` is released under the BSD 3-Clause License. See [LICENSE](LICENSE) for the full license terms.
 
-You may inspect, test, benchmark, reproduce, and evaluate the software for noncommercial research purposes.
+If this software, method, benchmark, or documentation influences research, software, internal development, or published results, please cite the repository and the accompanying technical note.
 
-Live trading, production pricing, risk management, execution systems, commercial analytics, or other commercial financial-service use is not permitted without a separate written license. See [NOTICE.md](NOTICE.md).
+This software is provided as a research kernel and without warranty. It is not a drop-in replacement for production pricing, risk-management, execution, or model-validation systems without independent validation and appropriate integration work.
