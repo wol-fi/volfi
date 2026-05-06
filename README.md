@@ -66,15 +66,6 @@ This `v0.1.8` release adds a guarded high-speed approximate-Halley patch and har
 - Extends fixed and randomized tests down to `Delta=0.001` and up to `Delta=0.999`.
 - Preserves the precomputed `otm_context` path and the existing one-refinement structure.
 
-## What Changed In v0.1.7
-
-The `v0.1.7` release was the wing-speed update: it extended the previous projected-OTM kernel with a precomputed log-`c` wing seed for the true raw OTM-call domain while keeping the projected ITM-to-OTM path.
-
-- Kept the precomputed `otm_context` fast path.
-- Added a wing seed for the true OTM-call region.
-- Added explicit fixed-grid and randomized true-OTM tests.
-- Preserved the projected call-delta benchmark path from the earlier release.
-
 ## Layout
 
 ```text
