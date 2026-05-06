@@ -1,6 +1,6 @@
 # volfiR
 
-Minimal Rcpp wrapper for `volfi` v0.1.7.
+Minimal Rcpp wrapper for `volfi` v0.1.8.
 
 ```r
 install.packages("remotes")

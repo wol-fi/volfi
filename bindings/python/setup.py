@@ -18,7 +18,7 @@ ext_modules = [
 
 setup(
     name="volfi",
-    version="0.1.7.9000",
+    version="0.1.8.9000",
     description="Python bindings for volfi",
     packages=["volfi"],
     package_dir={"": "src_py"},

@@ -10,7 +10,7 @@
 \alias{volfi_iv_call_norm}
 \alias{volfi_iv_call}
 \alias{volfi_version}
-\title{Rcpp wrapper for volfi v0.1.7}
+\title{Rcpp wrapper for volfi v0.1.8}
 \usage{
 volfi_ctx(h)
 volfi_ctx_size(ctx)
@@ -34,7 +34,7 @@ volfi_version()
 \item{price}{Positive undiscounted call price input for \code{volfi_iv_call}.}
 }
 \description{
-Minimal Rcpp wrapper around the precomputed OTM implied variance and implied volatility functions in volfi v0.1.7, including normalized and full call implied-volatility helpers.
+Minimal Rcpp wrapper around the precomputed OTM implied variance and implied volatility functions in volfi v0.1.8, including normalized and full call implied-volatility helpers.
 }
 \value{
 \code{volfi_ctx} returns an external pointer. Variance functions return total variance. Volatility functions return implied volatility.

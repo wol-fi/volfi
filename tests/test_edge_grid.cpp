@@ -27,6 +27,6 @@ void run(double delta){
   maw+=ew; mxw=std::max(mxw,ew); mrw=std::max(mrw,ew/w);
   mav+=ev; if(ev>mxv){mxv=ev; wi=iv;} mrv=std::max(mrv,ev/v); n++;
  }
- std::printf("delta %.2f cases %d mean_abs_variance %.17g max_abs_variance %.17g max_rel_variance %.17g mean_abs_vol %.17g max_abs_vol %.17g max_rel_vol %.17g worst_iv %d\n",delta,n,maw/n,mxw,mrw,mav/n,mxv,mrv,wi);
+ std::printf("delta %.3f cases %d mean_abs_variance %.17g max_abs_variance %.17g max_rel_variance %.17g mean_abs_vol %.17g max_abs_vol %.17g max_rel_vol %.17g worst_iv %d\n",delta,n,maw/n,mxw,mrw,mav/n,mxv,mrv,wi);
 }
-int main(){run(0.52); run(0.99);}
+int main(){run(0.001); run(0.005); run(0.01); run(0.52); run(0.99); run(0.999);}

@@ -177,7 +177,7 @@ extern "C" SEXP _volfiR_volfi_iv_call(SEXP fSEXP, SEXP kSEXP, SEXP dSEXP, SEXP t
 
 extern "C" SEXP _volfiR_volfi_version() {
   BEGIN_RCPP
-  return wrap("0.1.7");
+  return wrap("0.1.8");
   END_RCPP
 }
 

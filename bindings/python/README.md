@@ -1,6 +1,6 @@
 # volfi Python binding
 
-Minimal `pybind11` wrapper for `volfi` v0.1.7.
+Minimal `pybind11` wrapper for `volfi` v0.1.8.
 
 ```bash
 pip install ./bindings/python

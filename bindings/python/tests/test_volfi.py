@@ -22,4 +22,4 @@ def test_call_helpers():
     assert abs(volfi.w_call_norm([0.1], [0.01])[0] - 0.010983412121237294) < 1e-14
     assert abs(volfi.w_call_norm([-0.1], [0.1])[0] - 0.0072973603266672377) < 1e-14
     assert abs(volfi.iv_call([100], [105], [0.98], [1.2], [7])[0] - 0.21108908075172517) < 1e-14
-    assert volfi.version() == "0.1.7"
+    assert volfi.version() == "0.1.8"

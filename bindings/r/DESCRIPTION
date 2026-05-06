@@ -1,9 +1,9 @@
 Package: volfiR
 Type: Package
-Title: Rcpp Wrapper for volfi v0.1.7
-Version: 0.1.7.9000
+Title: Rcpp Wrapper for volfi v0.1.8
+Version: 0.1.8.9000
 Authors@R: c(person("Wolfgang", "Schadner", email = "wolfgang.schadner@uni.li", role = c("aut", "cre")))
-Description: Provides a small Rcpp wrapper around the precomputed OTM implied volatility path from volfi v0.1.7.
+Description: Provides a small Rcpp wrapper around the precomputed OTM implied volatility path from volfi v0.1.8.
 License: file LICENSE
 Encoding: UTF-8
 SystemRequirements: C++11

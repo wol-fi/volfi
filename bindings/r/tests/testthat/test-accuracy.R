@@ -24,5 +24,5 @@ test_that("wing and call helpers match references", {
   expect_equal(volfi_w_call_norm(0.1, 0.01), 0.010983412121237294, tolerance = 1e-14)
   expect_equal(volfi_w_call_norm(-0.1, 0.1), 0.0072973603266672377, tolerance = 1e-14)
   expect_equal(volfi_iv_call(100, 105, 0.98, 1.2, 7), 0.21108908075172517, tolerance = 1e-14)
-  expect_equal(volfi_version(), "0.1.7")
+  expect_equal(volfi_version(), "0.1.8")
 })

@@ -188,5 +188,5 @@ PYBIND11_MODULE(_volfi, m) {
   m.def("w_call_norm", &w_call_norm);
   m.def("iv_call_norm", &iv_call_norm);
   m.def("iv_call", &iv_call);
-  m.def("version", []() { return "0.1.7"; });
+  m.def("version", []() { return "0.1.8"; });
 }

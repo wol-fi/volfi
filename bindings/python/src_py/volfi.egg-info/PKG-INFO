@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: volfi
+Version: 0.1.8.9000
+Summary: Python bindings for volfi
+Requires-Python: >=3.8
+Requires-Dist: numpy
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

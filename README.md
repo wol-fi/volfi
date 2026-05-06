@@ -1,4 +1,4 @@
-# volfi v0.1.7
+# volfi v0.1.8
 
 `volfi` is a C++ research prototype for fast Black-Scholes implied variance. [Python](https://github.com/wol-fi/volfi/tree/main/bindings/python) and [R](https://github.com/wol-fi/volfi/tree/main/bindings/r) translations are also available.
 
@@ -56,14 +56,24 @@ v = 2\Phi^{-1}\left(\frac{1+c}{2}\right), \qquad w = v^2.
 
 For put options, use put-call parity for a transformation into a call.
 
+## What Changed In v0.1.8
+
+This `v0.1.8` release adds a guarded high-speed approximate-Halley patch and hardens the projected wing seeds while preserving the one-Halley fallback design.
+
+- Adds `volfi_fastpatch.hpp` with a certified regional approximate-Halley path on `h in [0.05,0.40]` and `c in [0.20,0.55]`.
+- Keeps exact Halley as the fallback outside the certified region.
+- Adds narrow low-price and wing seed branches for low-delta and high-delta projected wing cases.
+- Extends fixed and randomized tests down to `Delta=0.001` and up to `Delta=0.999`.
+- Preserves the precomputed `otm_context` path and the existing one-refinement structure.
+
 ## What Changed In v0.1.7
 
-This `v0.1.7` release is the wing-speed update: it extends the previous projected-OTM kernel with a precomputed log-`c` wing seed for the true raw OTM-call domain while keeping the projected ITM-to-OTM path.
+The `v0.1.7` release was the wing-speed update: it extended the previous projected-OTM kernel with a precomputed log-`c` wing seed for the true raw OTM-call domain while keeping the projected ITM-to-OTM path.
 
-- Keeps the precomputed `otm_context` fast path.
-- Adds a wing seed for the true OTM-call region.
-- Adds explicit fixed-grid and randomized true-OTM tests.
-- Preserves the projected call-delta benchmark path from the earlier release.
+- Kept the precomputed `otm_context` fast path.
+- Added a wing seed for the true OTM-call region.
+- Added explicit fixed-grid and randomized true-OTM tests.
+- Preserved the projected call-delta benchmark path from the earlier release.
 
 ## Layout
 
@@ -161,20 +171,20 @@ Accuracy:
 
 | method | mean abs vol error | max abs vol error | max rel vol error |
 |---|---:|---:|---:|
-| volfi | `1.86e-16` | `1.33e-15` | `5.48e-14` |
+| volfi | `1.84e-16` | `1.33e-15` | `5.46e-14` |
 | LetsBeRational | `1.62e-16` | `7.77e-16` | `2.32e-14` |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi | `48.29` | `48.53` | `46.29` | `49.42` |
-| LetsBeRational | `169.37` | `169.62` | `163.93` | `174.12` |
+| volfi | `48.48` | `48.76` | `46.57` | `50.16` |
+| LetsBeRational | `167.84` | `168.45` | `161.46` | `172.81` |
 
 Median speed ratio:
 
 ```math
-\frac{169.62}{48.53} \approx 3.49.
+\frac{168.45}{48.76} \approx 3.5.
 ```
 
 ### Random Grid
@@ -195,23 +205,23 @@ Accuracy:
 
 | method | mean abs vol error | max abs vol error | max rel vol error |
 |---|---:|---:|---:|
-| volfi | `1.61e-16` | `1.55e-15` | `6.51e-14` |
-| LetsBeRational | `1.72e-16` | `1.33e-15` | `4.80e-14` |
+| volfi | `1.60e-16` | `1.55e-15` | `4.81e-14` |
+| LetsBeRational | `1.71e-16` | `1.33e-15` | `4.62e-14` |
 
 Timing:
 
 | method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
 |---|---:|---:|---:|---:|
-| volfi | `51.89` | `51.60` | `51.31` | `53.42` |
-| LetsBeRational | `159.44` | `157.70` | `153.91` | `180.18` |
+| volfi | `50.80` | `50.77` | `50.50` | `51.36` |
+| LetsBeRational | `155.18` | `155.11` | `153.15` | `158.15` |
 
 Median speed ratio:
 
 ```math
-\frac{157.70}{51.60} \approx 3.06.
+\frac{155.11}{50.77} \approx 3.1.
 ```
 
-On Black prices generated over these fixed and random grids, `volfi v0.1.7` recovers the input volatility to near machine precision and is about `3.1x` to `3.5x` faster than LetsBeRational in this benchmark setup.
+On Black prices generated over these fixed and random grids, `volfi v0.1.8` recovers the input volatility to near machine precision and is about `3.1x` to `3.5x` faster than LetsBeRational in this benchmark setup.
 
 ## Hardware/Software Setting
 
