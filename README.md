@@ -222,6 +222,8 @@ As an additional tail accuracy check, the randomized test was repeated for far O
 \Delta_p = \Delta_c - 1, \qquad \Delta_c \in [0.99,0.999], \qquad \Delta_p \in [-0.01,-0.001].
 ```
 
+The smallest normalized put price in this test was approximately $2.93\cdot 10^{-6}$.
+
 Test setting:
 
 ```text
