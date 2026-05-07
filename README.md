@@ -214,6 +214,33 @@ Median speed ratio:
 
 On Black prices generated over these fixed and random grids, `volfi v0.1.8` recovers the input volatility to near machine precision and is about `3.1x` to `3.5x` faster than LetsBeRational in this benchmark setup.
 
+### Far OTM Puts
+
+As an additional tail accuracy check, the randomized test was repeated for far OTM puts. The implementation uses put-call symmetry: high call deltas correspond to far OTM puts,
+
+```math
+\Delta_p = \Delta_c - 1, \qquad \Delta_c \in [0.99,0.999], \qquad \Delta_p \in [-0.01,-0.001].
+```
+
+Test setting:
+
+```text
+accuracy cases: 200000
+random seed: 20260502
+v distribution: U(0.01, 2.0)
+call delta distribution: U(0.99, 0.999)
+put delta distribution: U(-0.01, -0.001)
+reported quantity: absolute error in total implied volatility
+```
+
+Accuracy:
+
+| method | mean abs vol error | max abs vol error | max rel vol error | invalid cases |
+|---|---:|---:|---:|---:|
+| volfi | `2.69e-16` | `1.83e-15` | `1.29e-13` | `0` |
+
+
+
 ## Hardware/Software Setting
 
 ```text
