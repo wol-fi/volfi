@@ -10,11 +10,15 @@ For out-of-the-money normalized calls with forward log-moneyness `k > 0`, normal
 v(k,c)^2 = \mathcal{F}^{-1}_{GIG}\left(c; \frac{1}{2}, \frac{1}{4}, k^2\right), \qquad k > 0.
 ```
 
+**Where does the speed come from?**
+- A good seed.
+- Plus a single Halley refinement already attains near machine precision.
+  
 ## Why variance space?
 
 The formula above makes total variance the natural inversion variable. For fixed positive moneyness, write `F_h` for the corresponding GIG distribution function. Then the OTM inversion is simply the quantile problem `w = F_h^{-1}(c_*)`.
 
-`volfi` fits and corrects this variance quantile directly. A volatility-space method instead targets its square root. This difference matters because the square-root map is strongly curved near small variance, while the GIG representation is already expressed in `w`.
+`volfi` fits and corrects this variance quantile directly. A volatility-space method instead targets its square root. This difference matters because the square-root map is more curved near small variance, while the GIG representation is already expressed in `w`.
 
 The same choice also gives a compact correction step. With residual `R_h(w) = F_h(w) - c_*`, density `f_h(w) = F_h'(w)`, and log-density derivative `ell_h(w) = f_h'(w) / f_h(w)`, one Halley correction is
 
@@ -28,7 +32,7 @@ For the GIG family used here,
 \ell_h(w) = -\frac{1}{2w} - \frac{1}{8} + \frac{h^2}{2w^2}.
 ```
 
-Thus the correction is expressed through the GIG density and its logarithmic derivative in the native variable `w`. In volatility space, the corresponding residual is `G(v) = F_h(v^2) - c_*`, which introduces extra chain-rule terms from `w = v^2`.
+Thus the correction is expressed through the GIG density and its logarithmic derivative in the native variable `w`. In volatility space, the corresponding residual is `G(v) = F_h(v^2) - c_*`, which introduces extra chain-rule terms from `w = v^2`. This matters because the direct volatility quantile contains a nested variance structure.
 
 The method still evaluates a residual. The point is that the residual is the GIG-CDF residual in total-variance space, evaluated through its equivalent closed form. In repeated inversions on fixed strike or moneyness grids, the moneyness-dependent quantities can also be precomputed in `otm_context`.
 
