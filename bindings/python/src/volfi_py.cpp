@@ -51,7 +51,7 @@ static py::ssize_t nout5(py::ssize_t a, py::ssize_t b, py::ssize_t c, py::ssize_
 }
 
 static void check_h(double x) {
-  if (!std::isfinite(x) || x < 0) throw std::runtime_error("h must be finite and non-negative");
+  if (!std::isfinite(x) || x <= 0) throw std::runtime_error("h must be finite and positive");
 }
 
 static void check_c(double x) {
@@ -64,6 +64,13 @@ static void check_t(double x) {
 
 static void check_pos(double x, const char* nm) {
   if (!std::isfinite(x) || x <= 0) throw std::runtime_error(std::string(nm) + " must be finite and positive");
+}
+
+static void check_call_norm(double k, double c) {
+  if (!std::isfinite(k)) throw std::runtime_error("k must be finite");
+  check_c(c);
+  double lb = k < 0 ? 1 - std::exp(k) : 0;
+  if (!(c > lb)) throw std::runtime_error("normalised call price violates no-arbitrage bounds");
 }
 
 struct ctx {
@@ -140,8 +147,7 @@ static py::array_t<double> w_call_norm(py::object k0, py::object c0) {
   auto y = out.mutable_unchecked<1>();
   for (py::ssize_t i = 0; i < n; ++i) {
     double ki = k(i), ci = c(i);
-    if (!std::isfinite(ki)) throw std::runtime_error("k must be finite");
-    check_c(ci);
+    check_call_norm(ki, ci);
     y(i) = volfi::implied_variance_call_normalised(ki, ci);
   }
   return out;
@@ -154,8 +160,7 @@ static py::array_t<double> iv_call_norm(py::object k0, py::object c0, py::object
   auto y = out.mutable_unchecked<1>();
   for (py::ssize_t i = 0; i < n; ++i) {
     double ki = k(i), ci = c(i), ti = t(i);
-    if (!std::isfinite(ki)) throw std::runtime_error("k must be finite");
-    check_c(ci); check_t(ti);
+    check_call_norm(ki, ci); check_t(ti);
     y(i) = volfi::implied_volatility_call_normalised(ki, ci, ti);
   }
   return out;
@@ -168,7 +173,10 @@ static py::array_t<double> iv_call(py::object f0, py::object k0, py::object d0, 
   auto y = out.mutable_unchecked<1>();
   for (py::ssize_t i = 0; i < n; ++i) {
     double fi = f(i), ki = k(i), di = d(i), ti = t(i), pi = p(i);
-    check_pos(fi, "f"); check_pos(ki, "k"); check_pos(di, "d"); check_t(ti); check_pos(pi, "price");
+    check_pos(fi, "f"); check_pos(ki, "k"); check_pos(di, "d"); check_t(ti);
+    if (!std::isfinite(pi)) throw std::runtime_error("price must be finite");
+    double kk = std::log(ki / fi), c = pi / (di * fi);
+    check_call_norm(kk, c);
     y(i) = volfi::implied_volatility_call(fi, ki, di, ti, pi);
   }
   return out;
