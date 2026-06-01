@@ -32,6 +32,9 @@ target_link_libraries(test_fastpatch PRIVATE volfi)
 add_executable(test_atm tests/test_atm.cpp)
 target_link_libraries(test_atm PRIVATE volfi)
 
+add_executable(test_domain tests/test_domain.cpp)
+target_link_libraries(test_domain PRIVATE volfi)
+
 add_executable(bench_otm_grid bench/bench_otm_grid.cpp)
 target_link_libraries(bench_otm_grid PRIVATE volfi)
 
@@ -45,6 +48,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
  target_compile_options(test_random_true_otm PRIVATE -O2)
  target_compile_options(test_fastpatch PRIVATE -O2)
  target_compile_options(test_atm PRIVATE -O2)
+ target_compile_options(test_domain PRIVATE -O2)
  target_compile_options(bench_otm_grid PRIVATE -Ofast -march=native -ffp-contract=fast -fno-math-errno)
 endif()
 
@@ -58,6 +62,4 @@ add_test(NAME random_low_delta COMMAND test_random_low_delta)
 add_test(NAME random_true_otm COMMAND test_random_true_otm)
 add_test(NAME fastpatch COMMAND test_fastpatch)
 add_test(NAME atm COMMAND test_atm)
-
-# The LetsBeRational comparison benchmark is intentionally built through the Makefile,
-# because it depends on a separately obtained local LetsBeRational build.
+add_test(NAME domain COMMAND test_domain)
