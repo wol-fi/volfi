@@ -1,31 +1,15 @@
 # volfi v0.1.8
 
-`volfi` is a C++ research prototype for fast Black-Scholes implied variance. [Python](https://github.com/wol-fi/volfi/tree/main/bindings/python) and [R](https://github.com/wol-fi/volfi/tree/main/bindings/r) translations are also available.
+`volfi` is a research reference implementation for the Black-Scholes implied-variance quantile identity.
 
-It implements an efficient implied-volatility solver based on the generalized-inverse-Gaussian quantile representation. For out-of-the-money normalized calls with forward log-moneyness `k > 0`, normalized call price `c`, and total implied volatility `v = sigma sqrt(T)`, the variance-space representation is
+The repository is intended to make the quantile representation concrete and reproducible. It is not presented as a like-for-like performance comparison with other implementations.
+
+## Identity
+
+For out-of-the-money normalized calls with forward log-moneyness `k > 0`, normalized call price `c`, and total implied volatility `v = sigma sqrt(T)`, the implemented representation is
 
 ```math
 v(k,c)^2 = \mathcal{F}^{-1}_{GIG}\left(c; \frac{1}{2}, \frac{1}{4}, k^2\right), \qquad k > 0.
-```
-
-**Where does the speed come from?**
-- A good seed.
-- Plus a single Halley refinement already attains near machine precision.
-
-## Core setup
-
-The normalized problem is
-
-```math
-h = |\log(K/F)| > 0, \qquad w = \sigma^2 T, \qquad w = Q_h(c_*),
-```
-
-where `c_*` is the normalized OTM-call price and `w` is total implied variance.
-
-For normalized calls, ITM prices are projected exactly to the OTM side before inversion:
-
-```math
-\tilde c = 1 + \frac{F}{K}(c - 1), \qquad h = -\log(K/F).
 ```
 
 At the forward strike the inversion reduces to
@@ -34,46 +18,9 @@ At the forward strike the inversion reduces to
 v = 2\Phi^{-1}\left(\frac{1+c}{2}\right), \qquad w = v^2.
 ```
 
-For put options, use put-call parity for a transformation into a call.
-
-## What Changed In v0.1.8
-
-This `v0.1.8` release adds a guarded high-speed approximate-Halley patch and hardens the projected wing seeds while preserving the one-Halley fallback design.
-
-- Adds `volfi_fastpatch.hpp` with a certified regional approximate-Halley path on `h in [0.05,0.40]` and `c in [0.20,0.55]`.
-- Keeps exact Halley as the fallback outside the certified region.
-- Adds narrow low-price and wing seed branches for low-delta and high-delta projected wing cases.
-- Extends fixed and randomized tests down to `Delta=0.001` and up to `Delta=0.999`.
-- Preserves the precomputed `otm_context` path and the existing one-refinement structure.
-
-## Layout
-
-```text
-include/volfi/volfi.hpp            flagship header
-include/volfi/volfi_reorder.hpp    alternate ordering helpers
-include/volfi/volfi_logc_libm.hpp  log-c wing support
-tests/                             projected-OTM and true-OTM tests
-bench/bench_otm_grid.cpp           fixed projected-grid benchmark
-docs/technical_note/               technical documentation (.tex and .pdf)
-Makefile                           simple build entry point
-CMakeLists.txt                     optional CMake build for core tests and standalone benchmark
-```
-
 ## Build
 
-```bash
-make
-make test
-make bench
-```
-
-To override the compiler:
-
-```bash
-make CXX=g++
-```
-
-The optional CMake build covers the core tests and standalone `volfi` benchmark.
+Use `make`, `make test`, and `make bench` from the repository root.
 
 ## Minimal API
 
@@ -96,36 +43,19 @@ The `w` functions return total implied variance. Use the `implied_volatility_*` 
 
 - OTM functions require `h > 0` and normalized OTM-call price `0 < c < 1`.
 - Normalized call functions use `k = log(K/F)` and `c = C/F`; they require `max(0, 1 - exp(k)) < c < 1`.
-- The full call function uses positive `f`, `k`, `d`, `t`, and an undiscounted normalized check after `c = price / (d f)`.
 - Invalid domains return `NaN` by default. Compile with `VOLFI_STRICT_DOMAIN` to throw `std::domain_error` instead.
-- The OTM API is not the ATM API. Use `implied_variance_call_normalised(0, c)` or `implied_volatility_call_normalised(0, c, t)` at the forward strike.
+- The OTM API is not the ATM API. Use the normalized-call API at the forward strike.
 
-## Hardware/Software Setting
+## Benchmarks
 
-```text
-OS/kernel: Linux 6.6.87.2-microsoft-standard-WSL2 x86_64 GNU/Linux
-compiler: g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
-CPU model: 11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz
-CPU cores reported: 8
-Threads per core: 2
-Cores per socket: 4
-Socket count: 1
-Hypervisor vendor: Microsoft
-Memory reported: 7.60 GiB
-```
+The included benchmark is a same-codebase microbenchmark for repeated inversions on fixed generated grids. It is intended for local regression checks and implementation diagnostics only.
+
+It is not a like-for-like comparison with other libraries, and it should not be used to support a general speed claim.
 
 ## Caveats
 
-- This is a research kernel, not a drop-in replacement for well-tested existing routines.
-- Empirical behavior is domain-specific and should not be generalized outside supported regimes without independent testing.
-- Benchmarks were conducted on normalized Black calls. Empirical use requires additional computation for quote normalization, parity transformations, and supported-domain checks.
-- Timings vary across machines, compilers, libm implementations, and host scheduling.
-- The current implementation targets GCC/Clang-like compilers.
+This is a research reference implementation. The supported domain is narrower than full industrial implied-volatility libraries. Empirical behavior is domain-specific and should not be generalized outside supported regimes without independent testing.
 
 ## License
 
 `volfi` is released under the BSD 3-Clause License. See [LICENSE](LICENSE) for the full license terms.
-
-If this software, method, benchmark, or documentation influences research, software, internal development, or published results, please cite the repository and the accompanying technical note.
-
-This software is provided as a research kernel and without warranty. It is not a drop-in replacement for production pricing, risk-management, execution, or model-validation systems without independent validation and appropriate integration work.
