@@ -114,6 +114,16 @@ For normalized calls:
 double w = volfi::implied_variance_call_normalised(k, c);
 ```
 
+The `w` functions return total implied variance. Use the `implied_volatility_*` functions when volatility is required.
+
+## Domain conventions
+
+- OTM functions require `h > 0` and normalized OTM-call price `0 < c < 1`.
+- Normalized call functions use `k = log(K/F)` and `c = C/F`; they require `max(0, 1 - exp(k)) < c < 1`.
+- The full call function uses positive `f`, `k`, `d`, `t`, and an undiscounted normalized check after `c = price / (d f)`.
+- Invalid domains return `NaN` by default. Compile with `VOLFI_STRICT_DOMAIN` to throw `std::domain_error` instead.
+- The OTM API is not the ATM API. Use `implied_variance_call_normalised(0, c)` or `implied_volatility_call_normalised(0, c, t)` at the forward strike.
+
 ## Hardware/Software Setting
 
 ```text
