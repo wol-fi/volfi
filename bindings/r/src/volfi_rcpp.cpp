@@ -35,7 +35,7 @@ static R_xlen_t nout5(R_xlen_t a, R_xlen_t b, R_xlen_t c, R_xlen_t d, R_xlen_t e
 }
 
 static void check_h(double h) {
-  if (!R_finite(h) || h < 0) stop("h must be finite and non-negative");
+  if (!R_finite(h) || h <= 0) stop("h must be finite and positive");
 }
 
 static void check_c(double c) {
@@ -48,6 +48,13 @@ static void check_t(double t) {
 
 static void check_pos(double x, const char *nm) {
   if (!R_finite(x) || x <= 0) stop("%s must be finite and positive", nm);
+}
+
+static void check_call_norm(double k, double c) {
+  if (!R_finite(k)) stop("k must be finite");
+  check_c(c);
+  double lb = k < 0 ? 1 - std::exp(k) : 0;
+  if (!(c > lb)) stop("normalised call price violates no-arbitrage bounds");
 }
 
 extern "C" SEXP _volfiR_volfi_ctx(SEXP hSEXP) {
@@ -138,8 +145,7 @@ extern "C" SEXP _volfiR_volfi_w_call_norm(SEXP kSEXP, SEXP cSEXP) {
   NumericVector out(n);
   for (R_xlen_t i = 0; i < n; ++i) {
     double ki = k[k.size() == 1 ? 0 : i], ci = c[c.size() == 1 ? 0 : i];
-    if (!R_finite(ki)) stop("k must be finite");
-    check_c(ci);
+    check_call_norm(ki, ci);
     out[i] = volfi::implied_variance_call_normalised(ki, ci);
   }
   return out;
@@ -153,8 +159,7 @@ extern "C" SEXP _volfiR_volfi_iv_call_norm(SEXP kSEXP, SEXP cSEXP, SEXP tSEXP) {
   NumericVector out(n);
   for (R_xlen_t i = 0; i < n; ++i) {
     double ki = k[k.size() == 1 ? 0 : i], ci = c[c.size() == 1 ? 0 : i], ti = t[t.size() == 1 ? 0 : i];
-    if (!R_finite(ki)) stop("k must be finite");
-    check_c(ci); check_t(ti);
+    check_call_norm(ki, ci); check_t(ti);
     out[i] = volfi::implied_volatility_call_normalised(ki, ci, ti);
   }
   return out;
@@ -168,7 +173,10 @@ extern "C" SEXP _volfiR_volfi_iv_call(SEXP fSEXP, SEXP kSEXP, SEXP dSEXP, SEXP t
   NumericVector out(n);
   for (R_xlen_t i = 0; i < n; ++i) {
     double fi = f[f.size() == 1 ? 0 : i], ki = k[k.size() == 1 ? 0 : i], di = d[d.size() == 1 ? 0 : i], ti = t[t.size() == 1 ? 0 : i], pi = price[price.size() == 1 ? 0 : i];
-    check_pos(fi, "f"); check_pos(ki, "k"); check_pos(di, "d"); check_t(ti); check_pos(pi, "price");
+    check_pos(fi, "f"); check_pos(ki, "k"); check_pos(di, "d"); check_t(ti);
+    if (!R_finite(pi)) stop("price must be finite");
+    double kk = std::log(ki / fi), c = pi / (di * fi);
+    check_call_norm(kk, c);
     out[i] = volfi::implied_volatility_call(fi, ki, di, ti, pi);
   }
   return out;
