@@ -78,7 +78,6 @@ include/volfi/volfi_reorder.hpp    alternate ordering helpers
 include/volfi/volfi_logc_libm.hpp  log-c wing support
 tests/                             projected-OTM and true-OTM tests
 bench/bench_otm_grid.cpp           fixed projected-grid benchmark
-bench/bench_lbr_compare.cpp        optional volfi vs LetsBeRational comparison driver
 docs/technical_note/               technical documentation (.tex and .pdf)
 Makefile                           simple build entry point
 CMakeLists.txt                     optional CMake build for core tests and standalone benchmark
@@ -98,7 +97,7 @@ To override the compiler:
 make CXX=g++
 ```
 
-The optional CMake build covers the core tests and standalone `volfi` benchmark. The LetsBeRational comparison is a Makefile/manual target because it depends on a separately obtained local LetsBeRational build.
+The optional CMake build covers the core tests and standalone `volfi` benchmark.
 
 ## Minimal API
 
@@ -114,138 +113,6 @@ For normalized calls:
 ```cpp
 double w = volfi::implied_variance_call_normalised(k, c);
 ```
-
-## Performance Test
-
-The performance comparison was run against LetsBeRational through its native shared-library interface using `NormalisedImpliedBlackVolatility`.
-
-The repository includes `bench/bench_lbr_compare.cpp`, but not the LetsBeRational source or binary. To reproduce the side-by-side comparison, fetch [LetsBeRational.7z](http://www.jaeckel.org/LetsBeRational.7z) separately and build or link it locally.
-
-Minimal setup used for the comparison:
-
-- obtain the upstream LetsBeRational source from the archive above
-- build LetsBeRational locally as a native library or compile its source into a local benchmark build
-- point `bench/bench_lbr_compare.cpp` at that local copy and benchmark `NormalisedImpliedBlackVolatility`
-
-Example build command:
-
-```bash
-make bench_lbr_compare CXX=g++ \
-  LBR_INCLUDE=/path/to/LetsBeRational \
-  LBR_LIBDIR=/path/to/LetsBeRational/Linux
-```
-
-Test grids:
-
-- Fixed grid:
-
-```math
-v \in \{0.01, 0.05, 0.10, \ldots, 2.00\}, \qquad
-\Delta \in \{0.01, 0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 0.95, 0.99\}.
-```
-
-- Random grid:
-
-```math
-v \sim U(0.01, 2.0), \qquad \Delta \sim U(0.01, 0.99).
-```
-
-### Fixed Grid
-
-Benchmark setting:
-
-```text
-cases: 533
-repetitions per timing run: 5000
-evaluations per timing run: 2665000
-runs: 9
-reported unit: nanoseconds per implied-volatility evaluation
-```
-
-Accuracy:
-
-| method | mean abs vol error | max abs vol error | max rel vol error |
-|---|---:|---:|---:|
-| volfi | `1.84e-16` | `1.33e-15` | `5.46e-14` |
-| LetsBeRational | `1.62e-16` | `7.77e-16` | `2.32e-14` |
-
-Timing:
-
-| method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
-|---|---:|---:|---:|---:|
-| volfi | `48.48` | `48.76` | `46.57` | `50.16` |
-| LetsBeRational | `167.84` | `168.45` | `161.46` | `172.81` |
-
-Median speed ratio:
-
-```math
-\frac{168.45}{48.76} \approx 3.5.
-```
-
-### Random Grid
-
-Benchmark setting:
-
-```text
-accuracy cases: 200000
-random seed: 20260502
-timing cases: 5000
-repetitions per timing run: 1000
-evaluations per timing run: 5000000
-runs: 9
-reported unit: nanoseconds per implied-volatility evaluation
-```
-
-Accuracy:
-
-| method | mean abs vol error | max abs vol error | max rel vol error |
-|---|---:|---:|---:|
-| volfi | `1.60e-16` | `1.55e-15` | `4.81e-14` |
-| LetsBeRational | `1.71e-16` | `1.33e-15` | `4.62e-14` |
-
-Timing:
-
-| method | mean ns/eval | median ns/eval | min ns/eval | max ns/eval |
-|---|---:|---:|---:|---:|
-| volfi | `50.80` | `50.77` | `50.50` | `51.36` |
-| LetsBeRational | `155.18` | `155.11` | `153.15` | `158.15` |
-
-Median speed ratio:
-
-```math
-\frac{155.11}{50.77} \approx 3.1.
-```
-
-On Black prices generated over these fixed and random grids, `volfi v0.1.8` recovers the input volatility to near machine precision and is about `3.1x` to `3.5x` faster than LetsBeRational in this benchmark setup.
-
-### Far OTM Puts
-
-As an additional tail accuracy check, the randomized test was repeated for far OTM puts. The implementation uses put-call symmetry: high call deltas correspond to far OTM puts,
-
-```math
-\Delta_p = \Delta_c - 1, \qquad \Delta_c \in [0.99,0.999], \qquad \Delta_p \in [-0.01,-0.001].
-```
-
-The smallest normalized put price in this test was approximately $2.93\cdot 10^{-6}$.
-
-Test setting:
-
-```text
-accuracy cases: 200000
-random seed: 20260502
-v distribution: U(0.01, 2.0)
-call delta distribution: U(0.99, 0.999)
-put delta distribution: U(-0.01, -0.001)
-reported quantity: absolute error in total implied volatility
-```
-
-Accuracy:
-
-| method | mean abs vol error | max abs vol error | max rel vol error | invalid cases |
-|---|---:|---:|---:|---:|
-| volfi | `2.69e-16` | `1.83e-15` | `1.29e-13` | `0` |
-
-
 
 ## Hardware/Software Setting
 
@@ -264,7 +131,7 @@ Memory reported: 7.60 GiB
 ## Caveats
 
 - This is a research kernel, not a drop-in replacement for well-tested existing routines.
-- The comparison is domain-specific. The randomized tests were conducted over delta values from 0.01 to 0.99 and total implied volatility values from 0.01 to 2.0.
+- Empirical behavior is domain-specific and should not be generalized outside supported regimes without independent testing.
 - Benchmarks were conducted on normalized Black calls. Empirical use requires additional computation for quote normalization, parity transformations, and supported-domain checks.
 - Timings vary across machines, compilers, libm implementations, and host scheduling.
 - The current implementation targets GCC/Clang-like compilers.
