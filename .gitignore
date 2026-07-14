@@ -3,14 +3,17 @@ build/
 *.o
 *.obj
 *.exe
-bench_otm_grid
-bench_lbr_compare
-test_atm
-test_edge_grid
-test_otm_grid
-test_true_otm_grid
-test_random_delta
-test_random_v_delta
-test_random_true_otm
 third_party/
 tools/
+
+# reproduce/ build artifacts (oracle_*.bin are tracked; binaries are not)
+reproduce/smoke
+reproduce/vv
+reproduce/vv_avx2
+reproduce/vv_scalar
+reproduce/warm
+reproduce/fb
+reproduce/bench_512
+reproduce/bench_256
+reproduce/mismatch_dump.csv
+reproduce/market_feed.csv

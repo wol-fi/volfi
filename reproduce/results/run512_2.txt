@@ -1,0 +1,57 @@
+=== volfi-annulus Phase-7 BROAD benchmark  ISA=AVX-512 ===
+
+broad random grid: N=120000 feasible (from 250038 draws), v in [0.03,8], h up to 16.5
+
+=== BROAD-DOMAIN COVERAGE (N=120000) ===
+  route counts: WING=93240 LEFT=2833 CENTRAL=16181 RIGHT=7746 EDGE=0
+  NEW 4-chart coverage (WING+LEFT+CENTRAL+RIGHT) = 120000/120000 = 100.00%
+  OLD in-box fast path (CENTRAL table + WING only)= 109421/120000 = 91.18%   [rest was crude fallback]
+  COVERAGE GAIN: 91.18% -> 100.00%
+
+GRIDBATCH_VS_SCALAR broad grid (canonical noinline entry): mismatches=0 (>1ulp=0)  [must be 0]
+
+=== ACCURACY vs construction v (per chart, rel-sigma) ===
+  WING     n=93240   max=2.461e-14 (110.85 ulp)  median=1.870e-16 (0.84 ulp)
+  LEFT     n=2833    max=1.985e-14 (89.39 ulp)  median=7.532e-16 (3.39 ulp)
+  CENTRAL  n=16181   max=5.449e-15 (24.54 ulp)  median=1.767e-16 (0.80 ulp)
+  RIGHT    n=7746    max=6.176e-16 (2.78 ulp)  median=0.000e+00 (0.00 ulp)
+
+=== PER-CHART TIMING (BENCH_RUNS=15 REPEATS=8), mixed broad grid subset per chart ===
+  CENTRAL  n=16181   A_volfi=   75.1  B_lbr=  236.7  C_scalar=   72.2  D_gridbatch=  349.3  (ns/eval, median)
+  LEFT     n=2833    A_volfi=   71.8  B_lbr=  220.0  C_scalar=  219.4  D_gridbatch=   32.0  (ns/eval, median)
+  RIGHT    n=7746    A_volfi=   64.0  B_lbr=  159.5  C_scalar=  672.4  D_gridbatch=  448.6  (ns/eval, median)
+  WING     n=93240   A_volfi=   93.1  B_lbr=  306.8  C_scalar= 3734.2  D_gridbatch=  434.3  (ns/eval, median)
+
+=== FULL broad mixed grid (all charts) ===
+TIMING mixed    B_lbr_all              median=  287.07  IQR=[  286.37,  287.63]  ns/eval
+TIMING mixed    C_scalar_all           median= 2930.26  IQR=[ 2925.93, 2934.10]  ns/eval
+TIMING mixed    D_gridbatch_all        median=  435.63  IQR=[  430.31,  440.45]  ns/eval
+  batch speedup vs scalar = 6.73x (blended; CENTRAL subset vectorized, endpoints scalar)
+
+=== FIXED-h SURFACE per chart (ns/eval median; Phase-8 D_batch vectorizes CENTRAL+LEFT+RIGHT) ===
+  -- CENTRAL-clean surfaces (v above wing seam h/sqrt6, below v=2; chart-pure) --
+  CENTRAL  h=1.00 v in [0.45,1.95] n=4096   A_volfi=   47.8  B_lbr=  162.6  C_scalar=   70.5  D_batch=   17.3
+  CENTRAL  h=2.00 v in [0.85,1.95] n=4096   A_volfi=   59.0  B_lbr=  183.1  C_scalar=   70.3  D_batch=   17.0
+  CENTRALc h=1.00 v in [0.05,2.00] n=4096   A_volfi=   53.0  B_lbr=  187.0  C_scalar=  574.9  D_batch=  542.0
+  -- LEFT-heavy surfaces (h<H_ATM_HI, v<=1.70; Phase-8 batch runs LEFT SIMD kernel) --
+  LEFT     h=0.10 v in [0.20,1.60] n=4096   A_volfi=   42.5  B_lbr=  137.1  C_scalar=  178.6  D_batch=   26.9
+  LEFT     h=0.20 v in [0.30,1.60] n=4096   A_volfi=   42.5  B_lbr=  138.3  C_scalar=  181.7  D_batch=   26.9
+  LEFT     h=0.28 v in [0.30,1.60] n=4096   A_volfi=   43.3  B_lbr=  144.3  C_scalar=  186.7  D_batch=   26.9
+  -- RIGHT-heavy surfaces (v>2; Phase-8 batch runs RIGHT SIMD kernel) --
+  RIGHT    h=0.50 v in [2.10,8.00] n=4096   A_volfi=   59.8  B_lbr=  209.1  C_scalar=  666.0  D_batch=   78.4
+  RIGHT    h=1.00 v in [2.10,8.00] n=4096   A_volfi=   59.9  B_lbr=  204.3  C_scalar=  666.7  D_batch=   78.3
+  RIGHT    h=3.00 v in [2.10,8.00] n=4096   A_volfi=   59.4  B_lbr=  195.3  C_scalar=  670.2  D_batch=   78.2
+
+=== MARKET-REALISTIC FEED (2024 SPX tradeable, actual prices, N=30000) ===
+  GRIDBATCH_VS_SCALAR market feed (speculative driver): mismatches=0  [must be 0]
+  route mix: WING=4.84% LEFT=90.05% CENTRAL=5.11% RIGHT=0.00% EDGE=0.00%
+TIMING market   B_lbr_feed             median=  225.07  IQR=[  224.53,  226.95]  ns/eval
+TIMING market   C_scalar_feed          median=  565.61  IQR=[  564.48,  566.41]  ns/eval
+TIMING market   D_gridbatch_feed       median=   76.90  IQR=[   76.67,   77.24]  ns/eval
+  batch speedup vs scalar = 7.35x ; vs LBR scalar = 2.93x
+
+TIMING stream   E_warm2_feed           median=   39.06  IQR=[   38.95,   39.19]  ns/eval
+TIMING stream   E_warm3_feed           median=   57.15  IQR=[   56.95,   57.23]  ns/eval
+  warm-2step vs cold gridbatch = 1.97x faster ; vs LBR = 5.76x
+
+done.

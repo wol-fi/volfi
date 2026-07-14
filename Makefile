@@ -1,58 +1,26 @@
-CXX ?= clang++
-STD ?= -std=c++17
-INC := -Iinclude
-TEST_FLAGS ?= -O2
-BENCH_FLAGS ?= -Ofast -march=native -ffp-contract=fast -fno-math-errno
+# volfi v0.2.0 is header-only. The verification and benchmark harness lives in reproduce/;
+# this top-level Makefile delegates to it.
+#
+#   make check   build and run the host-independent checks (accuracy + scalar==batch)
+#   make verify  the accuracy / bit-identity suite alone
+#   make smoke   the quick self-check
+#   make clean
+#
+# The LBR head-to-head benchmark needs Jaeckel's Let's Be Rational sources, which are not
+# redistributed here; see reproduce/README.md and reproduce/BENCHMARK_PROTOCOL.md.
 
-all: test_otm_grid test_true_otm_grid test_edge_grid test_random_delta test_random_v_delta test_random_low_delta test_random_true_otm test_fastpatch test_atm test_domain bench_otm_grid
+.PHONY: test check verify smoke clean
 
-test_otm_grid: tests/test_otm_grid.cpp include/volfi/volfi.hpp include/volfi/volfi_fastpatch.hpp
-	$(CXX) $(STD) $(TEST_FLAGS) $(INC) $< -o $@
+test check:
+	$(MAKE) -C reproduce check
 
-test_true_otm_grid: tests/test_true_otm_grid.cpp include/volfi/volfi.hpp include/volfi/volfi_fastpatch.hpp
-	$(CXX) $(STD) $(TEST_FLAGS) $(INC) $< -o $@
+verify:
+	$(MAKE) -C reproduce vv
+	cd reproduce && ./vv
 
-test_edge_grid: tests/test_edge_grid.cpp include/volfi/volfi.hpp include/volfi/volfi_fastpatch.hpp
-	$(CXX) $(STD) $(TEST_FLAGS) $(INC) $< -o $@
-
-test_random_delta: tests/test_random_delta.cpp include/volfi/volfi.hpp include/volfi/volfi_fastpatch.hpp
-	$(CXX) $(STD) $(TEST_FLAGS) $(INC) $< -o $@
-
-test_random_v_delta: tests/test_random_v_delta.cpp include/volfi/volfi.hpp include/volfi/volfi_fastpatch.hpp
-	$(CXX) $(STD) $(TEST_FLAGS) $(INC) $< -o $@
-
-test_random_low_delta: tests/test_random_low_delta.cpp include/volfi/volfi.hpp include/volfi/volfi_fastpatch.hpp
-	$(CXX) $(STD) $(TEST_FLAGS) $(INC) $< -o $@
-
-test_random_true_otm: tests/test_random_true_otm.cpp include/volfi/volfi.hpp include/volfi/volfi_fastpatch.hpp
-	$(CXX) $(STD) $(TEST_FLAGS) $(INC) $< -o $@
-
-test_fastpatch: tests/test_fastpatch.cpp include/volfi/volfi.hpp include/volfi/volfi_fastpatch.hpp
-	$(CXX) $(STD) $(TEST_FLAGS) $(INC) $< -o $@
-
-test_atm: tests/test_atm.cpp include/volfi/volfi.hpp include/volfi/volfi_fastpatch.hpp
-	$(CXX) $(STD) $(TEST_FLAGS) $(INC) $< -o $@
-
-test_domain: tests/test_domain.cpp include/volfi/volfi.hpp include/volfi/volfi_fastpatch.hpp
-	$(CXX) $(STD) $(TEST_FLAGS) $(INC) $< -o $@
-
-bench_otm_grid: bench/bench_otm_grid.cpp include/volfi/volfi.hpp include/volfi/volfi_fastpatch.hpp
-	$(CXX) $(STD) $(BENCH_FLAGS) $(INC) $< -o $@
-
-test: test_otm_grid test_true_otm_grid test_edge_grid test_random_delta test_random_v_delta test_random_low_delta test_random_true_otm test_fastpatch test_atm test_domain
-	./test_otm_grid
-	./test_true_otm_grid
-	./test_edge_grid
-	./test_random_delta
-	./test_random_v_delta
-	./test_random_low_delta
-	./test_random_true_otm
-	./test_fastpatch
-	./test_atm
-	./test_domain
-
-bench: bench_otm_grid
-	./bench_otm_grid
+smoke:
+	$(MAKE) -C reproduce smoke
+	cd reproduce && ./smoke | tail -2
 
 clean:
-	rm -f test_otm_grid test_true_otm_grid test_edge_grid test_random_delta test_random_v_delta test_random_low_delta test_random_true_otm test_fastpatch test_atm test_domain bench_otm_grid
+	$(MAKE) -C reproduce clean
