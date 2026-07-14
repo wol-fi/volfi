@@ -918,6 +918,7 @@ inline double implied_volatility(double forward, double strike, double price,
     // parity flip to the OTM twin: C - P = F - K  =>  c = p_call - (1 - k), etc.
     if ( is_call && k < 1.0) p -= (1.0 - k);          // ITM call -> OTM put value
     if (!is_call && k > 1.0) p -= (k - 1.0);          // ITM put  -> OTM call value
+    if (k < 1.0) p /= k;                              // K<F: the OTM-call twin is normalized by K, not F
     const double h = std::fabs(std::log(k));
     iv_status st;
     double w = implied_variance_otm_checked(h, p, &st);

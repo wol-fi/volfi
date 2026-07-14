@@ -87,16 +87,19 @@ def test_checked_status():
 
 
 def test_parity_call_put_agree():
-    F, K, sigma, T = 100.0, 110.0, 0.30, 1.0   # OTM call (K > F)
-    h = abs(math.log(K / F))
-    c = _otm_call_c(h, sigma * math.sqrt(T))
-    call_price = c * F                          # undiscounted (D = 1)
-    put_price = call_price - (F - K)            # parity: C - P = F - K
-    s_call = volfi.implied_volatility_from_option(F, K, call_price, T, is_call=True)
-    s_put = volfi.implied_volatility_from_option(F, K, put_price, T, is_call=False)
-    assert abs(s_call - sigma) < 1e-9
-    assert abs(s_put - sigma) < 1e-9
-    assert abs(s_call - s_put) < 1e-12
+    # Both sides of the money: K > F (OTM call / ITM put) and K < F (ITM call / OTM put).
+    # The K < F branch is the one that exercises the OTM-twin normalization by K.
+    F, T = 100.0, 1.0
+    for K, sigma in [(110.0, 0.30), (90.0, 0.35), (125.0, 0.20), (80.0, 0.50)]:
+        s = sigma * math.sqrt(T)
+        d1 = (math.log(F / K) + 0.5 * s * s) / s
+        d2 = d1 - s
+        call = F * _phi(d1) - K * _phi(d2)      # undiscounted Black
+        put = call - (F - K)                    # parity: C - P = F - K
+        s_call = volfi.implied_volatility_from_option(F, K, call, T, is_call=True)
+        s_put = volfi.implied_volatility_from_option(F, K, put, T, is_call=False)
+        assert abs(s_call - sigma) < 1e-10, (K, "call", s_call, sigma)
+        assert abs(s_put - sigma) < 1e-10, (K, "put", s_put, sigma)
 
 
 def test_warm_restart():

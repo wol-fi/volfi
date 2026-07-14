@@ -4,7 +4,7 @@ Title: Rcpp Wrapper for volfi Annulus
 Version: 0.2.0
 Authors@R: c(person("Wolfgang", "Schadner", email = "wolfgang.schadner@uni.li", role = c("aut", "cre")))
 Description: R binding for the volfi Annulus research reference implementation, including OTM, normalized-call, and forward-price option interfaces.
-License: file LICENSE
+License: BSD_3_clause + file LICENSE
 Encoding: UTF-8
 SystemRequirements: C++17
 Imports: Rcpp
