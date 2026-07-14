@@ -7,6 +7,9 @@ volfi_iv_otm <- function(h, c, t) .Call("_volfiR_volfi_iv_otm", as.numeric(h), a
 volfi_w_call_norm <- function(k, c) .Call("_volfiR_volfi_w_call_norm", as.numeric(k), as.numeric(c), PACKAGE = "volfiR")
 volfi_iv_call_norm <- function(k, c, t) .Call("_volfiR_volfi_iv_call_norm", as.numeric(k), as.numeric(c), as.numeric(t), PACKAGE = "volfiR")
 volfi_iv_call <- function(f, k, d, t, price) .Call("_volfiR_volfi_iv_call", as.numeric(f), as.numeric(k), as.numeric(d), as.numeric(t), as.numeric(price), PACKAGE = "volfiR")
+volfi_w_batch <- function(ctx, c) .Call("_volfiR_volfi_w_batch", ctx, as.numeric(c), PACKAGE = "volfiR")
+volfi_w_otm_checked <- function(h, c) .Call("_volfiR_volfi_w_otm_checked", as.numeric(h), as.numeric(c), PACKAGE = "volfiR")
+volfi_iv_option <- function(forward, strike, price, t, is_call = TRUE) .Call("_volfiR_volfi_iv_option", as.numeric(forward), as.numeric(strike), as.numeric(price), as.numeric(t), as.logical(is_call), PACKAGE = "volfiR")
 volfi_version <- function() .Call("_volfiR_volfi_version", PACKAGE = "volfiR")
 print.volfi_ctx <- function(x, ...) {
   cat("<volfi_ctx: ", volfi_ctx_size(x), ">", sep = ""); cat("\n")

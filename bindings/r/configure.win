@@ -1,9 +1,3 @@
 #!/bin/sh
 set -e
-mkdir -p src/volfi
-if [ -f ../../include/volfi/volfi.hpp ]; then
-  cp ../../include/volfi/volfi.hpp src/volfi/volfi.hpp
-else
-  "${R_HOME}/bin/Rscript" -e 'download.file("https://raw.githubusercontent.com/wol-fi/volfi/main/include/volfi/volfi.hpp", "src/volfi/volfi.hpp", quiet = TRUE)'
-fi
-test -s src/volfi/volfi.hpp
+test -s src/volfi_annulus/volfi_annulus_all.hpp
