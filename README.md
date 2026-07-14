@@ -186,8 +186,8 @@ likewise not included; `reproduce/README.md` documents how to regenerate it.
 v0.1.8 is a research reference for the implied-variance quantile identity on a deliberately
 narrow domain. v0.2.0 keeps that kernel (the annulus engine depends on it) and adds the
 routed broad-domain inverter, the vectorized/streaming drivers, and the machine-precision
-certification. The v0.1 kernel headers and the language bindings (`bindings/`, still on the
-v0.1 API) remain in the tree.
+certification. The v0.1 kernel headers remain in the tree. The Python binding
+(`bindings/python`) exposes the v0.2.0 engine; the R binding is still on the v0.1 API.
 
 ## Citation
 

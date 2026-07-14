@@ -31,8 +31,9 @@ remains in the tree — the new engine is built on top of it.
   suite. The root `make` / CMake targets now build and run the v0.2.0 checks in `reproduce/`.
 
 ### Notes
-- Language bindings (`bindings/python`, `bindings/r`) still expose the v0.1 kernel; native
-  v0.2.0 bindings are a follow-up.
+- The Python binding (`bindings/python`) is a native v0.2.0 NumPy binding: array inputs go
+  through the vectorized batch driver, bit-identical to scalar, with the checked-status API,
+  the put-call-parity wrapper, and the warm-restart driver. The R binding still wraps v0.1.
 - *Let's Be Rational* (reference solver for the comparison benchmark) and the licensed
   OptionMetrics market feed are not redistributed; see `NOTICE.md` and `reproduce/README.md`.
 

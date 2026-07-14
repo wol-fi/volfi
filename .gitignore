@@ -6,6 +6,13 @@ build/
 third_party/
 tools/
 
+# python binding build artifacts
+*.so
+__pycache__/
+*.egg-info/
+.pytest_cache/
+dist/
+
 # reproduce/ build artifacts (oracle_*.bin are tracked; binaries are not)
 reproduce/smoke
 reproduce/vv
