@@ -1,6 +1,6 @@
 # volfiR
 
-Minimal R binding for the volfi Annulus v0.2.0 research reference implementation.
+Minimal R binding for the volfi v0.2.0 research reference implementation.
 
 This binding follows the repository scope: it exposes the quantile-identity implementation and is not presented as a head-to-head performance comparison with other libraries.
 
