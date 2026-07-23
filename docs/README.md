@@ -7,9 +7,6 @@
   cross-build bit-identity construction (`-ffp-contract=off`), and the full timing
   methodology behind the paper's table.
 
-The LaTeX source and figures for the paper are in [`paper/`](../paper) (build with
-`pdflatex`/`bibtex`).
-
 The paper is the authoritative technical reference; the top-level
 [README](../README.md) is the quick-start, and [`reproduce/`](../reproduce) reproduces the
 accuracy and timing results.
