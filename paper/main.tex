@@ -1,6 +1,6 @@
 %% Target venue: The Journal of Computational Finance (Risk.net / Infopro Digital)
 %% House style: author-date (Chicago) in-text; APA references with DOIs; abstract 150-200 words,
-%% single paragraph, no citations; method-paper layout; <=10,000 words; double-blind (anonymized).
+%% single paragraph, no citations; method-paper layout; <=10,000 words; single-blind (name-free PDF).
 %% OPEN ITEMS: (1) anonymized title page on submission.
 %% Table 4 (timing) + streaming row locked 2026-07-14 to one consistent quiet-machine
 %% session (run512_*/run256_*, 5 reps each) under the FINAL build (-ffp-contract=off,
@@ -34,14 +34,15 @@
 % route tag: force medium-weight small caps so it renders even inside bold section titles
 \newcommand{\rtag}[1]{{\normalfont\scshape #1}}
 
-% Blind toggle: \blindtrue anonymizes for double-blind journal submission;
+% Blind toggle: \blindtrue anonymizes the manuscript for peer review (JCF runs
+% single-blind review but still asks for a name-free submission PDF);
 % \blindfalse produces the authored preprint (this is the repository/preprint build).
 \newif\ifblind
 \blindfalse
 
 \title{A Routed, Vectorizable Table Inverter for\\ Machine-Precision Black--Scholes Implied Volatility}
 \ifblind
-  \author{}        % anonymized for double-blind review; separate title page
+  \author{}        % name-free for JCF's blinded (single-blind) review
   \date{}
 \else
   \author{Wolfgang Schadner\\[2pt]
