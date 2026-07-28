@@ -1,19 +1,20 @@
-# volfi v0.2.0
+# volfi v0.2.3
 
 `volfi` is a header-only C++17 reference implementation for inverting the Black–Scholes
 price–to–implied-volatility map at machine precision.
 
-Version 0.2.0 replaces the narrow quantile-identity kernel of v0.1 with a **routed,
+Version 0.2 replaces the narrow quantile-identity kernel of v0.1 with a **routed,
 vectorizable table inverter** that covers the full practical domain of a production
 implied-volatility library (total volatility `v = sigma*sqrt(T)` up to ~8, log-moneyness
 `h = |log(K/F)|` up to ~16.2) while remaining accurate to the last few units in the last
-place and producing **bit-identical results from its scalar and SIMD paths**.
+place and producing **bit-identical results from its scalar and SIMD paths** — and, since
+v0.2.3, from a CUDA port of the same kernels.
 
 The engine is built on top of the v0.1 kernel (it reuses `volfi::qnorm`, the OTM context,
-and the price/Halley primitives), so both versions coexist in the tree; v0.2.0 is the
+and the price/Halley primitives), so both versions coexist in the tree; v0.2.3 is the
 current release.
 
-The accompanying paper (`docs/volfi_v0.2.0_paper.pdf`) documents the method, the accuracy
+The accompanying paper (`docs/volfi_v0.2.3_paper.pdf`) documents the method, the accuracy
 certification, and the timing methodology in full.
 
 ## What it does
@@ -31,23 +32,33 @@ A branchless per-quote predicate routes each `(h, c)` to one of four charts, eac
 across its own region so that no single approximation is stretched past where it conditions
 well:
 
-| chart   | region                         | method                                             |
-|---------|--------------------------------|----------------------------------------------------|
-| CENTRAL | `h in [0.3, 6.65]`, `v <= 2`   | bivariate Chebyshev table in `W = h^2/(2w)`         |
-| LEFT    | `h < 0.3`, `v <= 1.70`         | matched small-moneyness expansion                  |
-| RIGHT   | `v > 1.70` / `h > 6.65`        | erf-free seed + fixed 3-step Householder on the exact equation |
-| WING    | `W = h^2/(2w) >= 3`            | resurgent deep-OTM evaluator (erf-free), prices to `1e-320` |
+| chart   | source id | region                                              | method                                                         |
+|---------|-----------|-----------------------------------------------------|----------------------------------------------------------------|
+| `NEAR`  | `LEFT`    | `h < 0.3`, below the ceiling                        | matched small-moneyness expansion                              |
+| `FAR`   | `CENTRAL` | `0.3 <= h <= 6.65`, between the two seams           | bivariate Chebyshev table in `W = h^2/(2w)`                    |
+| `WING`  | `WING`    | `c < c_w(h) = C(h, h/sqrt(7.6))`, i.e. `W >= 3.8`   | resurgent deep-OTM evaluator (erf-free), prices to `1e-320`    |
+| `UPPER` | `RIGHT`   | `c > c_top(h) = C(h, 1.85)`, i.e. `v > 1.85`        | erf-free seed + fixed 3-step Householder on the exact equation |
 
-The chart boundaries are fixed by branch-point analysis of the inverse map, not tuned.
+**Naming.** The paper renames three charts for readability — `NEAR` (was `LEFT`), `FAR`
+(was `CENTRAL`), `UPPER` (was `RIGHT`) — because `LEFT`/`RIGHT` read as two ends of one axis
+and are not: one is a condition on `h`, the other on `c`. **The source keeps the original
+identifiers**; the mapping table at the top of
+[`reproduce/BENCHMARK_PROTOCOL.md`](reproduce/BENCHMARK_PROTOCOL.md) is authoritative.
+
+The chart boundaries are fixed by branch-point analysis of the inverse map, not tuned. Only
+two frozen polynomials in `h` are evaluated to route — the wing seam `c_w` and the shared
+ceiling `c_top` — and both are compared against the input price directly, so no price is
+evaluated and no volatility is computed to classify a quote.
 
 ![Routing of the price domain into four charts, with a 2024 S&P 500 book overlaid](docs/figures/routing_map.png)
 
-*The four charts tile the feasible `(h, v)` plane, with boundaries fixed by the
-maturity-independent branch-point geometry of the inverse map (left). Zooming into the
-near-the-money corner (right) with a full year of tradeable 2024 S&P 500 quotes overlaid:
-about 90% of a real book falls in the small-moneyness LEFT chart and a further 5% in the deep
-wing, while the large-volatility RIGHT region that dominates the plane by area carries
-essentially none.*
+*The routing predicate in the coordinates it actually uses: the input strip `0 < c < 1`
+against moneyness, tiled by the four charts (left). Each seam is a threshold price returned
+by a one-dimensional polynomial, so the two curves are the classifier itself rather than a
+picture of its consequences. Zooming into the near-the-money corner (right) with a full year
+of tradeable 2024 S&P 500 quotes overlaid as their actual quoted prices: about 92% of a real
+book falls in `NEAR` and a further 7% in `FAR`, while `UPPER` carries essentially none and
+`WING` retains only the quotes that genuinely require it.*
 
 ## Properties
 
@@ -55,11 +66,12 @@ essentially none.*
   feasible domain: **zero points worse than `1e-15` relative in `sigma`**, worst case
   ~`8.3e-16` (about 5 ULP). The included golden vectors (`reproduce/oracle_*.bin`) certify
   this on every build.
-- **Deterministic across builds.** The scalar entry and the AVX-512 / AVX2 batch drivers
-  produce **bit-identical** output vectors, and all five reference builds
-  (gcc/clang × AVX-512/AVX2/scalar) agree bit-for-bit. This is guaranteed by compiling with
-  `-ffp-contract=off`, which turns every fused multiply-add into an explicit `std::fma` in
-  the source so codegen cannot vary the fusion by translation unit, ISA, or compiler.
+- **Deterministic across builds and architectures.** The scalar entry, the AVX-512 / AVX2
+  batch drivers and the CUDA device kernels produce **bit-identical** output, and all
+  reference builds (gcc/clang × AVX-512/AVX2/scalar) agree bit-for-bit. This is guaranteed by
+  compiling with `-ffp-contract=off` (`--fmad=false` on the device), which turns every fused
+  multiply-add into an explicit `std::fma` in the source so codegen cannot vary the fusion by
+  translation unit, ISA, or compiler.
 - **Total input contract.** `implied_variance_otm_checked` classifies every input
   (`ok`, `below_intrinsic`, `above_max`, `bad_input`, `out_of_domain`, `near_saturation`)
   and never returns silent garbage; invalid domains yield `NaN`.
@@ -70,8 +82,8 @@ essentially none.*
 
 *Relative error in `sigma` across the `(h, v)` domain, against a 40-digit oracle. The routed
 inverter (left) holds machine precision everywhere; the reference (right) matches it over most
-of the plane but degrades near the intrinsic edge (`c → 1`, right chart) and in the deep wing,
-where its reduced variable `beta = c·e^{-h/2}` underflows.*
+of the plane but degrades near the intrinsic edge (`c → 1`, the `UPPER` region) and in the deep
+wing, where its reduced variable `beta = c·e^{-h/2}` underflows.*
 
 ## Performance (summary)
 
@@ -83,33 +95,54 @@ lanes, and grows with the register width.
 
 ![Vectorized inversion throughput vs batch size](docs/figures/vectorization.png)
 
-*On a real 2024 S&P 500 feed, the vectorized streaming re-inversion sustains about five to six
-times the throughput of the scalar reference, flat once a batch fills one SIMD register. A
-single isolated quote cannot be vectorized and is the one regime the scalar reference still
-wins.*
+*On a real 2024 S&P 500 feed, the vectorized streaming re-inversion sustains about six times
+the throughput of the scalar reference, flat once a batch fills one SIMD register (the step at
+`n = 8` is one AVX-512 register filling). A single isolated quote cannot be vectorized and is
+the one regime the scalar reference still wins.*
 
 Measured on a quiet Intel Core i5-1145G7 (Linux, GCC 11.4, `-O3 -ffp-contract=off
--fno-fast-math`), median nanoseconds per quote, against Jäckel's *Let's Be Rational* (LBR)
-as the reference. Full methodology and the reproducible table are in the paper and in
-`reproduce/`.
+-fno-fast-math -funroll-loops`), medians of five repetitions, nanoseconds per quote, against
+Jäckel's *Let's Be Rational* (LBR) as the reference. Full methodology and the reproducible
+table are in the paper and in `reproduce/`.
+
+![Throughput by workload](docs/figures/throughput_by_workload.png)
 
 - **Realistic market book** (2024 SPX EOD, tradeable options, timed all-inside so every
-  method pays its own per-quote input transform): **77 ns vs LBR 226 (2.9×)** on AVX-512,
-  108 vs 225 (2.1×) on AVX2.
-- **Chart-pure surfaces:** 9.5× (central), 5.1× (small-moneyness), 2.6× (large-volatility)
-  on AVX-512.
+  method pays its own per-quote input transform): **48 ns vs LBR 227 (4.7×)** on AVX-512,
+  86 vs 225 (2.6×) on AVX2.
+- **Chart-pure fixed-moneyness surfaces** (AVX-512): 5.4× (`NEAR`), 9.9× (`FAR`),
+  2.8× (`UPPER`).
 - **Streaming re-inversion** (guarded 2-step warm restart from the previous snapshot):
-  **~40 ns per quote**, 0.52× the cold driver and 5.7× LBR, flat in batch size.
+  **37 ns per quote**, 0.76× the cold driver and 6.2× LBR, flat in batch size.
 
 Honest limitations, stated the same way in the paper:
 
-- On a **broad synthetic stress grid that is 78% deep wing** — a distribution no traded book
-  resembles — the reference is faster (288 vs 440 ns); the adaptive dispatcher routes such a
-  feed to a plain sort-then-batch driver rather than speculating, and the row is reported to
-  mark it.
+- On a **broad synthetic stress grid that is 70% deep wing** — a distribution no traded book
+  resembles — the advantage disappears: AVX-512 draws level with the reference (293 vs 294 ns)
+  and AVX2 is slower (367 vs 288). The adaptive dispatcher routes such a feed to a plain
+  sort-then-batch driver rather than speculating, and the row is reported to mark it.
 - On a **single isolated cold scalar quote**, LBR remains faster. `volfi` amortizes per-quote
   context and routing across a batch; the streaming answer to one ticked node is the guarded
   warm refinement of its previous value, not a cold one-off.
+
+### GPU
+
+The same kernels, mirrored as CUDA device code operation for operation and compiled with
+`--fmad=false`, return **bitwise identical doubles** to the CPU scalar entry — zero mismatches
+at zero ULP, on every chart, over 5.01 M quotes of the market feed and 5.24 M-quote chart-pure
+surfaces. On one NVIDIA H100 PCIe (CUDA 12.4), median nanoseconds per quote over 300 passes:
+
+| workload                     | ns per quote |
+|------------------------------|--------------|
+| `NEAR` surface, `h=0.2`      | 0.038        |
+| `FAR` surface, `h=1`         | 0.140        |
+| `WING` surface, `h=1`        | 0.669        |
+| `UPPER` surface, `h=1`       | 0.168        |
+| **full book (2024 SPX mix)** | **0.078**    |
+
+Sources in [`gpu/`](gpu). The device headers are generated from the CPU headers by
+`gpu/make_device_constants.py` and `gpu/make_device_tables.py` — regenerate them before
+building; they are deliberately not checked in.
 
 ## Build and use
 
@@ -151,14 +184,17 @@ on a host without AVX the drivers fall back to the scalar kernel with identical 
 ## Verification and benchmarks
 
 `reproduce/` is a self-contained bundle: the standalone accuracy / bit-identity suite, the
-timing benchmark, the golden `mpmath` oracle vectors, the exact build protocol, and the
-reference run outputs. See [`reproduce/README.md`](reproduce/README.md).
+timing benchmark, the batch-size sweep, the golden `mpmath` oracle vectors, the exact build
+protocol, and the reference run outputs. See [`reproduce/README.md`](reproduce/README.md).
 
 ```
 cd reproduce
 g++ -std=c++17 -O3 -march=native -ffp-contract=off -fno-fast-math -I../include/volfi \
     verify_vec.cpp -o vv && ./vv        # prints BIT-IDENTITY: PASS, pts>1e-15 = 0
 ```
+
+`./build_all.sh /path/to/LetsBeRational` builds every harness in one step: the three ISA
+variants of the smoke and verification checks, the timing benchmarks, and the batch sweep.
 
 The LBR head-to-head benchmark additionally requires Jäckel's *Let's Be Rational* sources,
 which are not redistributed here — see `reproduce/README.md` for the drop-in path. The market
@@ -167,9 +203,10 @@ likewise not included; `reproduce/README.md` documents how to regenerate it.
 
 ## Documentation
 
-- [`docs/volfi_v0.2.0_paper.pdf`](docs/volfi_v0.2.0_paper.pdf) — the technical paper (method,
+- [`docs/volfi_v0.2.3_paper.pdf`](docs/volfi_v0.2.3_paper.pdf) — the technical paper (method,
   derivations, accuracy certification, timing methodology).
 - [`docs/README.md`](docs/README.md) — documentation index.
+- [`CHANGELOG.md`](CHANGELOG.md) — what changed in v0.2.3, and what it cost.
 
 ## Domain conventions
 
@@ -184,15 +221,15 @@ likewise not included; `reproduce/README.md` documents how to regenerate it.
 ## Relationship to v0.1
 
 v0.1.8 is a research reference for the implied-variance quantile identity on a deliberately
-narrow domain. v0.2.0 keeps that kernel (the annulus engine depends on it) and adds the
+narrow domain. v0.2 keeps that kernel (the annulus engine depends on it) and adds the
 routed broad-domain inverter, the vectorized/streaming drivers, and the machine-precision
 certification. The v0.1 kernel headers remain in the tree. The Python binding
-(`bindings/python`) exposes the v0.2.0 engine; the R binding is still on the v0.1 API.
+(`bindings/python`) exposes the v0.2 engine; the R binding is still on the v0.1 API.
 
 ## Citation
 
 If this software, method, or benchmark informs research, software, or published results,
-please cite the repository and the accompanying paper (`docs/volfi_v0.2.0_paper.pdf`). See
+please cite the repository and the accompanying paper (`docs/volfi_v0.2.3_paper.pdf`). See
 [`NOTICE.md`](NOTICE.md).
 
 ## License

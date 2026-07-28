@@ -93,6 +93,25 @@ static const double BINV_CB2[25] = {
   -4.535817473380558e-16,7.767824684686082e-17,-7.525567293120925e-18,
   -5.61181142339571e-19,
 };
+// regime b3 (v0.2.3): continues b2 for L in [B2B, B2B+3*ln2], i.e. 3 octaves past the
+// old W=3 wing seam, so the LEFT chart no longer has to hand those quotes to WING.
+// A in [2.4510196252, 3.017933919]  (W in [3, 4.554]).  13 coefficients reach
+// 1.07e-16 relative in A -- 4.7x better than b2 on half the coefficient count, because
+// the interval is narrower and A(L) is smoother out here (~0.19 per octave, decelerating).
+// Fitted and validated in V023_PHASE1_BINV_B3.md.
+static const double BINV_L_B3A = 6.958307262339952;   // == BINV_L_B2B
+static const double BINV_L_B3B = 9.037748804019788;   // == BINV_L_B2B + 3*ln2
+static const double BINV_RHO_C  = 0.0009507045065752332;   // = exp(-B3A): the b2/b3 split
+// = exp(-B3B): b3's lower rho edge, and hence the LEFT-band wing seam (see BR_RHO_STAR note).
+static const double BINV_RHO_C3 = 0.00011883806332190412;
+// 17 significant digits: these MUST round-trip to the fitted doubles exactly.
+static const double BINV_CB3[13] = {
+  7.5394773367016725,1.550943999889087,0.01820479340829651,
+  -0.0007289704063977724,2.9011551636022916e-05,-1.0596067288563586e-06,
+  3.123851862935371e-08,-3.8147449026728726e-10,-4.1256855123501525e-11,
+  4.879398999206299e-12,-3.5808761221106343e-13,2.1362854601937544e-14,
+  -1.0856852461243313e-15,
+};
 
 // ===================== 2. LEFT chart =====================
 static const double LEFT_S_V2X = 0.22;  // s<this -> V2 series
@@ -140,6 +159,11 @@ static const int    RIGHT_NEWTON_MAX = 10;  // safeguarded Newton cap
 static const double BR_RHO_STAR    = 0.000950704506575233;  // = B(A_MAX), wing seam (W=3)
 static const double BR_CTILDE_STAR = 0.6826894921370859;  // = E(2)=2*Phi(1)-1
 static const double BR_H_ATM_HI    = 0.3;
+// 2*sqrt(6): the h at which the W=3 wing ray (v=h/sqrt6) crosses the v=2 CENTRAL/RIGHT seam.
+// For h above it the wing seam sits ABOVE v=2, so WING owns a wedge of the v>2 region that
+// RIGHT is not accurate on.  v0.2.3 lowered the region-0 wing floor to the table floor, which
+// would have handed that wedge to RIGHT; the router keeps the W=3 ray as the wedge boundary.
+static const double BR_H_WEDGE     = 4.898979485566356;
 static const double BR_H_BOX       = 6.6526957;
 // LEFT<->RIGHT seam for the h<H_ATM_HI band.  The LEFT matched finisher is fit to
 // s<=LEFT_S_MAX (~v<=1.94) and EXTRAPOLATES for v->2 at the h=0.3/v=2 double
@@ -178,6 +202,25 @@ static const double EXPM1G_C[11] = {
 static const double BR_INV_SQRT6   = 0.408248290463863;
 // c2(h)=C(h,2): fit of log(price); c2 = exp(clenshaw(C2_COEFFS,...,h))
 static const double C2_A = 1e-06, C2_B = 16.0;
+// v0.2.3: ONE upper seam for every band, C(h,1.70), replacing BOTH c2_price (v=2,
+// CENTRAL|RIGHT) and ctl_seam (v=1.70, LEFT|RIGHT).  RIGHT is measured machine-precise
+// from v>=1.55, so 1.70 sits inside its certified range; the small-moneyness chart is
+// certified to the same level, so LEFT and CENTRAL now share one continuous ceiling and
+// the router evaluates one polynomial instead of two.
+static const double CTOP_A = 1e-06, CTOP_B = 16.0;   // C(h,1.85), v0.2.3 unified ceiling
+static const double CTOP_COEFFS[32] = {
+  -13.319233701079204,-16.87563721928581,-4.173090521965818,
+  -0.13379854891571658,0.034746651468062925,-0.008111380922055066,
+  0.0015218431901277314,-0.0001471538110177883,-4.366203011442144e-05,
+  3.232463695352412e-05,-1.1887990058095135e-05,2.9510583684502465e-06,
+  -3.6453607442737726e-07,-1.0049711904623883e-07,8.784983864275089e-08,
+  -3.5378456219063844e-08,9.439267076073215e-09,-1.2713779395561059e-09,
+  -3.234974364755908e-10,3.0674201783392507e-10,-1.2852321300900926e-10,
+  3.547655562406609e-11,-5.023301686689791e-12,-1.181147470271345e-12,
+  1.1870518480302717e-12,-5.095585865431693e-13,1.437139133249946e-13,
+  -2.1107624019932173e-14,-4.5882912664223005e-15,4.849379705592012e-15,
+  -2.119642856291464e-15,6.076258935708707e-16,
+};
 static const double C2_COEFFS[27] = {
   -11.15977926788583,-14.13647690236051,-3.5202053543371257,
   -0.12345627351402545,0.030583580538905038,-0.006674222116672491,
@@ -191,6 +234,28 @@ static const double C2_COEFFS[27] = {
 };
 // cwing(h)=C(h,h/sqrt6) at W=3: fit of log(cwing/h); cwing=h*exp(clenshaw(...))
 static const double CW_A = 1e-06, CW_B = 16.0;
+// v0.2.3 wing seam: the SAME construction as CW_COEFFS one ray deeper.
+// cwstar(h) = C(h, h/sqrt(7.6)), i.e. the iso-W contour W* = 3.8, replacing W = 3.
+// W*=4 (not deeper) is set by the LARGE-VOLATILITY chart, not by the table: above
+// v=2 this same ray is the RIGHT|WING boundary, and RIGHT is measured to break down
+// once W exceeds its own limit -- measured 4.004 at v=2, and lower below that, so the
+// CEILING caps the seam depth: at the unified ceiling v=1.85 RIGHT breaks at
+// W=3.8717, so W*=3.8 keeps ~1.9% margin.  The table and the b3
+// regime both reach considerably deeper (table >=4.45 in every band, b3 to A=3.018).  A single smooth ray for
+// every band -- the tabulated charts now reach it: LEFT because Binv's b3 regime extends the
+// domain to A = 3.0179 (max A on this curve is 3.0012), CENTRAL because the table gained 3
+// deep octaves per band (4 in band 2).  Fitted worst 1.7e-15 relative in the seam price;
+// a seam is a definition, so what matters is that it is identical in scalar/SIMD/GPU and
+// that both neighbouring charts are certified across it.
+static const double CWS_A = 1e-06, CWS_B = 16.0;
+static const double CWS_COEFFS[18] = {
+  -5.354784202831706,2.2720670592608525,-0.41526546273165593,
+  0.010083319363872384,0.0016663188507932685,0.00012528834558793689,
+  8.775912405686028e-06,-1.0318073639889105e-06,-3.108974178435363e-07,
+  -5.2106206193124786e-08,-4.48746934120024e-09,1.2817298024484585e-10,
+  1.3254029034600824e-10,2.7764527089182577e-11,3.253866864706145e-12,
+  9.122120502793197e-14,-5.914544424742898e-14,-1.6247105262278764e-14,
+};
 static const double CW_COEFFS[23] = {
   -4.529022535754299,1.9212843873241585,-0.4849313948576726,
   0.02103792025431453,0.003497678939874673,0.00023092277530810108,

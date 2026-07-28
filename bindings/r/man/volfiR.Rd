@@ -13,7 +13,7 @@
 \alias{volfi_w_otm_checked}
 \alias{volfi_iv_option}
 \alias{volfi_version}
-\title{Rcpp wrapper for volfi Annulus v0.2.0}
+\title{Rcpp wrapper for volfi Annulus v0.2.3}
 \usage{
 volfi_ctx(h)
 volfi_ctx_size(ctx)
@@ -43,7 +43,7 @@ volfi_version()
 \item{is_call}{Logical flag selecting a call or put for \code{volfi_iv_option}.}
 }
 \description{
-Rcpp wrapper around volfi Annulus v0.2.0.  The engine covers the OTM path, normalized calls, and raw undiscounted forward-price call or put quotes.
+Rcpp wrapper around volfi Annulus v0.2.3.  The engine covers the OTM path, normalized calls, and raw undiscounted forward-price call or put quotes.
 }
 \value{
 \code{volfi_ctx} returns an external pointer. Variance functions return total variance. Volatility functions return implied volatility. \code{volfi_w_otm_checked} returns a list containing variance and a status string for each quote.

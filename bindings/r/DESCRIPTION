@@ -1,7 +1,7 @@
 Package: volfiR
 Type: Package
 Title: Rcpp Wrapper for volfi Annulus
-Version: 0.2.0
+Version: 0.2.3
 Authors@R: c(person("Wolfgang", "Schadner", email = "wolfgang.schadner@uni.li", role = c("aut", "cre")))
 Description: R binding for the volfi Annulus research reference implementation, including OTM, normalized-call, and forward-price option interfaces.
 License: BSD_3_clause + file LICENSE

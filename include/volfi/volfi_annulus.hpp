@@ -278,8 +278,17 @@ inline double exp_neg(double a);   // fwd decl (defined below); seams use the sh
 // reproduces these bit-for-bit and the batch routing decision equals the scalar
 // one; the ~1-ulp shift from libm exp only reclassifies quotes within a ulp of a
 // seam, all inside the inter-chart overlap bands (accuracy-neutral, oracle-gated).
-inline double cwing_price(double h) {            // C(h, h/sqrt6)  (W=3 wing seam)
+inline double cwing_price(double h) {            // C(h, h/sqrt6)  (W=3, the pre-v0.2.3 seam)
     return h * exp_neg(clenshaw1(K::CW_COEFFS, 23, K::CW_A, K::CW_B, h));
+}
+inline double cwstar_price(double h) {           // C(h, h/sqrt(7.6))  (W*=3.8, the v0.2.3 seam)
+    return h * exp_neg(clenshaw1(K::CWS_COEFFS, 18, K::CWS_A, K::CWS_B, h));
+}
+// v0.2.3: ONE upper seam for every band, C(h,1.85).  Replaces c2_price (v=2) for the
+// central band AND ctl_seam (v=1.70) for the small-moneyness band, so the two charts
+// share a single continuous ceiling and the router evaluates one polynomial, not two.
+inline double ctop_price(double h) {             // C(h, 1.85)
+    return exp_neg(clenshaw1(K::CTOP_COEFFS, 32, K::CTOP_A, K::CTOP_B, h));
 }
 inline double c2_price(double h) {               // C(h, 2)        (v=2 central seam)
     return exp_neg(clenshaw1(K::C2_COEFFS, 27, K::C2_A, K::C2_B, h));
@@ -299,9 +308,9 @@ inline double binv(double rho) {
         return u * clenshaw1(K::BINV_CA, 15, K::BINV_U2_A, K::BINV_U2_B, x);
     }
     double L  = -full_log(rho);   // full-log by reuse (log2approx), replaces std::log for SIMD bit-identity
-    double A2 = (rho > K::BINV_RHO_B)
-              ? clenshaw1(K::BINV_CB1, 17, K::BINV_L_B1A, K::BINV_L_B1B, L)
-              : clenshaw1(K::BINV_CB2, 25, K::BINV_L_B2A, K::BINV_L_B2B, L);
+    double A2 = (rho > K::BINV_RHO_B) ? clenshaw1(K::BINV_CB1, 17, K::BINV_L_B1A, K::BINV_L_B1B, L)
+              : (rho > K::BINV_RHO_C) ? clenshaw1(K::BINV_CB2, 25, K::BINV_L_B2A, K::BINV_L_B2B, L)
+              :                         clenshaw1(K::BINV_CB3, 13, K::BINV_L_B3A, K::BINV_L_B3B, L);
     return std::sqrt(A2);
 }
 
@@ -583,18 +592,52 @@ inline double wing_S_d(const double* C, int NU, int NB, double ulo, double uhi,
     double xu = std::fma(2.0, u,    -(ulo + uhi)) / (uhi - ulo);
     double xb = std::fma(2.0, beta, -(wd::WING_B_LO + wd::WING_B_HI))
                 / (wd::WING_B_HI - wd::WING_B_LO);
-    double rows[27];
     const double tb2 = 2.0 * xb;
+    const double tu2 = 2.0 * xu;
+    double S, dS_dxu;
+#if VOLFI_WING_FUSED
+    // FUSED single backward sweep (EXPERIMENTAL, bit-identical): each row is computed
+    // lazily at step i and consumed immediately by BOTH outer Clenshaws, and the
+    // derivative recurrence dp[k]=2(k+1)rows[k+1]+dp[k+2] also runs backward, so only
+    // O(1) live state is needed -- the rows[27]/dp[27] arrays disappear.  Every
+    // recurrence still sees the same values in the same order, so the fma sequence per
+    // lane is unchanged.  Motivation: those arrays are dynamically indexed (NU is a
+    // runtime bound), which puts them in GPU LOCAL memory (432-byte stack frame, 128
+    // registers, 25% occupancy) and forces spills in the CPU SIMD twins.
+    {
+        double sd0 = 0.0, sd1 = 0.0, dd0 = 0.0, dd1 = 0.0;
+        double row_next = 0.0, dpp1 = 0.0, dpp2 = 0.0;
+        for (int i = NU - 1; i >= 1; --i) {
+            const double* Ci = C + i * NB;
+            double e0 = 0.0, e1 = 0.0;
+            for (int j = NB - 1; j >= 1; --j) { double b0 = std::fma(tb2, e0, Ci[j]) - e1; e1 = e0; e0 = b0; }
+            const double row_i = std::fma(xb, e0, Ci[0]) - e1;
+            { double b0 = std::fma(tu2, sd0, row_i) - sd1; sd1 = sd0; sd0 = b0; }
+            const double dp_i = (i == NU - 1) ? 0.0
+                              : (i == NU - 2) ? 2.0 * (NU - 1) * row_next
+                                              : std::fma(2.0 * (i + 1), row_next, dpp2);
+            { double b0 = std::fma(tu2, dd0, dp_i) - dd1; dd1 = dd0; dd0 = b0; }
+            row_next = row_i; dpp2 = dpp1; dpp1 = dp_i;
+        }
+        double e0 = 0.0, e1 = 0.0;                                  // i = 0
+        for (int j = NB - 1; j >= 1; --j) { double b0 = std::fma(tb2, e0, C[j]) - e1; e1 = e0; e0 = b0; }
+        const double row0 = std::fma(xb, e0, C[0]) - e1;
+        S = std::fma(xu, sd0, row0) - sd1;
+        double dp0 = std::fma(2.0 * (0 + 1), row_next, dpp2);
+        dp0 *= 0.5;
+        dS_dxu = std::fma(xu, dd0, dp0) - dd1;
+    }
+#else
+    double rows[27];
     for (int i = 0; i < NU; ++i) {
         const double* Ci = C + i * NB;
         double d0 = 0.0, d1 = 0.0;
         for (int j = NB - 1; j >= 1; --j) { double b0 = std::fma(tb2, d0, Ci[j]) - d1; d1 = d0; d0 = b0; }
         rows[i] = std::fma(xb, d0, Ci[0]) - d1;
     }
-    const double tu2 = 2.0 * xu;
     double d0 = 0.0, d1 = 0.0;
     for (int i = NU - 1; i >= 1; --i) { double b0 = std::fma(tu2, d0, rows[i]) - d1; d1 = d0; d0 = b0; }
-    double S = std::fma(xu, d0, rows[0]) - d1;
+    S = std::fma(xu, d0, rows[0]) - d1;
     double dp[27];
     dp[NU - 1] = 0.0;
     dp[NU - 2] = 2.0 * (NU - 1) * rows[NU - 1];
@@ -603,7 +646,8 @@ inline double wing_S_d(const double* C, int NU, int NB, double ulo, double uhi,
     dp[0] *= 0.5;
     d0 = 0.0; d1 = 0.0;
     for (int i = NU - 1; i >= 1; --i) { double b0 = std::fma(tu2, d0, dp[i]) - d1; d1 = d0; d0 = b0; }
-    double dS_dxu = std::fma(xu, d0, dp[0]) - d1;
+    dS_dxu = std::fma(xu, d0, dp[0]) - d1;
+#endif
     *dS_du = dS_dxu * (2.0 / (uhi - ulo));
     return S;
 }
@@ -646,9 +690,23 @@ inline double wing_variance(double h, double c) {
     if (!(beta <= WING_B_HI)) return br::wing_rescue_variance(h, c);
     const double Lt = wing_Lt(h, c);
     const double lt = std::fmax(Lt, 2.0);
-    double W = std::fmax(std::fma(-1.5, full_log(lt), lt), 2.6);
+    double W = std::fmax(std::fma(-1.5, full_log(lt), lt), 2.6);   // W0 cheap seed
     const bool series = (Lt > WING_LT_BS);
     const bool pieceA = (Lt <= WING_LT_AB);
+    if (!series) {                              // v0.2.1: add the (8,8) seed-table residual
+        const double* C  = pieceA ? WSEED_A      : WSEED_B;
+        const int NU     = pieceA ? WSEED_A_NU   : WSEED_B_NU;
+        const int NB     = pieceA ? WSEED_A_NB   : WSEED_B_NB;
+        const double LO  = pieceA ? WSEED_A_LTLO : WSEED_B_LTLO;
+        const double HI  = pieceA ? WSEED_A_LTHI : WSEED_B_LTHI;
+        const double bLO = pieceA ? WSEED_A_BLO  : WSEED_B_BLO;
+        const double bHI = pieceA ? WSEED_A_BHI  : WSEED_B_BHI;
+        const double Ltc = std::fmin(std::fmax(Lt,   LO ), HI );      // clamp into box (seed only)
+        const double bc  = std::fmin(std::fmax(beta, bLO), bHI);
+        const double xL  = std::fma(2.0, Ltc, -(LO + HI)) / (HI - LO);
+        const double xb  = std::fma(2.0, bc,  -(bLO + bHI)) / (bHI - bLO);
+        W = std::fmax(W + clenshaw2(NU - 1, NB - 1, C, xL, xb), 2.6);
+    }
     for (int it = 0; it < WING_NEWTON_STEPS; ++it) {
         double dlH;
         const double lH = series ? logH_series_d(W, beta, &dlH)
@@ -744,7 +802,7 @@ struct context {
 
     // Broad-range routing precompute (depend on h only): the 1-D-in-h seam prices.
     //   c <  cw   -> WING ;   c <= ct2 (with c>=cw) -> LEFT/CENTRAL ;  else RIGHT.
-    double cw;           // = br::cwing_price(h)  (W=3 wing seam price)
+    double cw;           // = br::cwstar_price(h)  (W*=4.5 wing seam price, v0.2.3)
     double ct2;          // = br::c2_price(h)     (v=2 central/right seam price)
     double ct_left;      // = C(h, LEFT_RIGHT_VSEAM) (region-1 LEFT<->RIGHT seam, v=1.70)
 
@@ -771,8 +829,8 @@ struct context {
         : h(x), h2(x * x), cw(0.0), ct2(0.0), ct_left(0.0), region(0), band(0), xh(0.0),
           eh(0.0), ehp(0.0), expm1h(0.0), xt_left(0.0)
     {
-        cw  = br::cwing_price(x);
-        ct2 = br::c2_price(x);
+        cw  = br::cwstar_price(x);     // v0.2.3: one iso-W ray (W*=3.9) for every band
+        ct2 = br::ctop_price(x);       // v0.2.3: ONE ceiling C(h,1.85), both bands
         eh     = std::exp(-0.5 * x);
         ehp    = std::exp(x);
         expm1h = br::expm1_small(x);   // frozen poly (LEFT band only); matches left_variance / SIMD
@@ -781,7 +839,7 @@ struct context {
             region = 1;
             // v=1.70 LEFT<->RIGHT seam price = C(h,1.70), frozen degree-8 poly (see
             // broadrange CTL_SEAM_*); the grid router uses the SAME fit -> identical routing.
-            ct_left = br::ctl_seam(x);
+            ct_left = ct2;               // LEFT shares the same ceiling
             return;
         }
         if (x > H_BOX)    { region = 2; band = NB - 1; return; } // RIGHT-only band
@@ -1062,8 +1120,11 @@ inline __m512d binv_avx512(__m512d rho) {
     __m512d L  = _mm512_sub_pd(zero, full_log_avx512(rho));
     __m512d A2_1 = clenshaw1_avx512(Kv::BINV_CB1, 17, Kv::BINV_L_B1A, Kv::BINV_L_B1B, L);
     __m512d A2_2 = clenshaw1_avx512(Kv::BINV_CB2, 25, Kv::BINV_L_B2A, Kv::BINV_L_B2B, L);
+    __m512d A2_3 = clenshaw1_avx512(Kv::BINV_CB3, 13, Kv::BINV_L_B3A, Kv::BINV_L_B3B, L);
+    __mmask8 mC  = _mm512_cmp_pd_mask(rho, _mm512_set1_pd(Kv::BINV_RHO_C), _CMP_GT_OQ);
+    __m512d A2   = _mm512_mask_blend_pd(mC, A2_3, A2_2);     // rho>RHO_C -> CB2 else CB3
     __mmask8 mB  = _mm512_cmp_pd_mask(rho, _mm512_set1_pd(Kv::BINV_RHO_B), _CMP_GT_OQ);
-    __m512d A2   = _mm512_mask_blend_pd(mB, A2_2, A2_1);     // rho>RHO_B -> CB1 branch
+    A2           = _mm512_mask_blend_pd(mB, A2, A2_1);       // rho>RHO_B -> CB1 branch
     __m512d AL   = _mm512_sqrt_pd(A2);
     __mmask8 mA  = _mm512_cmp_pd_mask(rho, _mm512_set1_pd(Kv::BINV_RHO_A), _CMP_GT_OQ);
     return _mm512_mask_blend_pd(mA, AL, Aa);                 // rho>RHO_A -> regime a
@@ -1361,8 +1422,42 @@ inline __m512d wing_fit_d_avx512(__m512d W, __m512d beta, const double* C, int N
     __m512d xb = _mm512_div_pd(_mm512_fmadd_pd(_mm512_set1_pd(2.0), beta,
                                _mm512_set1_pd(-(wd::WING_B_LO + wd::WING_B_HI))),
                                _mm512_set1_pd(wd::WING_B_HI - wd::WING_B_LO));
-    __m512d rows[27];
     __m512d tb2 = _mm512_add_pd(xb, xb);
+    __m512d tu2 = _mm512_add_pd(xu, xu);
+    __m512d S, dS_dxu;
+#if VOLFI_WING_FUSED
+    {   // fused backward sweep -- see the scalar twin for the argument; no rows[]/dp[]
+        __m512d sd0 = zero, sd1 = zero, dd0 = zero, dd1 = zero;
+        __m512d row_next = zero, dpp1 = zero, dpp2 = zero;
+        for (int i = NU - 1; i >= 1; --i) {
+            const double* Ci = C + i * NB;
+            __m512d e0 = zero, e1 = zero;
+            for (int j = NB - 1; j >= 1; --j) {
+                __m512d b0 = _mm512_sub_pd(_mm512_fmadd_pd(tb2, e0, _mm512_set1_pd(Ci[j])), e1);
+                e1 = e0; e0 = b0;
+            }
+            __m512d row_i = _mm512_sub_pd(_mm512_fmadd_pd(xb, e0, _mm512_set1_pd(Ci[0])), e1);
+            { __m512d b0 = _mm512_sub_pd(_mm512_fmadd_pd(tu2, sd0, row_i), sd1); sd1 = sd0; sd0 = b0; }
+            __m512d dp_i;
+            if (i == NU - 1)      dp_i = zero;
+            else if (i == NU - 2) dp_i = _mm512_mul_pd(_mm512_set1_pd(2.0 * (NU - 1)), row_next);
+            else                  dp_i = _mm512_fmadd_pd(_mm512_set1_pd(2.0 * (i + 1)), row_next, dpp2);
+            { __m512d b0 = _mm512_sub_pd(_mm512_fmadd_pd(tu2, dd0, dp_i), dd1); dd1 = dd0; dd0 = b0; }
+            row_next = row_i; dpp2 = dpp1; dpp1 = dp_i;
+        }
+        __m512d e0 = zero, e1 = zero;                               // i = 0
+        for (int j = NB - 1; j >= 1; --j) {
+            __m512d b0 = _mm512_sub_pd(_mm512_fmadd_pd(tb2, e0, _mm512_set1_pd(C[j])), e1);
+            e1 = e0; e0 = b0;
+        }
+        __m512d row0 = _mm512_sub_pd(_mm512_fmadd_pd(xb, e0, _mm512_set1_pd(C[0])), e1);
+        S = _mm512_sub_pd(_mm512_fmadd_pd(xu, sd0, row0), sd1);
+        __m512d dp0 = _mm512_fmadd_pd(_mm512_set1_pd(2.0 * (0 + 1)), row_next, dpp2);
+        dp0 = _mm512_mul_pd(dp0, _mm512_set1_pd(0.5));
+        dS_dxu = _mm512_sub_pd(_mm512_fmadd_pd(xu, dd0, dp0), dd1);
+    }
+#else
+    __m512d rows[27];
     for (int i = 0; i < NU; ++i) {
         const double* Ci = C + i * NB;
         __m512d d0 = zero, d1 = zero;
@@ -1372,13 +1467,12 @@ inline __m512d wing_fit_d_avx512(__m512d W, __m512d beta, const double* C, int N
         }
         rows[i] = _mm512_sub_pd(_mm512_fmadd_pd(xb, d0, _mm512_set1_pd(Ci[0])), d1);
     }
-    __m512d tu2 = _mm512_add_pd(xu, xu);
     __m512d d0 = zero, d1 = zero;
     for (int i = NU - 1; i >= 1; --i) {
         __m512d b0 = _mm512_sub_pd(_mm512_fmadd_pd(tu2, d0, rows[i]), d1);
         d1 = d0; d0 = b0;
     }
-    __m512d S = _mm512_sub_pd(_mm512_fmadd_pd(xu, d0, rows[0]), d1);
+    S = _mm512_sub_pd(_mm512_fmadd_pd(xu, d0, rows[0]), d1);
     __m512d dp[27];
     dp[NU - 1] = zero;
     dp[NU - 2] = _mm512_mul_pd(_mm512_set1_pd(2.0 * (NU - 1)), rows[NU - 1]);
@@ -1390,7 +1484,8 @@ inline __m512d wing_fit_d_avx512(__m512d W, __m512d beta, const double* C, int N
         __m512d b0 = _mm512_sub_pd(_mm512_fmadd_pd(tu2, d0, dp[i]), d1);
         d1 = d0; d0 = b0;
     }
-    __m512d dS_dxu = _mm512_sub_pd(_mm512_fmadd_pd(xu, d0, dp[0]), d1);
+    dS_dxu = _mm512_sub_pd(_mm512_fmadd_pd(xu, d0, dp[0]), d1);
+#endif
     __m512d Su = _mm512_mul_pd(dS_dxu, _mm512_set1_pd(2.0 / (uhi - ulo)));
     __m512d bp = _mm512_add_pd(beta, _mm512_set1_pd(1.5));
     *dlogH = _mm512_fmadd_pd(_mm512_sub_pd(zero, _mm512_mul_pd(u, u)),
@@ -1409,6 +1504,23 @@ inline __m512d wing_variance_avx512(__m512d vh, __m512d vc, int regime) {
     __m512d lt = _mm512_max_pd(Lt, two);
     __m512d W = _mm512_max_pd(_mm512_fmadd_pd(_mm512_set1_pd(-1.5), full_log_avx512(lt), lt),
                               _mm512_set1_pd(2.6));
+    if (regime != 2) {                          // v0.2.1: add the (8,8) seed-table residual
+        const double* C  = (regime == 0) ? wd::WSEED_A      : wd::WSEED_B;
+        const int NU     = (regime == 0) ? wd::WSEED_A_NU   : wd::WSEED_B_NU;
+        const int NB     = (regime == 0) ? wd::WSEED_A_NB   : wd::WSEED_B_NB;
+        const double LO  = (regime == 0) ? wd::WSEED_A_LTLO : wd::WSEED_B_LTLO;
+        const double HI  = (regime == 0) ? wd::WSEED_A_LTHI : wd::WSEED_B_LTHI;
+        const double bLO = (regime == 0) ? wd::WSEED_A_BLO  : wd::WSEED_B_BLO;
+        const double bHI = (regime == 0) ? wd::WSEED_A_BHI  : wd::WSEED_B_BHI;
+        __m512d Ltc = _mm512_min_pd(_mm512_max_pd(Lt, _mm512_set1_pd(LO)), _mm512_set1_pd(HI));
+        __m512d bcl = _mm512_min_pd(_mm512_max_pd(beta, _mm512_set1_pd(bLO)), _mm512_set1_pd(bHI));
+        __m512d xL = _mm512_div_pd(_mm512_fmadd_pd(two, Ltc, _mm512_set1_pd(-(LO + HI))),
+                                   _mm512_set1_pd(HI - LO));
+        __m512d xb = _mm512_div_pd(_mm512_fmadd_pd(two, bcl, _mm512_set1_pd(-(bLO + bHI))),
+                                   _mm512_set1_pd(bHI - bLO));
+        __m512d R = clenshaw2_avx512_vxh(NU - 1, NB - 1, C, xL, xb);
+        W = _mm512_max_pd(_mm512_add_pd(W, R), _mm512_set1_pd(2.6));
+    }
     for (int it = 0; it < wd::WING_NEWTON_STEPS; ++it) {
         __m512d dlH, lH;
         if (regime == 2)      lH = wing_series_d_avx512(W, beta, &dlH);
@@ -1557,8 +1669,11 @@ inline __m256d binv_avx2(__m256d rho) {
     __m256d L  = _mm256_sub_pd(zero, full_log_avx2(rho));
     __m256d A2_1 = clenshaw1_avx2(Kv::BINV_CB1, 17, Kv::BINV_L_B1A, Kv::BINV_L_B1B, L);
     __m256d A2_2 = clenshaw1_avx2(Kv::BINV_CB2, 25, Kv::BINV_L_B2A, Kv::BINV_L_B2B, L);
+    __m256d A2_3 = clenshaw1_avx2(Kv::BINV_CB3, 13, Kv::BINV_L_B3A, Kv::BINV_L_B3B, L);
+    __m256d mC   = _mm256_cmp_pd(rho, _mm256_set1_pd(Kv::BINV_RHO_C), _CMP_GT_OQ);
+    __m256d A2   = _mm256_blendv_pd(A2_3, A2_2, mC);        // rho>RHO_C -> CB2 else CB3
     __m256d mB   = _mm256_cmp_pd(rho, _mm256_set1_pd(Kv::BINV_RHO_B), _CMP_GT_OQ);
-    __m256d A2   = _mm256_blendv_pd(A2_2, A2_1, mB);        // rho>RHO_B -> CB1 branch
+    A2           = _mm256_blendv_pd(A2, A2_1, mB);          // rho>RHO_B -> CB1 branch
     __m256d AL   = _mm256_sqrt_pd(A2);
     __m256d mA   = _mm256_cmp_pd(rho, _mm256_set1_pd(Kv::BINV_RHO_A), _CMP_GT_OQ);
     return _mm256_blendv_pd(AL, Aa, mA);                    // rho>RHO_A -> regime a
@@ -1855,8 +1970,42 @@ inline __m256d wing_fit_d_avx2(__m256d W, __m256d beta, const double* C, int NU,
     __m256d xb = _mm256_div_pd(_mm256_fmadd_pd(_mm256_set1_pd(2.0), beta,
                               _mm256_set1_pd(-(wd::WING_B_LO + wd::WING_B_HI))),
                               _mm256_set1_pd(wd::WING_B_HI - wd::WING_B_LO));
-    __m256d rows[27];
     __m256d tb2 = _mm256_add_pd(xb, xb);
+    __m256d tu2 = _mm256_add_pd(xu, xu);
+    __m256d S, dS_dxu;
+#if VOLFI_WING_FUSED
+    {   // fused backward sweep -- see the scalar twin; no rows[]/dp[] arrays
+        __m256d sd0 = zero, sd1 = zero, dd0 = zero, dd1 = zero;
+        __m256d row_next = zero, dpp1 = zero, dpp2 = zero;
+        for (int i = NU - 1; i >= 1; --i) {
+            const double* Ci = C + i * NB;
+            __m256d e0 = zero, e1 = zero;
+            for (int j = NB - 1; j >= 1; --j) {
+                __m256d b0 = _mm256_sub_pd(_mm256_fmadd_pd(tb2, e0, _mm256_set1_pd(Ci[j])), e1);
+                e1 = e0; e0 = b0;
+            }
+            __m256d row_i = _mm256_sub_pd(_mm256_fmadd_pd(xb, e0, _mm256_set1_pd(Ci[0])), e1);
+            { __m256d b0 = _mm256_sub_pd(_mm256_fmadd_pd(tu2, sd0, row_i), sd1); sd1 = sd0; sd0 = b0; }
+            __m256d dp_i;
+            if (i == NU - 1)      dp_i = zero;
+            else if (i == NU - 2) dp_i = _mm256_mul_pd(_mm256_set1_pd(2.0 * (NU - 1)), row_next);
+            else                  dp_i = _mm256_fmadd_pd(_mm256_set1_pd(2.0 * (i + 1)), row_next, dpp2);
+            { __m256d b0 = _mm256_sub_pd(_mm256_fmadd_pd(tu2, dd0, dp_i), dd1); dd1 = dd0; dd0 = b0; }
+            row_next = row_i; dpp2 = dpp1; dpp1 = dp_i;
+        }
+        __m256d e0 = zero, e1 = zero;                               // i = 0
+        for (int j = NB - 1; j >= 1; --j) {
+            __m256d b0 = _mm256_sub_pd(_mm256_fmadd_pd(tb2, e0, _mm256_set1_pd(C[j])), e1);
+            e1 = e0; e0 = b0;
+        }
+        __m256d row0 = _mm256_sub_pd(_mm256_fmadd_pd(xb, e0, _mm256_set1_pd(C[0])), e1);
+        S = _mm256_sub_pd(_mm256_fmadd_pd(xu, sd0, row0), sd1);
+        __m256d dp0 = _mm256_fmadd_pd(_mm256_set1_pd(2.0 * (0 + 1)), row_next, dpp2);
+        dp0 = _mm256_mul_pd(dp0, _mm256_set1_pd(0.5));
+        dS_dxu = _mm256_sub_pd(_mm256_fmadd_pd(xu, dd0, dp0), dd1);
+    }
+#else
+    __m256d rows[27];
     for (int i = 0; i < NU; ++i) {
         const double* Ci = C + i * NB;
         __m256d d0 = zero, d1 = zero;
@@ -1866,13 +2015,12 @@ inline __m256d wing_fit_d_avx2(__m256d W, __m256d beta, const double* C, int NU,
         }
         rows[i] = _mm256_sub_pd(_mm256_fmadd_pd(xb, d0, _mm256_set1_pd(Ci[0])), d1);
     }
-    __m256d tu2 = _mm256_add_pd(xu, xu);
     __m256d d0 = zero, d1 = zero;
     for (int i = NU - 1; i >= 1; --i) {
         __m256d b0 = _mm256_sub_pd(_mm256_fmadd_pd(tu2, d0, rows[i]), d1);
         d1 = d0; d0 = b0;
     }
-    __m256d S = _mm256_sub_pd(_mm256_fmadd_pd(xu, d0, rows[0]), d1);
+    S = _mm256_sub_pd(_mm256_fmadd_pd(xu, d0, rows[0]), d1);
     __m256d dp[27];
     dp[NU - 1] = zero;
     dp[NU - 2] = _mm256_mul_pd(_mm256_set1_pd(2.0 * (NU - 1)), rows[NU - 1]);
@@ -1884,7 +2032,8 @@ inline __m256d wing_fit_d_avx2(__m256d W, __m256d beta, const double* C, int NU,
         __m256d b0 = _mm256_sub_pd(_mm256_fmadd_pd(tu2, d0, dp[i]), d1);
         d1 = d0; d0 = b0;
     }
-    __m256d dS_dxu = _mm256_sub_pd(_mm256_fmadd_pd(xu, d0, dp[0]), d1);
+    dS_dxu = _mm256_sub_pd(_mm256_fmadd_pd(xu, d0, dp[0]), d1);
+#endif
     __m256d Su = _mm256_mul_pd(dS_dxu, _mm256_set1_pd(2.0 / (uhi - ulo)));
     __m256d bp = _mm256_add_pd(beta, _mm256_set1_pd(1.5));
     *dlogH = _mm256_fmadd_pd(_mm256_sub_pd(zero, _mm256_mul_pd(u, u)),
@@ -1902,6 +2051,23 @@ inline __m256d wing_variance_avx2(__m256d vh, __m256d vc, int regime) {
     __m256d lt = _mm256_max_pd(Lt, two);
     __m256d W = _mm256_max_pd(_mm256_fmadd_pd(_mm256_set1_pd(-1.5), full_log_avx2(lt), lt),
                               _mm256_set1_pd(2.6));
+    if (regime != 2) {                          // v0.2.1: add the (8,8) seed-table residual
+        const double* C  = (regime == 0) ? wd::WSEED_A      : wd::WSEED_B;
+        const int NU     = (regime == 0) ? wd::WSEED_A_NU   : wd::WSEED_B_NU;
+        const int NB     = (regime == 0) ? wd::WSEED_A_NB   : wd::WSEED_B_NB;
+        const double LO  = (regime == 0) ? wd::WSEED_A_LTLO : wd::WSEED_B_LTLO;
+        const double HI  = (regime == 0) ? wd::WSEED_A_LTHI : wd::WSEED_B_LTHI;
+        const double bLO = (regime == 0) ? wd::WSEED_A_BLO  : wd::WSEED_B_BLO;
+        const double bHI = (regime == 0) ? wd::WSEED_A_BHI  : wd::WSEED_B_BHI;
+        __m256d Ltc = _mm256_min_pd(_mm256_max_pd(Lt, _mm256_set1_pd(LO)), _mm256_set1_pd(HI));
+        __m256d bcl = _mm256_min_pd(_mm256_max_pd(beta, _mm256_set1_pd(bLO)), _mm256_set1_pd(bHI));
+        __m256d xL = _mm256_div_pd(_mm256_fmadd_pd(two, Ltc, _mm256_set1_pd(-(LO + HI))),
+                                   _mm256_set1_pd(HI - LO));
+        __m256d xb = _mm256_div_pd(_mm256_fmadd_pd(two, bcl, _mm256_set1_pd(-(bLO + bHI))),
+                                   _mm256_set1_pd(bHI - bLO));
+        __m256d R = clenshaw2_avx2_vxh(NU - 1, NB - 1, C, xL, xb);
+        W = _mm256_max_pd(_mm256_add_pd(W, R), _mm256_set1_pd(2.6));
+    }
     for (int it = 0; it < wd::WING_NEWTON_STEPS; ++it) {
         __m256d dlH, lH;
         if (regime == 2)      lH = wing_series_d_avx2(W, beta, &dlH);
@@ -2248,8 +2414,8 @@ static constexpr int GRID_NBUCK = NCELLS;   // CENTRAL main-table cells only
 inline int grid_central_cell(double hh, double cc, uint64_t bc, int& band_out) {
     if (!(cc > 0.0) || cc >= 1.0) return -1;
     if (hh < H_ATM_HI || hh > H_BOX) return -1;         // LEFT band / RIGHT-only band
-    if (cc < br::cwing_price(hh)) return -1;            // WING
-    if (cc > br::c2_price(hh))    return -1;            // RIGHT (v>2)
+    if (cc < br::cwstar_price(hh)) return -1;           // WING (W*=3.9 ray)
+    if (cc > br::ctop_price(hh))  return -1;            // RIGHT (above the ceiling)
     uint64_t bh = bits_of(hh);
     long bi = (long)(bh >> H_SHIFT) - (long)OFF_H;
     if (bi < 0) bi = 0; else if (bi > NB - 1) bi = NB - 1;
@@ -2264,11 +2430,10 @@ inline int grid_central_cell(double hh, double cc, uint64_t bc, int& band_out) {
 inline int grid_endpoint_route(double hh, double cc) {
     if (!(cc > 0.0) || cc >= 1.0) return 0;
     if (!(hh > 0.0)) return 0;                                  // h==0 ATM line, h<0/NaN guard -> scalar
-    if (cc < br::cwing_price(hh)) return 3;                     // WING
-    if (hh < H_ATM_HI) {                                        // region 1 (LEFT band)
-        return (cc <= br::ctl_seam(hh)) ? 1 : 2;                // frozen seam poly (== scalar ct_left)
-    }
-    if (hh <= H_BOX) return (cc > br::c2_price(hh)) ? 2 : 0;    // region 0: v>2 RIGHT else edge
+    if (cc < br::cwstar_price(hh)) return 3;                    // WING (W*=3.9 ray, every band)
+    double ctop = br::ctop_price(hh);                           // one ceiling, both bands
+    if (hh < H_ATM_HI) return (cc <= ctop) ? 1 : 2;             // region 1: LEFT else RIGHT
+    if (hh <= H_BOX)   return (cc > ctop) ? 2 : 0;              // region 0: RIGHT else edge
     return 2;                                                   // region 2 (h>H_BOX): RIGHT
 }
 
@@ -2478,6 +2643,12 @@ namespace Kv2 = volfi_annulus_broadrange;
 inline __m512d cwing_price_avx512(__m512d h){
     return _mm512_mul_pd(h, exp_neg_avx512(clenshaw1_avx512(Kv2::CW_COEFFS,23,Kv2::CW_A,Kv2::CW_B,h)));
 }
+inline __m512d cwstar_price_avx512(__m512d h){   // v0.2.3 wing seam, W*=3.9
+    return _mm512_mul_pd(h, exp_neg_avx512(clenshaw1_avx512(Kv2::CWS_COEFFS,18,Kv2::CWS_A,Kv2::CWS_B,h)));
+}
+inline __m512d ctop_price_avx512(__m512d h){     // v0.2.3 ceiling, C(h,1.70), both bands
+    return exp_neg_avx512(clenshaw1_avx512(Kv2::CTOP_COEFFS,32,Kv2::CTOP_A,Kv2::CTOP_B,h));
+}
 inline __m512d ctl_seam_avx512(__m512d h){
     return clenshaw1_avx512(Kv2::CTL_SEAM_C,9,Kv2::CTL_SEAM_A,Kv2::CTL_SEAM_B,h);
 }
@@ -2489,6 +2660,12 @@ inline __m512d expm1_small_avx512(__m512d h){
 inline __m256d cwing_price_avx2(__m256d h){
     return _mm256_mul_pd(h, exp_neg_avx2(clenshaw1_avx2(Kv2::CW_COEFFS,23,Kv2::CW_A,Kv2::CW_B,h)));
 }
+inline __m256d cwstar_price_avx2(__m256d h){     // v0.2.3 wing seam, W*=3.9
+    return _mm256_mul_pd(h, exp_neg_avx2(clenshaw1_avx2(Kv2::CWS_COEFFS,18,Kv2::CWS_A,Kv2::CWS_B,h)));
+}
+inline __m256d ctop_price_avx2(__m256d h){       // v0.2.3 ceiling, C(h,1.70), both bands
+    return exp_neg_avx2(clenshaw1_avx2(Kv2::CTOP_COEFFS,32,Kv2::CTOP_A,Kv2::CTOP_B,h));
+}
 inline __m256d ctl_seam_avx2(__m256d h){
     return clenshaw1_avx2(Kv2::CTL_SEAM_C,9,Kv2::CTL_SEAM_A,Kv2::CTL_SEAM_B,h);
 }
@@ -2496,6 +2673,150 @@ inline __m256d expm1_small_avx2(__m256d h){
     return _mm256_mul_pd(h, clenshaw1_avx2(Kv2::EXPM1G_C,11,Kv2::EXPM1G_A,Kv2::EXPM1G_B,h));
 }
 #endif
+
+// ============================================================================
+//  v0.2.2 PREFIX INTERLEAVING (AVX-512 only).  The speculative driver's LEFT path
+//  is a chain of SERIAL Chebyshev recurrences -- the two seam polys, expm1, binv's
+//  log + regime fit, sigma0, V2, V4 -- each a dependent fma->sub ladder whose
+//  latency the machine cannot hide within ONE 8-lane group.  Measured: the shipped
+//  1-group loop leaves the FMA ports idle (a deg-22 Clenshaw shape runs ~4 cycles
+//  per degree against a 1-op/cycle port), while the register file has headroom
+//  (left_variance_avx512 uses 20 of 32 zmm, no spills).
+//  So we run VOLFI_PFX_WAYS independent 8-lane groups through those prefix chains
+//  simultaneously and keep the register-heavy finisher (clenshaw2's Tl[17] basis,
+//  ~16 live zmm) strictly ONE group at a time.  Naive whole-kernel interleaving was
+//  measured to be worthless (1.01x end-to-end) because it exceeds the register file;
+//  interleaving only the low-register prefix is worth ~1.15-1.25x end-to-end on the
+//  market feed (three runs, 79/81 rounds positive).
+//  Each lane's own operation sequence is UNCHANGED -- only mutually independent
+//  groups are co-scheduled -- so the result is BIT-IDENTICAL to the scalar entry
+//  (verified: 0 differing doubles over the 30k market feed at N=2,3,4).
+//  AVX2 deliberately does NOT get this: its 16 ymm registers already spill at
+//  1 group, so interleaving there only adds stack traffic.
+// ============================================================================
+#if defined(VA_SIMD512)
+#ifndef VOLFI_PFX_WAYS
+#define VOLFI_PFX_WAYS 4        // groups of 8 lanes in flight through the prefix
+#endif
+// N-way twins of the shipped serial kernels.  Same constants, same fma order per
+// lane as their 1-group originals; only the loop nest differs.
+template <int N>
+inline void clenshaw1_pfx(const double* C, int n, double a, double b,
+                          const __m512d* x, __m512d* out) {
+    __m512d t[N], t2[N], d0[N], d1[N];
+    const __m512d two = _mm512_set1_pd(2.0), off = _mm512_set1_pd(-(a + b)), den = _mm512_set1_pd(b - a);
+    for (int k = 0; k < N; ++k) {
+        t[k]  = _mm512_div_pd(_mm512_fmadd_pd(two, x[k], off), den);
+        t2[k] = _mm512_add_pd(t[k], t[k]);
+        d0[k] = _mm512_setzero_pd(); d1[k] = _mm512_setzero_pd();
+    }
+    for (int jx = n - 1; jx >= 1; --jx) {
+        const __m512d cj = _mm512_set1_pd(C[jx]);
+        for (int k = 0; k < N; ++k) {
+            __m512d b0 = _mm512_sub_pd(_mm512_fmadd_pd(t2[k], d0[k], cj), d1[k]);
+            d1[k] = d0[k]; d0[k] = b0;
+        }
+    }
+    const __m512d c0 = _mm512_set1_pd(C[0]);
+    for (int k = 0; k < N; ++k) out[k] = _mm512_sub_pd(_mm512_fmadd_pd(t[k], d0[k], c0), d1[k]);
+}
+template <int N>
+inline void log2approx_pfx(const __m512d* m, __m512d* out) {
+    __m512d t[N], u[N], s[N], s2[N], b1[N], b2[N];
+    const __m512d one = _mm512_set1_pd(1.0);
+    for (int k = 0; k < N; ++k) {
+        t[k]  = _mm512_div_pd(_mm512_sub_pd(m[k], one), _mm512_add_pd(m[k], one));
+        u[k]  = _mm512_mul_pd(t[k], t[k]);
+        s[k]  = _mm512_fmadd_pd(_mm512_set1_pd(LOG2_S_A), u[k], _mm512_set1_pd(LOG2_S_B));
+        s2[k] = _mm512_add_pd(s[k], s[k]);
+        b1[k] = _mm512_setzero_pd(); b2[k] = _mm512_setzero_pd();
+    }
+    for (int j = 10; j >= 1; --j) {
+        const __m512d gc = _mm512_set1_pd(LOG2_GC[j]);
+        for (int k = 0; k < N; ++k) {
+            __m512d b0 = _mm512_sub_pd(_mm512_fmadd_pd(s2[k], b1[k], gc), b2[k]);
+            b2[k] = b1[k]; b1[k] = b0;
+        }
+    }
+    const __m512d g0 = _mm512_set1_pd(LOG2_GC[0]), sc = _mm512_set1_pd(LOG2_SCALE);
+    for (int k = 0; k < N; ++k) {
+        __m512d g = _mm512_sub_pd(_mm512_fmadd_pd(s[k], b1[k], g0), b2[k]);
+        out[k] = _mm512_mul_pd(_mm512_mul_pd(sc, t[k]), g);
+    }
+}
+template <int N>
+inline void full_log_pfx(const __m512d* x, __m512d* out) {
+    __m512d mant[N], l2[N];
+    for (int k = 0; k < N; ++k) mant[k] = mant12_avx512(x[k]);
+    log2approx_pfx<N>(mant, l2);
+    for (int k = 0; k < N; ++k) {
+        __m512i bc = _mm512_castpd_si512(x[k]);
+        __m512i j  = _mm512_and_si512(_mm512_srli_epi64(bc, 52), _mm512_set1_epi64(0x7FFLL));
+        __m512d dj = _mm512_sub_pd(_mm512_castsi512_pd(_mm512_or_si512(j, _mm512_set1_epi64(0x4330000000000000LL))),
+                                   _mm512_set1_pd(0x1.0p52));
+        __m512d e  = _mm512_sub_pd(dj, _mm512_set1_pd((double)C_EXP_BIAS));
+        out[k] = _mm512_fmadd_pd(_mm512_set1_pd(VA_LN2), _mm512_add_pd(e, l2[k]), _mm512_setzero_pd());
+    }
+}
+template <int N>
+inline void sigma0_poly_pfx(const __m512d* c, __m512d* out) {
+    __m512d t[N], x[N], x2[N], b1[N], b2[N];
+    for (int k = 0; k < N; ++k) {
+        t[k]  = _mm512_mul_pd(c[k], c[k]);
+        x[k]  = _mm512_fmadd_pd(_mm512_set1_pd(ERFINV_TSC), t[k], _mm512_set1_pd(ERFINV_TBIAS));
+        x2[k] = _mm512_add_pd(x[k], x[k]);
+        b1[k] = _mm512_setzero_pd(); b2[k] = _mm512_setzero_pd();
+    }
+    for (int j = 17; j >= 1; --j) {
+        const __m512d gc = _mm512_set1_pd(ERFINV_GC[j]);
+        for (int k = 0; k < N; ++k) {
+            __m512d b0 = _mm512_sub_pd(_mm512_fmadd_pd(x2[k], b1[k], gc), b2[k]);
+            b2[k] = b1[k]; b1[k] = b0;
+        }
+    }
+    const __m512d g0 = _mm512_set1_pd(ERFINV_GC[0]), sc = _mm512_set1_pd(SIGMA0_SCALE);
+    for (int k = 0; k < N; ++k) {
+        __m512d g = _mm512_sub_pd(_mm512_fmadd_pd(x[k], b1[k], g0), b2[k]);
+        out[k] = _mm512_mul_pd(_mm512_mul_pd(sc, c[k]), g);
+    }
+}
+template <int N>
+inline void exp_neg_pfx(const __m512d* a, __m512d* out) {
+    __m512d nf[N], r[N], p[N];
+    for (int k = 0; k < N; ++k) {
+        nf[k] = _mm512_floor_pd(_mm512_fmadd_pd(a[k], _mm512_set1_pd(Kv::INV_LN2), _mm512_set1_pd(0.5)));
+        __m512d nneg = _mm512_sub_pd(_mm512_setzero_pd(), nf[k]);
+        r[k] = _mm512_fmadd_pd(nneg, _mm512_set1_pd(Kv::LN2_HI), a[k]);
+        r[k] = _mm512_fmadd_pd(nneg, _mm512_set1_pd(Kv::LN2_LO), r[k]);
+    }
+    clenshaw1_pfx<N>(Kv::EXP_C, Kv::EXP_C_N, -0.5 * VA_LN2, 0.5 * VA_LN2, r, p);
+    for (int k = 0; k < N; ++k) out[k] = _mm512_scalef_pd(p[k], nf[k]);
+}
+template <int N>
+inline void binv_pfx(const __m512d* rho, __m512d* out) {
+    __m512d u[N], xa[N], ca[N], L[N], nl[N], p1[N], p2[N], p3[N];
+    for (int k = 0; k < N; ++k) {
+        u[k]  = _mm512_div_pd(_mm512_set1_pd(Kv::BR_K), _mm512_add_pd(rho[k], _mm512_set1_pd(0.5)));
+        xa[k] = _mm512_mul_pd(u[k], u[k]);
+    }
+    clenshaw1_pfx<N>(Kv::BINV_CA, 15, Kv::BINV_U2_A, Kv::BINV_U2_B, xa, ca);
+    full_log_pfx<N>(rho, L);
+    for (int k = 0; k < N; ++k) nl[k] = _mm512_sub_pd(_mm512_setzero_pd(), L[k]);
+    clenshaw1_pfx<N>(Kv::BINV_CB1, 17, Kv::BINV_L_B1A, Kv::BINV_L_B1B, nl, p1);
+    clenshaw1_pfx<N>(Kv::BINV_CB2, 25, Kv::BINV_L_B2A, Kv::BINV_L_B2B, nl, p2);
+    clenshaw1_pfx<N>(Kv::BINV_CB3, 13, Kv::BINV_L_B3A, Kv::BINV_L_B3B, nl, p3);
+    for (int k = 0; k < N; ++k) {
+        __m512d Aa  = _mm512_mul_pd(u[k], ca[k]);
+        __mmask8 mC = _mm512_cmp_pd_mask(rho[k], _mm512_set1_pd(Kv::BINV_RHO_C), _CMP_GT_OQ);
+        __mmask8 mB = _mm512_cmp_pd_mask(rho[k], _mm512_set1_pd(Kv::BINV_RHO_B), _CMP_GT_OQ);
+        __m512d A2  = _mm512_mask_blend_pd(mC, p3[k], p2[k]);
+        A2          = _mm512_mask_blend_pd(mB, A2, p1[k]);
+        __m512d AL  = _mm512_sqrt_pd(A2);
+        __mmask8 mA = _mm512_cmp_pd_mask(rho[k], _mm512_set1_pd(Kv::BINV_RHO_A), _CMP_GT_OQ);
+        out[k] = _mm512_mask_blend_pd(mA, AL, Aa);
+    }
+}
+#endif // VA_SIMD512
 
 // Speculative-LEFT streaming grid batch (the empirical live path: ~90% LEFT).
 // Streams (h,c) 8/4-wide; routes via the frozen seam polynomials (no libm, no
@@ -2526,9 +2847,64 @@ __attribute__((noinline)) inline void speculative_grid_batch(
         const __m512d z=_mm512_setzero_pd(), one=_mm512_set1_pd(1.0);
         const __m512d hatm=_mm512_set1_pd(H_ATM_HI);
         const __m512d vinvT=_mm512_set1_pd(invTmax), two=_mm512_set1_pd(2.0), negone=_mm512_set1_pd(-1.0);
+        // ---- v0.2.2: PREFIX-INTERLEAVED tile, N groups of 8 lanes (see note above).
+        // Per-lane op sequence identical to the 8-lane body below; only independent
+        // groups are co-scheduled, so every stored lane is bit-identical.
+        {
+        constexpr int N = VOLFI_PFX_WAYS;
+        for (; i + 8*N <= m; i += 8*N) {
+            __m512d vh[N],vc[N],cwA[N],cwE[N],vcw[N],ctA[N],vctl[N],vhc[N],eA[N],vE[N];
+            __m512d vh2[N],vh4[N],vxt[N],rho[N],A[N],s[N],sk[N],xv[N],xs[N],V2[N],V4[N],vw[N];
+            __mmask8 ml[N];
+            for (int k=0;k<N;++k){ vh[k]=_mm512_loadu_pd(h+base+i+8*k);
+                                   vc[k]=_mm512_loadu_pd(c+base+i+8*k); }
+            clenshaw1_pfx<N>(Kv2::CWS_COEFFS,18,Kv2::CWS_A,Kv2::CWS_B,vh,cwA);  // W*=3.9 seam
+            exp_neg_pfx<N>(cwA,cwE);
+            for (int k=0;k<N;++k) vcw[k]=_mm512_mul_pd(vh[k],cwE[k]);
+            clenshaw1_pfx<N>(Kv2::CTOP_COEFFS,32,Kv2::CTOP_A,Kv2::CTOP_B,vh,ctA);  // C(h,1.85) ceiling
+            exp_neg_pfx<N>(ctA,vctl);
+            for (int k=0;k<N;++k){
+                __mmask8 mv = _mm512_cmp_pd_mask(vc[k],z,_CMP_GT_OQ)
+                            & _mm512_cmp_pd_mask(vc[k],one,_CMP_LT_OQ)
+                            & _mm512_cmp_pd_mask(vh[k],z,_CMP_GT_OQ);
+                ml[k] = mv & _mm512_cmp_pd_mask(vc[k],vcw[k],_CMP_GE_OQ)
+                           & _mm512_cmp_pd_mask(vh[k],hatm,_CMP_LT_OQ)
+                           & _mm512_cmp_pd_mask(vc[k],vctl[k],_CMP_LE_OQ);
+                vhc[k]=_mm512_min_pd(vh[k],hatm); }
+            clenshaw1_pfx<N>(Kv2::EXPM1G_C,11,Kv2::EXPM1G_A,Kv2::EXPM1G_B,vhc,eA);
+            for (int k=0;k<N;++k){
+                vE[k]=_mm512_mul_pd(vhc[k],eA[k]);
+                vh2[k]=_mm512_mul_pd(vhc[k],vhc[k]); vh4[k]=_mm512_mul_pd(vh2[k],vh2[k]);
+                vxt[k]=_mm512_fmadd_pd(_mm512_mul_pd(two,vh2[k]),vinvT,negone);
+                rho[k]=_mm512_div_pd(vc[k],vE[k]); }
+            binv_pfx<N>(rho,A);
+            for (int k=0;k<N;++k){ s[k]=_mm512_div_pd(vhc[k],A[k]);
+                sk[k]=_mm512_mul_pd(_mm512_set1_pd(Kv::BR_K),s[k]); }
+            sigma0_poly_pfx<N>(sk,xv);
+            for (int k=0;k<N;++k)
+                xs[k]=_mm512_fmadd_pd(_mm512_add_pd(s[k],s[k]),
+                                      _mm512_set1_pd(1.0/Kv::LEFT_S_MAX),_mm512_set1_pd(-1.0));
+            clenshaw1_pfx<N>(Kv::LEFT_V2_CHEB,Kv::LEFT_V2_CHEB_N,0.0,Kv::LEFT_S_CHEB_MAX,s,V2);
+            clenshaw1_pfx<N>(Kv::LEFT_V4_CHEB,Kv::LEFT_V4_CHEB_N,0.0,Kv::LEFT_S_CHEB_MAX,s,V4);
+            for (int k=0;k<N;++k){          // finisher ONE group at a time (Tl[17] basis)
+                __m512d fin=clenshaw2_avx512_vxh(Kv::LEFT_FIN_DP,Kv::LEFT_FIN_DL,
+                                                 Kv::LEFT_FIN_COEFFS,vxt[k],xs[k]);
+                __m512d v=_mm512_fmadd_pd(vh4[k],V4[k],_mm512_fmadd_pd(vh2[k],V2[k],xv[k]));
+                v=_mm512_fmadd_pd(_mm512_mul_pd(vh4[k],vh2[k]),fin,v);
+                vw[k]=_mm512_mul_pd(v,v); }
+            for (int k=0;k<N;++k){         // stores + compaction in program order
+                _mm512_mask_storeu_pd(w_out+base+i+8*k, ml[k], vw[k]);
+                unsigned dm=(unsigned)(uint8_t)(~ml[k]);
+                if (dm){ double hs[8],cs[8];
+                    _mm512_storeu_pd(hs,vh[k]); _mm512_storeu_pd(cs,vc[k]);
+                    while(dm){ int l=__builtin_ctz(dm); dm&=dm-1;
+                        dh_[ndef]=hs[l]; dc_[ndef]=cs[l]; didx_[ndef]=base+i+8*k+l; ++ndef; } }
+            }
+        }
+        }
         for (; i + 8 <= m; i += 8) {
             __m512d vh=_mm512_loadu_pd(h+base+i), vc=_mm512_loadu_pd(c+base+i);
-            __m512d vcw=cwing_price_avx512(vh), vctl=ctl_seam_avx512(vh);
+            __m512d vcw=cwstar_price_avx512(vh), vctl=ctop_price_avx512(vh);
             __mmask8 mv = _mm512_cmp_pd_mask(vc,z,_CMP_GT_OQ) & _mm512_cmp_pd_mask(vc,one,_CMP_LT_OQ)
                         & _mm512_cmp_pd_mask(vh,z,_CMP_GT_OQ);
             __mmask8 ml = mv & _mm512_cmp_pd_mask(vc,vcw,_CMP_GE_OQ)
@@ -2552,7 +2928,7 @@ __attribute__((noinline)) inline void speculative_grid_batch(
         const __m256d vinvT=_mm256_set1_pd(invTmax), two=_mm256_set1_pd(2.0), negone=_mm256_set1_pd(-1.0);
         for (; i + 4 <= m; i += 4) {
             __m256d vh=_mm256_loadu_pd(h+base+i), vc=_mm256_loadu_pd(c+base+i);
-            __m256d vcw=cwing_price_avx2(vh), vctl=ctl_seam_avx2(vh);
+            __m256d vcw=cwstar_price_avx2(vh), vctl=ctop_price_avx2(vh);
             __m256d mv=_mm256_and_pd(_mm256_and_pd(_mm256_cmp_pd(vc,z,_CMP_GT_OQ),_mm256_cmp_pd(vc,one,_CMP_LT_OQ)),
                                      _mm256_cmp_pd(vh,z,_CMP_GT_OQ));
             __m256d ml=_mm256_and_pd(_mm256_and_pd(mv,_mm256_cmp_pd(vc,vcw,_CMP_GE_OQ)),

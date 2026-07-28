@@ -1,0 +1,137 @@
+Unable to find image 'nvidia/cuda:12.4.1-devel-ubuntu22.04' locally
+12.4.1-devel-ubuntu22.04: Pulling from nvidia/cuda
+3c645031de29: Pulling fs layer
+0d6448aff889: Pulling fs layer
+0a7674e3e8fe: Pulling fs layer
+b71b637b97c5: Pulling fs layer
+56dc85502937: Pulling fs layer
+ec6d5f6c9ed9: Pulling fs layer
+47b8539d532f: Pulling fs layer
+fd9cc1ad8dee: Pulling fs layer
+83525caeeb35: Pulling fs layer
+8e79813a7b9d: Pulling fs layer
+312a542960e3: Pulling fs layer
+b71b637b97c5: Waiting
+ec6d5f6c9ed9: Waiting
+56dc85502937: Waiting
+47b8539d532f: Waiting
+83525caeeb35: Waiting
+8e79813a7b9d: Waiting
+fd9cc1ad8dee: Waiting
+312a542960e3: Waiting
+0d6448aff889: Verifying Checksum
+0d6448aff889: Download complete
+3c645031de29: Download complete
+0a7674e3e8fe: Verifying Checksum
+0a7674e3e8fe: Download complete
+b71b637b97c5: Verifying Checksum
+b71b637b97c5: Download complete
+56dc85502937: Download complete
+47b8539d532f: Download complete
+fd9cc1ad8dee: Verifying Checksum
+fd9cc1ad8dee: Download complete
+83525caeeb35: Verifying Checksum
+83525caeeb35: Download complete
+3c645031de29: Pull complete
+0d6448aff889: Pull complete
+312a542960e3: Verifying Checksum
+312a542960e3: Download complete
+0a7674e3e8fe: Pull complete
+b71b637b97c5: Pull complete
+56dc85502937: Pull complete
+ec6d5f6c9ed9: Download complete
+8e79813a7b9d: Verifying Checksum
+8e79813a7b9d: Download complete
+ec6d5f6c9ed9: Pull complete
+47b8539d532f: Pull complete
+fd9cc1ad8dee: Pull complete
+83525caeeb35: Pull complete
+8e79813a7b9d: Pull complete
+312a542960e3: Pull complete
+Digest: sha256:da6791294b0b04d7e65d87b7451d6f2390b4d36225ab0701ee7dfec5769829f5
+Status: Downloaded newer image for nvidia/cuda:12.4.1-devel-ubuntu22.04
+
+==========
+== CUDA ==
+==========
+
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+=== toolchain / device ===
+Build cuda_12.4.r12.4/compiler.34097967_0
+tr: misaligned [:upper:] and/or [:lower:] construct
+NVIDIA H100 PCIe, 570.124.06, 5, 16
+
+=== build (sm_90, --fmad=false is required: device analogue of -ffp-contract=off) ===
+BUILD OK
+--- occupancy gate: wing/left/right MUST be 0 bytes stack frame ---
+ptxas info    : Compiling entry function '_Z11wing_kernelPKdS0_Pdi' for 'sm_90'
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 72 registers
+ptxas info    : Compiling entry function '_Z12right_kernelPKdS0_S0_S0_Pdi' for 'sm_90'
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 55 registers
+ptxas info    : Compiling entry function '_Z14central_kernelPKdS0_S0_PKiPdi' for 'sm_90'
+    256 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 40 registers, 256 bytes cumulative stack size
+ptxas info    : Compiling entry function '_Z11left_kernelPKdS0_Pdi' for 'sm_90'
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 36 registers
+(build errors above)
+
+########## RUN 1 (5,000,000 quotes x 300 iters) ##########
+=== volfi-annulus GPU FULL-BOOK port (bucket-order coalesced) ===
+feed=30000 quotes  ->  eligible=30000  excluded: rescue=0 cell=0 edge=0
+route mix: LEFT=91.91%  CENTRAL=6.95%  WING=1.14%  RIGHT=0.00%   (tiled x167 -> N=5010000)
+
+GPU vs CPU reference (mismatches > 1 ulp MUST be 0):
+  LEFT     n= 4604858  mismatches=0  worst_ulp=0
+  CENTRAL  n=  348028  mismatches=0  worst_ulp=0
+  WING     n=   57114  mismatches=0  worst_ulp=0
+  RIGHT    n=       0  mismatches=0  worst_ulp=0
+  => PASS: ULP-IDENTICAL to CPU reference
+
+TIMING (300 iters, ns/eval):
+  LEFT     n= 4604858    0.0572 ns/eval
+  CENTRAL  n=  348028    0.1530 ns/eval
+  WING     n=   57114    1.1647 ns/eval
+  FULL BOOK (all four kernels, market mix): N=5010000    0.0781 ns/eval
+  (compare: CPU AVX-512 cold speculative driver = 70.2 ns/quote, same feed)
+
+CHART-PURE FIXED-h SURFACES (mirror of the CPU per-chart rows):
+  CENTRAL  h=1.00 v in [0.41,1.80]  n= 5242880    0.1385 ns/eval   mismatches=0 worst_ulp=0
+  LEFT     h=0.20 v in [0.30,1.60]  n= 5242880    0.0376 ns/eval   mismatches=0 worst_ulp=0
+  WING     h=1.00 v in [0.15,0.35]  n= 5242880    0.6670 ns/eval   mismatches=0 worst_ulp=0
+  RIGHT    h=1.00 v in [2.10,8.00]  n= 5242880    0.1676 ns/eval   mismatches=0 worst_ulp=0
+
+########## RUN 2 (repeat; the two must agree to ~3 digits) ##########
+=== volfi-annulus GPU FULL-BOOK port (bucket-order coalesced) ===
+feed=30000 quotes  ->  eligible=30000  excluded: rescue=0 cell=0 edge=0
+route mix: LEFT=91.91%  CENTRAL=6.95%  WING=1.14%  RIGHT=0.00%   (tiled x167 -> N=5010000)
+
+GPU vs CPU reference (mismatches > 1 ulp MUST be 0):
+  LEFT     n= 4604858  mismatches=0  worst_ulp=0
+  CENTRAL  n=  348028  mismatches=0  worst_ulp=0
+  WING     n=   57114  mismatches=0  worst_ulp=0
+  RIGHT    n=       0  mismatches=0  worst_ulp=0
+  => PASS: ULP-IDENTICAL to CPU reference
+
+TIMING (300 iters, ns/eval):
+  LEFT     n= 4604858    0.0568 ns/eval
+  CENTRAL  n=  348028    0.1529 ns/eval
+  WING     n=   57114    1.1693 ns/eval
+  FULL BOOK (all four kernels, market mix): N=5010000    0.0784 ns/eval
+  (compare: CPU AVX-512 cold speculative driver = 70.2 ns/quote, same feed)
+
+CHART-PURE FIXED-h SURFACES (mirror of the CPU per-chart rows):
+  CENTRAL  h=1.00 v in [0.41,1.80]  n= 5242880    0.1414 ns/eval   mismatches=0 worst_ulp=0
+  LEFT     h=0.20 v in [0.30,1.60]  n= 5242880    0.0378 ns/eval   mismatches=0 worst_ulp=0
+  WING     h=1.00 v in [0.15,0.35]  n= 5242880    0.6711 ns/eval   mismatches=0 worst_ulp=0
+  RIGHT    h=1.00 v in [2.10,8.00]  n= 5242880    0.1675 ns/eval   mismatches=0 worst_ulp=0

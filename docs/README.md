@@ -1,6 +1,6 @@
 # Documentation
 
-- **[volfi_v0.2.0_paper.pdf](volfi_v0.2.0_paper.pdf)** — the technical paper for volfi v0.2.0:
+- **[volfi_v0.2.3_paper.pdf](volfi_v0.2.3_paper.pdf)** — the technical paper for volfi v0.2.3:
   *A Routed, Vectorizable Table Inverter for Machine-Precision Black–Scholes Implied
   Volatility.* Covers the four-chart routing and its branch-point boundaries, the
   degree-selection and accuracy certification against a 40-digit `mpmath` oracle, the

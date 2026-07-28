@@ -67,31 +67,44 @@ double qnorm0(double p){
 double qnorm2(double p){ double x=qnorm0(p);
   for(int i=0;i<2;i++){ double e=volfi::phi_cdf(x)-p; double u=e*kSqrtTwoPi*std::exp(0.5*x*x); x-=u/(1.0+0.5*x*u);} return x; }
 
-// ---- Phase-7 broad-domain route label (mirrors implied_variance_otm exactly) --
+// ---- broad-domain route label ------------------------------------------------
 enum { R_WING=0, R_LEFT=1, R_CENTRAL=2, R_RIGHT=3, R_EDGE=4 };
+// Delegates to the LIVE router instead of re-deriving the seams here.  A local
+// copy of the routing predicate silently went stale once already (it kept the
+// v0.2.2 seams -- cwing_price / c2_price / LEFT_RIGHT_VSEAM -- through the whole
+// v0.2.3 seam change, so every per-chart bucket and the market route mix were
+// mislabelled while the timings themselves were correct).  Do not reintroduce
+// one: this must call volfi_annulus::detail::grid_endpoint_route and nothing
+// else, so it cannot drift from the shipped router again.
+//
+// grid_endpoint_route's code 0 is "not an endpoint chart": inside the central
+// box that means the CENTRAL chart claims the quote (a cell hit, or the
+// analytic ATM-deep edge the table hands to scalar_fallback).  Outside the box
+// -- c out of (0,1), or h<=0 -- it is a genuine degenerate input.
 int route(double h,double c){
   using namespace volfi_annulus;
   if(!(c>0.0)||c>=1.0) return R_EDGE;
-  if(h==0.0) return R_EDGE;
-  double cw=br::cwing_price(h);
-  if(c<cw) return R_WING;
-  if(h<H_ATM_HI){
-    double ct_left=1.0-br::onem_otm(h,volfi_annulus_broadrange::LEFT_RIGHT_VSEAM,std::exp(h));
-    return (c<=ct_left)?R_LEFT:R_RIGHT;
+  if(!(h>0.0)) return R_EDGE;
+  switch(detail::grid_endpoint_route(h,c)){
+    case 1:  return R_LEFT;
+    case 2:  return R_RIGHT;
+    case 3:  return R_WING;
+    default: return R_CENTRAL;                     // in-box: table cell or analytic edge
   }
-  double ct2=br::c2_price(h);
-  if(h<=H_BOX && c<=ct2) return R_CENTRAL;
-  return R_RIGHT;
 }
 // OLD phase-6 in-box fast-path predicate: box table (h in [H_ATM_HI,H_BOX], v<=2,
 // c>=cw) OR wing.  Everything else (v>2 in/out of box, small-h deep corner,
 // h>H_BOX) fell to a crude analytic clamp/fallback in the OLD architecture.
+// This deliberately keeps the FROZEN phase-6 seams (cwing_price = the W=3 ray,
+// c2_price = the old CENTRAL ceiling): it measures what the old architecture
+// covered, so it must not follow the current seams.
 bool old_covered(double h,double c){
   using namespace volfi_annulus;
-  int r=route(h,c);
-  if(r==R_WING) return true;                       // wing existed in phase-6
-  if(r==R_CENTRAL) return true;                    // in-box main table
-  return false;                                    // LEFT/RIGHT/edge were crude
+  if(!(c>0.0)||c>=1.0) return false;
+  if(h==0.0) return false;
+  if(c<br::cwing_price(h)) return true;             // wing existed in phase-6
+  if(h<H_ATM_HI) return false;                      // small-h corner was crude
+  return (h<=H_BOX && c<=br::c2_price(h));          // in-box main table
 }
 
 static inline uint64_t bd(double x){ uint64_t u; std::memcpy(&u,&x,8); return u; }
@@ -275,15 +288,31 @@ int main(int argc,char** argv){
       tAs.push_back(bench(n,rep,[&](int i){return volfi::implied_variance_otm(vq,cs[i]);}));
       tBs.push_back(bench(n,rep,[&](int i){return lbr_var(vq,cs[i]);}));
     }
-    std::printf("  %-8s h=%.2f v in [%.2f,%.2f] n=%-5d  A_volfi=%7.1f  B_lbr=%7.1f  C_scalar=%7.1f  D_batch=%7.1f\n",
-                nm,h,vlo,vhi,n,median(tAs),median(tBs),median(tCs),median(tDs));
+    // Chart purity, measured with the LIVE router.  A fixed-h surface is named
+    // after a chart but defined by a v-range, so a seam move silently
+    // contaminates it (v0.2.3 dropped the CENTRAL ceiling to 1.85, which put the
+    // top of the old [.,1.95] ranges into RIGHT).  Print the mix whenever the
+    // surface is not chart-pure so the row cannot be read as one chart's cost.
+    long mix[5]={0}; for(int i=0;i<n;i++) mix[route(h,cs[i])]++;
+    int dom=0; for(int k=1;k<5;k++) if(mix[k]>mix[dom]) dom=k;
+    const char* NM[5]={"WING","LEFT","CENTRAL","RIGHT","EDGE"};
+    char tag[96]; tag[0]='\0';
+    if(mix[dom]<n){
+      int p=std::snprintf(tag,sizeof tag,"  [MIXED:");
+      for(int k=0;k<5;k++) if(mix[k]) p+=std::snprintf(tag+p,sizeof tag-p," %s=%.1f%%",NM[k],100.0*mix[k]/n);
+      std::snprintf(tag+p,sizeof tag-p,"]");
+    }
+    std::printf("  %-8s h=%.2f v in [%.2f,%.2f] n=%-5d  A_volfi=%7.1f  B_lbr=%7.1f  C_scalar=%7.1f  D_batch=%7.1f%s\n",
+                nm,h,vlo,vhi,n,median(tAs),median(tBs),median(tCs),median(tDs),tag);
   };
   std::printf("=== FIXED-h SURFACE per chart (ns/eval median; Phase-8 D_batch vectorizes CENTRAL+LEFT+RIGHT) ===\n");
-  std::printf("  -- CENTRAL-clean surfaces (v above wing seam h/sqrt6, below v=2; chart-pure) --\n");
-  surface("CENTRAL",1.0,0.45,1.95);
-  surface("CENTRAL",2.0,0.85,1.95);
-  surface("CENTRALc",1.0,0.05,2.0);   // legacy wing-contaminated range, kept for reference
-  std::printf("  -- LEFT-heavy surfaces (h<H_ATM_HI, v<=1.70; Phase-8 batch runs LEFT SIMD kernel) --\n");
+  // v0.2.3 seams: wing ray v=h/sqrt(7.6) (W*=3.8), shared ceiling v=1.85.
+  // Ranges sit inside both with ~0.05 of margin, so these rows are chart-pure.
+  std::printf("  -- CENTRAL-clean surfaces (v above wing seam h/sqrt7.6, below v=1.85; chart-pure) --\n");
+  surface("CENTRAL",1.0,0.41,1.80);
+  surface("CENTRAL",2.0,0.77,1.80);
+  surface("CENTRALc",1.0,0.05,1.85);  // legacy wing-contaminated range, kept for reference
+  std::printf("  -- LEFT-heavy surfaces (h<H_ATM_HI, v<=1.60; Phase-8 batch runs LEFT SIMD kernel) --\n");
   surface("LEFT",0.10,0.20,1.60);
   surface("LEFT",0.20,0.30,1.60);
   surface("LEFT",0.28,0.30,1.60);

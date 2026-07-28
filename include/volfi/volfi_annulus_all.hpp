@@ -16,7 +16,12 @@
 //   CENTRAL Phase-6 bivariate-Chebyshev main table, h in [0.3,6.65], v <= 2
 //   RIGHT   erf-free seed + exact-equation Newton, v > 1.70 / h > 6.65
 //
-// Build: -std=c++17 -O3 -march=native -ffp-contract=off -fno-fast-math
+// Build: -std=c++17 -O3 -march=native -ffp-contract=off -fno-fast-math -funroll-loops
+//        (-funroll-loops is a pure-speed flag, v0.2.2: it unrolls the four deg>16
+//        Clenshaw loops -O3 leaves rolled and speeds the deferred drain ~10%; it
+//        duplicates loop bodies without touching any per-iteration FP op, so results
+//        are bit-identical -- verified 0 mismatches in-binary. Like -ffp-contract=off,
+//        re-run verify_vec after any toolchain bump.)
 //        (also -mno-avx512f for AVX2, or -mavx2 -mno-avx512f for no-FMA).
 #ifndef VOLFI_ANNULUS_ALL_HPP
 #define VOLFI_ANNULUS_ALL_HPP

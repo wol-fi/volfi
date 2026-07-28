@@ -1,6 +1,6 @@
 # volfiR
 
-R (Rcpp) binding for the volfi v0.2.0 routed, machine-precision Black-Scholes
+R (Rcpp) binding for the volfi v0.2.3 routed, machine-precision Black-Scholes
 implied-volatility inverter. It wraps the same C++17 engine as the rest of the repository,
 built with `-ffp-contract=off` so results are bit-identical to the scalar reference and
 accurate to the last few ULP.
@@ -47,7 +47,7 @@ volfi_iv_option(forward = 100, strike = 110, price = 4.2, t = 1.0, is_call = FAL
 volfi_w_otm_checked(h = c(0.1, -1, 0.1), c = c(0.01, 0.01, 1))
 #   $status: "ok", "bad_input", "above_max"; $variance carries NaN where not ok
 
-volfi_version()   # "0.2.0"
+volfi_version()   # "0.2.3"
 ```
 
 Status codes returned by `volfi_w_otm_checked()` are `ok`, `below_intrinsic`, `above_max`,

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(volfi VERSION 0.2.0 LANGUAGES CXX)
+project(volfi VERSION 0.2.3 LANGUAGES CXX)
 
 # Header-only interface library. Consumers: target_link_libraries(mytarget PRIVATE volfi)
 # then #include <volfi/volfi_annulus_all.hpp>.
@@ -7,7 +7,7 @@ add_library(volfi INTERFACE)
 target_include_directories(volfi INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(volfi INTERFACE cxx_std_17)
 
-option(VOLFI_BUILD_TESTS "Build the v0.2.0 verification checks in reproduce/" ON)
+option(VOLFI_BUILD_TESTS "Build the v0.2.3 verification checks in reproduce/" ON)
 if(VOLFI_BUILD_TESTS)
   enable_testing()
   # The reproduce/ sources include the engine headers by name, so add include/volfi to the

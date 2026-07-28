@@ -15,12 +15,28 @@ dist/
 
 # reproduce/ build artifacts (oracle_*.bin are tracked; binaries are not)
 reproduce/smoke
+reproduce/smoke_512
+reproduce/smoke_256
+reproduce/smoke_scl
 reproduce/vv
+reproduce/vv_512
+reproduce/vv_256
+reproduce/vv_scl
 reproduce/vv_avx2
 reproduce/vv_scalar
 reproduce/warm
 reproduce/fb
 reproduce/bench_512
 reproduce/bench_256
+reproduce/bench_sweep
+reproduce/bp
+reproduce/frm
+reproduce/lcs
 reproduce/mismatch_dump.csv
 reproduce/market_feed.csv
+
+# GPU device headers are generated from the CPU headers by gpu/make_device_*.py
+gpu/volfi_annulus_tables_cuda.cuh
+gpu/volfi_constants_cuda.cuh
+gpu/volfi_gpu_book
+gpu/build.log

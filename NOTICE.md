@@ -4,7 +4,7 @@
 
 If this software, method, benchmark, or documentation influences research, software, internal
 development, or published results, please cite the repository and the accompanying paper
-(`docs/volfi_v0.2.0_paper.pdf`).
+(`docs/volfi_v0.2.3_paper.pdf`).
 
 This software is provided as a research kernel and without warranty. It is not a drop-in
 replacement for production pricing, risk-management, execution, or model-validation systems

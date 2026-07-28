@@ -1,6 +1,6 @@
-# volfi Python binding (v0.2.0)
+# volfi Python binding (v0.2.3)
 
-NumPy binding for the volfi v0.2.0 routed, machine-precision Black-Scholes implied-volatility
+NumPy binding for the volfi v0.2.3 routed, machine-precision Black-Scholes implied-volatility
 inverter. Array inputs are inverted through the vectorized batch driver; the result is
 bit-identical to per-quote inversion and accurate to the last few ULP.
 
@@ -51,7 +51,7 @@ w, status = volfi.implied_variance_checked(h, c)
 # streaming warm restart from the previous snapshot's variance (few-ULP accuracy contract)
 w = volfi.implied_variance_warm(h, c, w_prev, steps=2)
 
-volfi.version()   # "0.2.0"
+volfi.version()   # "0.2.3"
 ```
 
 The plain `implied_variance` / `implied_volatility` raise `RuntimeError` on out-of-range input
