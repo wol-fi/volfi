@@ -1,20 +1,24 @@
 # Reproducing the timing results
 
-> **Chart names: paper vs source.** The paper renames three of the four charts so the labels
-> match the reader's picture of Figure 2; the source keeps the original identifiers. They are the
-> same four charts, in the same order, everywhere.
+> **Chart names.** The four charts are `NEAR` (small moneyness, `h < 0.3`), `FAR` (the Chebyshev
+> table, `0.3 <= h <= H_BOX`), `WING` (deep OTM, below the wing seam) and `UPPER` (large
+> volatility, above the ceiling). Paper and source use the same names.
 >
-> | paper | source identifiers | what it covers |
-> |---|---|---|
-> | `NEAR` | `LEFT`, `R_LEFT`, `br::left_variance`, `left_kernel`, `LEFT_*` | small moneyness, h < 0.3 |
-> | `FAR` | `CENTRAL`, `R_CENTRAL`, `central_kernel` | the Chebyshev table, 0.3 ≤ h ≤ H_BOX |
-> | `UPPER` | `RIGHT`, `R_RIGHT`, `br::right_variance`, `right_kernel` | large volatility, c above the ceiling |
-> | `WING` | `WING`, `R_WING`, `wing_variance`, `wing_kernel` | deep OTM, c below the wing seam |
+> They were `LEFT`, `CENTRAL`, `RIGHT` and `WING` up to v0.2.3. The pair `LEFT`/`RIGHT` reads as
+> two ends of one axis and is not — `LEFT` was a condition on `h`, `RIGHT` a condition on `c` —
+> so three of the four were renamed in v0.2.4. Two places still carry the old letters, both
+> deliberately:
 >
-> The old pair LEFT/RIGHT was renamed because it reads as two ends of one axis and is not: LEFT
-> is a condition on h, RIGHT a condition on c. Renaming the source is a v0.3 item — it touches
-> ~800 identifiers and needs a full re-gate on all three ISAs plus the GPU cross-check, which is
-> not worth spending the certification of this campaign on.
+> - the per-point chart tag inside `oracle_*.bin`, which is certification data and is translated
+>   for display by `verify_vec` (`C`→`F`, `L`→`N`, `R`→`U`);
+> - `br::cwing_price` and `br::c2_price`, which name *seams* of the retired v0.2.2 geometry and
+>   are kept only so `old_covered()` can measure what the pre-v0.2.3 architecture covered.
+>
+> The rename touched ~750 identifiers across the headers, both SIMD twins, the CUDA port and
+> every harness. It is **bitwise neutral**, and that was verified rather than assumed: a
+> 339,430-line hex dump of every driver's output over 66,000 points spanning all four charts is
+> byte-identical before and after, on all three instruction sets. The reference numbers in §6
+> and §7 were measured on v0.2.3 and carry over unchanged for the same reason.
 
 This folder is self-contained. It holds the implementation, the golden verification vectors
 (`oracle_*.bin`), the market feed (`market_feed.csv`), and every harness needed to reproduce
@@ -86,7 +90,7 @@ Each `smoke_*` must print `SMOKE PASS`. Each `vv_*` must print:
 
 - `BIT-IDENTITY scalar==batch:  grid=0  permuted=0  fixed-h=0`
 - `ACCURACY sqrt(w) vs oracle:  n=3511  pts>1e-15=0`
-- per-chart worst errors `[A] 8.29e-16  [C] 4.49e-16  [L] 8.45e-16  [R] 4.40e-16  [W] 4.16e-16`
+- per-chart worst errors `[A] 8.29e-16  [F] 4.49e-16  [N] 8.45e-16  [U] 4.40e-16  [W] 4.16e-16`
 
 All three builds — AVX-512, AVX2, scalar — must print the **same** accuracy numbers and zero
 mismatches. That equality across instruction sets is the determinism claim; a difference
@@ -96,7 +100,7 @@ anywhere is a real failure, not tolerance.
 
 - `GRIDBATCH_VS_SCALAR broad grid ... mismatches=0 (>1ulp=0)`
 - `GRIDBATCH_VS_SCALAR market feed (speculative driver): mismatches=0`
-- `NEW 4-chart coverage (WING+LEFT+CENTRAL+RIGHT) = 120000/120000 = 100.00%`
+- `NEW 4-chart coverage (WING+NEAR+FAR+UPPER) = 120000/120000 = 100.00%`
 
 ## 4. Throughput
 
@@ -115,9 +119,9 @@ Where the output maps in the paper's timing table:
 
 | output line | table row |
 |---|---|
-| `CENTRAL h=1.00 v in [0.45,1.95]` | central batch |
-| `LEFT h=0.20` | small-moneyness batch |
-| `RIGHT h=1.00 v in [2.10,8.00]` | large-volatility batch |
+| `FAR h=1.00 v in [0.41,1.80]` | central batch |
+| `NEAR h=0.20` | small-moneyness batch |
+| `UPPER h=1.00 v in [2.10,8.00]` | large-volatility batch |
 | `TIMING market D_gridbatch_feed` | market feed |
 | `TIMING stream E_warm2_feed` | warm streaming steady state |
 
@@ -142,9 +146,9 @@ numbers in Table 4 of the paper.
 
 | Workload | reference | ours scalar | batch AVX-512 | batch AVX2 |
 |---|---|---|---|---|
-| Central batch, h=1 | 169 | 69 | **17** | **18** |
-| Small-moneyness batch, h=0.2 | 139 | 141 | **26** | **42** |
-| Large-volatility batch, h=1 | 205 | 557 | **74** | 148 |
+| Far batch, h=1 | 169 | 69 | **17** | **18** |
+| Near batch, h=0.2 | 139 | 141 | **26** | **42** |
+| Upper batch, h=1 | 205 | 557 | **74** | 148 |
 | Wing subset of the broad grid | 307 | 1225 | **250** | 347 |
 | Market feed (2024 SPX) | 227 | 321 | **48** | **86** |
 | Market feed, warm 2-step | — | — | **37** | 79 |
@@ -191,7 +195,7 @@ small-moneyness chart gained a third `Binv` regime; and the two tabulated charts
 ceiling, C(h,1.85), instead of stepping between C(h,1.70) and C(h,2) at h=0.3.  On the 2024
 S&P 500 feed the deep-wing share falls from **4.84% to 1.14%** and the central table's share
 moves 5.11% -> 6.95%.  Over the full 641,072-quote tradeable population the mix is 91.96% /
-6.81% / 1.23% / 0.00% (left / central / wing / right), from `feed_route_mix.cpp`.
+6.81% / 1.23% / 0.00% (near / far / wing / upper), from `feed_route_mix.cpp`.
 
 Two effects pulled against each other and were unmeasured beforehand: both seams are cheaper
 to evaluate than what they replaced, while `Binv` gained a third Chebyshev chain charged to
@@ -201,10 +205,10 @@ unchanged to within 0.4%, so the third `Binv` regime is free at measurement reso
 purely through the collapse of the wing share, and the wing subset itself improved from 288 to
 250 ns because its remaining quotes are fewer but the driver is the same.
 
-Comparability caveat: the two CENTRAL fixed-h rows are **not** directly comparable to the
+Comparability caveat: the two FAR fixed-h rows are **not** directly comparable to the
 v0.2.2 numbers, because their v-range had to move with the ceiling (from [0.45,1.95] and
 [0.85,1.95] to [0.41,1.80] and [0.77,1.80]) to stay chart-pure.  The first v0.2.3 run was taken
-before that was noticed and reported a spurious CENTRAL regression; see §8.  All other rows are
+before that was noticed and reported a spurious FAR regression; see §8.  All other rows are
 like-for-like.  For the record, the v0.2.2 baseline was: central 165 / 72 / **17** / **19**;
 large-volatility 205 / 565 / **77** / 152; wing 313 / 1231 / **288** / 381; feed 230 / 367 /
 **55** / **90**; warm 2-step **39** / 83.
@@ -247,7 +251,7 @@ by construction.
 Reference below is **v0.2.2 and superseded**, kept as the comparison baseline. Three v0.2.3
 changes affect it. The wing seam moved to W=3.8, so the feed's wing slice shrinks from 4.84% to
 1.14% of the book and the central slice grows; `d_binv` gained the third regime; and the four
-surface v-ranges moved to mirror the CPU's updated per-chart rows (CENTRAL [0.45,1.95] →
+surface v-ranges moved to mirror the CPU's updated per-chart rows (FAR [0.45,1.95] →
 [0.41,1.80] because the shared ceiling dropped to 1.85, WING [0.15,0.40] → [0.15,0.35] because
 the seam rose to v=h/√7.6 = 0.363 at h=1). The per-chart surface rows should be near-unchanged;
 the **full-book** row is the one to watch, since it is a weighted average over a route mix that
@@ -263,9 +267,9 @@ Table 5 of the paper:
 
 | row | workload | ns/quote | v0.2.2 |
 |---|---|---|---|
-| Central surface | h=1, v ∈ [0.41,1.80] | 0.140 | 0.141 |
-| Left surface | h=0.2, v ∈ [0.30,1.60] | 0.038 | 0.038 |
-| Right surface | h=1, v ∈ [2.10,8.00] | 0.168 | 0.169 |
+| Far surface | h=1, v ∈ [0.41,1.80] | 0.140 | 0.141 |
+| Near surface | h=0.2, v ∈ [0.30,1.60] | 0.038 | 0.038 |
+| Upper surface | h=1, v ∈ [2.10,8.00] | 0.168 | 0.169 |
 | Wing surface | h=1, v ∈ [0.15,0.35] | 0.669 | 0.688 |
 | **Full book** | market feed, 5.01M quotes | **0.078** | 0.100 |
 
@@ -274,13 +278,13 @@ reproduce the measured full book to 2% (0.0763 against 0.0781); the residue is t
 launches. The projection made before the run was 0.073 — the shortfall is the wing, which costs
 39% more in situ than it did, its surviving quotes being fewer but deeper.
 
-The two runs agree to three digits on every row except the central surface (0.1385 and 0.1414);
+The two runs agree to three digits on every row except the far surface (0.1385 and 0.1414);
 the paper's caption states this rather than claiming three digits throughout. All four charts
 reported `mismatches=0 worst_ulp=0` against the CPU reference in both runs, and the route mix
 printed by the device binary (91.91 / 6.95 / 1.14) matches the CPU harness exactly.
 
-Occupancy gate: `wing_kernel`, `right_kernel`, `left_kernel` all at 0 bytes stack frame (72, 55,
-36 registers); `central_kernel` 256 bytes / 40 registers, unchanged and still the known reason it
+Occupancy gate: `wing_kernel`, `upper_kernel`, `near_kernel` all at 0 bytes stack frame (72, 55,
+36 registers); `far_kernel` 256 bytes / 40 registers, unchanged and still the known reason it
 is the slowest chart on the device.
 
 Note the wing is no longer the device's cost centre: at 1.1% of the book it is about a sixth of
@@ -299,7 +303,7 @@ nvcc -O3 -arch=sm_90 -std=c++17 --fmad=false -Xptxas -v -c volfi_gpu_book.cu -o 
 
 `wing_kernel`, `left_kernel` and `right_kernel` must report **0 bytes stack frame** (on our host:
 72, 36 and 55 registers respectively). A nonzero frame means a coefficient array landed in device
-local memory and throughput will be several times worse. `central_kernel` reports a 256-byte frame;
+local memory and throughput will be several times worse. `far_kernel` reports a 256-byte frame;
 that is known and is the likely reason it is the slowest chart on the device.
 
 *Obtaining a suitable instance:* prefer a **PCIe** H100 over SXM5. SXM parts sit on an NVLink
@@ -339,10 +343,10 @@ filter and projection recipe needed to regenerate them from a licensed copy.
 ### The stale-router trap (v0.2.3, 2026-07-27)
 
 `benchmark_vec.cpp` used to carry its own hand-mirrored copy of the routing predicate. It kept
-the v0.2.2 seams (`cwing_price` / `c2_price` / `LEFT_RIGHT_VSEAM`) straight through the v0.2.3
+the v0.2.2 seams (`cwing_price` / `c2_price` / `NEAR_UPPER_VSEAM`) straight through the v0.2.3
 seam change, so the first campaign timed the correct library but partitioned and labelled it
 with the old boundaries: the market route mix printed the v0.2.2 figures verbatim, and the
-CENTRAL fixed-h rows carried RIGHT quotes above the new 1.85 ceiling, showing a 24%/43%
+FAR fixed-h rows carried UPPER quotes above the new 1.85 ceiling, showing a 24%/43%
 "regression" that did not exist. **None of the accuracy or bit-identity gates catch this** — the
 values were right; only the buckets were wrong.
 
@@ -353,7 +357,7 @@ Two defences are now in place, and neither should be removed:
    phase-6 seams, because it measures what the *old* architecture covered.
 2. Every fixed-h surface self-checks for chart purity against the live router and prints
    `[MIXED: ...]` when its v-range spans charts. A surface is named after a chart but *defined*
-   by a v-range, so any seam move silently contaminates it. Only `CENTRALc`, which is
+   by a v-range, so any seam move silently contaminates it. Only `FARc`, which is
    deliberately wing-contaminated, should ever carry the tag.
 
 The reusable lesson: when a benchmark reports a partition, the partition must come from the

@@ -1,9 +1,9 @@
 // benchmark_vec.cpp -- Phase-8 BROAD-DOMAIN benchmark for the volfi-annulus
 // implied-variance inverter (v up to 8, |x|=h up to 16).
 //
-// Phase-8 vectorizes the LEFT (matched small-h) and RIGHT (v>2 endpoint) charts
+// Phase-8 vectorizes the NEAR (matched small-h) and UPPER (v>2 endpoint) charts
 // in the batch drivers.  In Phase-7 those two charts dropped to the scalar
-// fallback inside batch (so batch D ~= scalar C for LEFT/RIGHT); here they run
+// fallback inside batch (so batch D ~= scalar C for NEAR/UPPER); here they run
 // 8-wide, so this benchmark exposes the per-chart scalar->batch speedup on the
 // covered range of EACH chart (no blending across charts).
 //
@@ -14,8 +14,8 @@
 //   D volfi_annulus::implied_variance_grid_batch  (mixed-h sort-then-batch)
 //   D volfi_annulus::implied_variance_otm_batch   (fixed-h surface; SIMD kernels)
 //
-// Reported RESTRICTED TO THE COVERED RANGE per chart (CENTRAL / LEFT / RIGHT),
-// scalar and batch, on fixed-h surfaces (incl. LEFT-heavy and RIGHT-heavy) and a
+// Reported RESTRICTED TO THE COVERED RANGE per chart (FAR / NEAR / UPPER),
+// scalar and batch, on fixed-h surfaces (incl. NEAR-heavy and UPPER-heavy) and a
 // mixed broad grid, plus the broad-domain CHART-COVERAGE fraction.
 //
 // Build (from this dir, LBR sources on the include/link line):
@@ -68,17 +68,17 @@ double qnorm2(double p){ double x=qnorm0(p);
   for(int i=0;i<2;i++){ double e=volfi::phi_cdf(x)-p; double u=e*kSqrtTwoPi*std::exp(0.5*x*x); x-=u/(1.0+0.5*x*u);} return x; }
 
 // ---- broad-domain route label ------------------------------------------------
-enum { R_WING=0, R_LEFT=1, R_CENTRAL=2, R_RIGHT=3, R_EDGE=4 };
+enum { R_WING=0, R_NEAR=1, R_FAR=2, R_UPPER=3, R_EDGE=4 };
 // Delegates to the LIVE router instead of re-deriving the seams here.  A local
 // copy of the routing predicate silently went stale once already (it kept the
-// v0.2.2 seams -- cwing_price / c2_price / LEFT_RIGHT_VSEAM -- through the whole
+// v0.2.2 seams -- cwing_price / c2_price / NEAR_UPPER_VSEAM -- through the whole
 // v0.2.3 seam change, so every per-chart bucket and the market route mix were
 // mislabelled while the timings themselves were correct).  Do not reintroduce
 // one: this must call volfi_annulus::detail::grid_endpoint_route and nothing
 // else, so it cannot drift from the shipped router again.
 //
-// grid_endpoint_route's code 0 is "not an endpoint chart": inside the central
-// box that means the CENTRAL chart claims the quote (a cell hit, or the
+// grid_endpoint_route's code 0 is "not an endpoint chart": inside the far
+// box that means the FAR chart claims the quote (a cell hit, or the
 // analytic ATM-deep edge the table hands to scalar_fallback).  Outside the box
 // -- c out of (0,1), or h<=0 -- it is a genuine degenerate input.
 int route(double h,double c){
@@ -86,17 +86,17 @@ int route(double h,double c){
   if(!(c>0.0)||c>=1.0) return R_EDGE;
   if(!(h>0.0)) return R_EDGE;
   switch(detail::grid_endpoint_route(h,c)){
-    case 1:  return R_LEFT;
-    case 2:  return R_RIGHT;
+    case 1:  return R_NEAR;
+    case 2:  return R_UPPER;
     case 3:  return R_WING;
-    default: return R_CENTRAL;                     // in-box: table cell or analytic edge
+    default: return R_FAR;                     // in-box: table cell or analytic edge
   }
 }
 // OLD phase-6 in-box fast-path predicate: box table (h in [H_ATM_HI,H_BOX], v<=2,
 // c>=cw) OR wing.  Everything else (v>2 in/out of box, small-h deep corner,
 // h>H_BOX) fell to a crude analytic clamp/fallback in the OLD architecture.
 // This deliberately keeps the FROZEN phase-6 seams (cwing_price = the W=3 ray,
-// c2_price = the old CENTRAL ceiling): it measures what the old architecture
+// c2_price = the old FAR ceiling): it measures what the old architecture
 // covered, so it must not follow the current seams.
 bool old_covered(double h,double c){
   using namespace volfi_annulus;
@@ -189,12 +189,12 @@ int main(int argc,char** argv){
   // ---- coverage ----
   long cnt[5]={0}; long oldcov=0;
   for(int i=0;i<N;i++){ cnt[route(G.h[i],G.c[i])]++; if(old_covered(G.h[i],G.c[i])) oldcov++; }
-  long newcov=cnt[R_WING]+cnt[R_LEFT]+cnt[R_CENTRAL]+cnt[R_RIGHT];
+  long newcov=cnt[R_WING]+cnt[R_NEAR]+cnt[R_FAR]+cnt[R_UPPER];
   std::printf("=== BROAD-DOMAIN COVERAGE (N=%d) ===\n",N);
-  std::printf("  route counts: WING=%ld LEFT=%ld CENTRAL=%ld RIGHT=%ld EDGE=%ld\n",
-              cnt[R_WING],cnt[R_LEFT],cnt[R_CENTRAL],cnt[R_RIGHT],cnt[R_EDGE]);
-  std::printf("  NEW 4-chart coverage (WING+LEFT+CENTRAL+RIGHT) = %ld/%d = %.2f%%\n",newcov,N,100.0*newcov/N);
-  std::printf("  OLD in-box fast path (CENTRAL table + WING only)= %ld/%d = %.2f%%   [rest was crude fallback]\n",
+  std::printf("  route counts: WING=%ld NEAR=%ld FAR=%ld UPPER=%ld EDGE=%ld\n",
+              cnt[R_WING],cnt[R_NEAR],cnt[R_FAR],cnt[R_UPPER],cnt[R_EDGE]);
+  std::printf("  NEW 4-chart coverage (WING+NEAR+FAR+UPPER) = %ld/%d = %.2f%%\n",newcov,N,100.0*newcov/N);
+  std::printf("  OLD in-box fast path (FAR table + WING only)= %ld/%d = %.2f%%   [rest was crude fallback]\n",
               oldcov,N,100.0*oldcov/N);
   std::printf("  COVERAGE GAIN: %.2f%% -> %.2f%%\n\n",100.0*oldcov/N,100.0*newcov/N);
 
@@ -223,9 +223,9 @@ int main(int argc,char** argv){
   // ---- accuracy vs construction variance (metric b; real mpmath rel-sigma via --dump) ----
   {
     const double EPS=2.220446049250313e-16;
-    const char* lbl[4]={"WING","LEFT","CENTRAL","RIGHT"};
+    const char* lbl[4]={"WING","NEAR","FAR","UPPER"};
     std::printf("=== ACCURACY vs construction v (per chart, rel-sigma) ===\n");
-    for(int rl=R_WING; rl<=R_RIGHT; ++rl){
+    for(int rl=R_WING; rl<=R_UPPER; ++rl){
       Grid s=subset(G,rl); if(s.h.empty()){ continue; }
       double mx=0; std::vector<double> rels;
       for(size_t i=0;i<s.h.size();++i){ double w=volfi_annulus::implied_variance_otm(s.a[i],s.c[i]);
@@ -246,9 +246,9 @@ int main(int argc,char** argv){
   }
 
   std::printf("=== PER-CHART TIMING (BENCH_RUNS=%d REPEATS=%d), mixed broad grid subset per chart ===\n",runs,rep);
-  time_chart("CENTRAL",subset(G,R_CENTRAL),runs,rep);
-  time_chart("LEFT",   subset(G,R_LEFT),   runs,rep);
-  time_chart("RIGHT",  subset(G,R_RIGHT),  runs,rep);
+  time_chart("FAR",subset(G,R_FAR),runs,rep);
+  time_chart("NEAR",   subset(G,R_NEAR),   runs,rep);
+  time_chart("UPPER",  subset(G,R_UPPER),  runs,rep);
   time_chart("WING",   subset(G,R_WING),   runs,rep);
   std::printf("\n");
 
@@ -266,11 +266,11 @@ int main(int argc,char** argv){
     }
     std::printf("=== FULL broad mixed grid (all charts) ===\n");
     rpt("mixed","B_lbr_all",tBall); rpt("mixed","C_scalar_all",tC); rpt("mixed","D_gridbatch_all",tD);
-    std::printf("  batch speedup vs scalar = %.2fx (blended; CENTRAL subset vectorized, endpoints scalar)\n\n",median(tC)/median(tD));
+    std::printf("  batch speedup vs scalar = %.2fx (blended; FAR subset vectorized, endpoints scalar)\n\n",median(tC)/median(tD));
   }
 
   // ---- fixed-h SURFACE per chart (same-cell throughput ceiling) ----
-  //  CENTRAL: h=1.0 v in [0.05,2].  LEFT: h=0.2 v in [0.3,1.6].  RIGHT: h=1.0 v in [2.1,8].
+  //  FAR: h=1.0 v in [0.05,2].  NEAR: h=0.2 v in [0.3,1.6].  UPPER: h=1.0 v in [2.1,8].
   auto surface=[&](const char* nm,double h,double vlo,double vhi){
     volfi_annulus::context aq(h); volfi::otm_context vq(h);
     std::vector<double> cs; int M=4096;
@@ -290,12 +290,12 @@ int main(int argc,char** argv){
     }
     // Chart purity, measured with the LIVE router.  A fixed-h surface is named
     // after a chart but defined by a v-range, so a seam move silently
-    // contaminates it (v0.2.3 dropped the CENTRAL ceiling to 1.85, which put the
-    // top of the old [.,1.95] ranges into RIGHT).  Print the mix whenever the
+    // contaminates it (v0.2.3 dropped the FAR ceiling to 1.85, which put the
+    // top of the old [.,1.95] ranges into UPPER).  Print the mix whenever the
     // surface is not chart-pure so the row cannot be read as one chart's cost.
     long mix[5]={0}; for(int i=0;i<n;i++) mix[route(h,cs[i])]++;
     int dom=0; for(int k=1;k<5;k++) if(mix[k]>mix[dom]) dom=k;
-    const char* NM[5]={"WING","LEFT","CENTRAL","RIGHT","EDGE"};
+    const char* NM[5]={"WING","NEAR","FAR","UPPER","EDGE"};
     char tag[96]; tag[0]='\0';
     if(mix[dom]<n){
       int p=std::snprintf(tag,sizeof tag,"  [MIXED:");
@@ -305,21 +305,21 @@ int main(int argc,char** argv){
     std::printf("  %-8s h=%.2f v in [%.2f,%.2f] n=%-5d  A_volfi=%7.1f  B_lbr=%7.1f  C_scalar=%7.1f  D_batch=%7.1f%s\n",
                 nm,h,vlo,vhi,n,median(tAs),median(tBs),median(tCs),median(tDs),tag);
   };
-  std::printf("=== FIXED-h SURFACE per chart (ns/eval median; Phase-8 D_batch vectorizes CENTRAL+LEFT+RIGHT) ===\n");
+  std::printf("=== FIXED-h SURFACE per chart (ns/eval median; Phase-8 D_batch vectorizes FAR+NEAR+UPPER) ===\n");
   // v0.2.3 seams: wing ray v=h/sqrt(7.6) (W*=3.8), shared ceiling v=1.85.
   // Ranges sit inside both with ~0.05 of margin, so these rows are chart-pure.
-  std::printf("  -- CENTRAL-clean surfaces (v above wing seam h/sqrt7.6, below v=1.85; chart-pure) --\n");
-  surface("CENTRAL",1.0,0.41,1.80);
-  surface("CENTRAL",2.0,0.77,1.80);
-  surface("CENTRALc",1.0,0.05,1.85);  // legacy wing-contaminated range, kept for reference
-  std::printf("  -- LEFT-heavy surfaces (h<H_ATM_HI, v<=1.60; Phase-8 batch runs LEFT SIMD kernel) --\n");
-  surface("LEFT",0.10,0.20,1.60);
-  surface("LEFT",0.20,0.30,1.60);
-  surface("LEFT",0.28,0.30,1.60);
-  std::printf("  -- RIGHT-heavy surfaces (v>2; Phase-8 batch runs RIGHT SIMD kernel) --\n");
-  surface("RIGHT",0.50,2.10,8.0);
-  surface("RIGHT",1.00,2.10,8.0);
-  surface("RIGHT",3.00,2.10,8.0);
+  std::printf("  -- FAR-clean surfaces (v above wing seam h/sqrt7.6, below v=1.85; chart-pure) --\n");
+  surface("FAR",1.0,0.41,1.80);
+  surface("FAR",2.0,0.77,1.80);
+  surface("FARc",1.0,0.05,1.85);  // legacy wing-contaminated range, kept for reference
+  std::printf("  -- NEAR-heavy surfaces (h<H_ATM_HI, v<=1.60; Phase-8 batch runs NEAR SIMD kernel) --\n");
+  surface("NEAR",0.10,0.20,1.60);
+  surface("NEAR",0.20,0.30,1.60);
+  surface("NEAR",0.28,0.30,1.60);
+  std::printf("  -- UPPER-heavy surfaces (v>2; Phase-8 batch runs UPPER SIMD kernel) --\n");
+  surface("UPPER",0.50,2.10,8.0);
+  surface("UPPER",1.00,2.10,8.0);
+  surface("UPPER",3.00,2.10,8.0);
   std::printf("\n");
 
   // ---- MARKET-REALISTIC FEED (2024 SPX EOD tradeable, ACTUAL prices) ----------
@@ -329,7 +329,7 @@ int main(int argc,char** argv){
   // on settlement; every quote parity-projected to the OTM-call branch).  The c are
   // the ACTUAL projected quote prices -- tick rounding, bid/ask noise and parity
   // projection included -- NOT prices regenerated from vendor IV, so the route mix
-  // (~90% LEFT / ~5% WING / ~5% CENTRAL, wing ~98% downside puts) is the live one.
+  // (~90% NEAR / ~5% WING / ~5% FAR, wing ~98% downside puts) is the live one.
   // TIMING CONVENTION (all-inside): every method starts from the raw (h,c) pair
   // inside the timed loop -- LBR pays its beta = c*exp(-h/2) input transform and
   // our scalar entry builds its per-h context; nothing is precomputed for anybody.
@@ -347,7 +347,7 @@ int main(int argc,char** argv){
       int NM=(int)M.h.size();
       long mc[5]={0}; for(int i=0;i<NM;i++) mc[route(M.h[i],M.c[i])]++;
       std::printf("=== MARKET-REALISTIC FEED (2024 SPX tradeable, actual prices, N=%d) ===\n",NM);
-      { // bit-identity ON THIS FEED: a LEFT-heavy feed dispatches to the SPECULATIVE
+      { // bit-identity ON THIS FEED: a NEAR-heavy feed dispatches to the SPECULATIVE
         // driver, which the broad-grid DIAG (two-pass dispatch) does not exercise.
         std::vector<double> wg(NM); long mism=0;
         volfi_annulus::implied_variance_grid_batch(M.h.data(),M.c.data(),wg.data(),NM);
@@ -356,9 +356,9 @@ int main(int argc,char** argv){
           if(bd(ws)!=bd(wg[i])) ++mism; }
         std::printf("  GRIDBATCH_VS_SCALAR market feed (speculative driver): mismatches=%ld  [must be 0]\n",mism);
       }
-      std::printf("  route mix: WING=%.2f%% LEFT=%.2f%% CENTRAL=%.2f%% RIGHT=%.2f%% EDGE=%.2f%%\n",
-                  100.0*mc[R_WING]/NM,100.0*mc[R_LEFT]/NM,100.0*mc[R_CENTRAL]/NM,
-                  100.0*mc[R_RIGHT]/NM,100.0*mc[R_EDGE]/NM);
+      std::printf("  route mix: WING=%.2f%% NEAR=%.2f%% FAR=%.2f%% UPPER=%.2f%% EDGE=%.2f%%\n",
+                  100.0*mc[R_WING]/NM,100.0*mc[R_NEAR]/NM,100.0*mc[R_FAR]/NM,
+                  100.0*mc[R_UPPER]/NM,100.0*mc[R_EDGE]/NM);
       std::vector<double> tBm,tCm,tDm; std::vector<double> wbuf(NM);
       for(int r=0;r<runs;r++){
         tBm.push_back(bench(NM,rep,[&](int i){

@@ -36,20 +36,20 @@ int main(int argc, char** argv) {
         if (f.size() < 21) continue;
         const double h = std::atof(f[18].c_str());
         const double c = std::atof(f[20].c_str());
-        int r;                                               // WING/LEFT/CENTRAL/RIGHT/EDGE
+        int r;                                               // WING/NEAR/FAR/UPPER/EDGE
         if (!(c > 0.0) || c >= 1.0 || !(h > 0.0)) r = 4;
         else switch (volfi_annulus::detail::grid_endpoint_route(h, c)) {
-            case 1:  r = 1; break;                           // LEFT
-            case 2:  r = 3; break;                           // RIGHT
+            case 1:  r = 1; break;                           // NEAR
+            case 2:  r = 3; break;                           // UPPER
             case 3:  r = 0; break;                           // WING
-            default: r = 2;                                  // CENTRAL (cell or analytic edge)
+            default: r = 2;                                  // FAR (cell or analytic edge)
         }
         ++mix[r]; ++n;
         if (r == 0 && f[3] == "P") ++wing_put;
         if (f[17] == "True") ++projected;
         if (h > hmax) hmax = h;
     }
-    const char* NM[5] = {"WING", "LEFT", "CENTRAL", "RIGHT", "EDGE"};
+    const char* NM[5] = {"WING", "NEAR", "FAR", "UPPER", "EDGE"};
     std::printf("n = %ld tradeable quotes\n", n);
     for (int k = 0; k < 5; ++k)
         std::printf("  %-8s %8ld  %6.2f%%\n", NM[k], mix[k], 100.0 * mix[k] / n);

@@ -1,4 +1,4 @@
-# volfi v0.2.3
+# volfi v0.2.4
 
 `volfi` is a header-only C++17 reference implementation for inverting the Black–Scholes
 price–to–implied-volatility map at machine precision.
@@ -11,7 +11,7 @@ place and producing **bit-identical results from its scalar and SIMD paths** —
 v0.2.3, from a CUDA port of the same kernels.
 
 The engine is built on top of the v0.1 kernel (it reuses `volfi::qnorm`, the OTM context,
-and the price/Halley primitives), so both versions coexist in the tree; v0.2.3 is the
+and the price/Halley primitives), so both versions coexist in the tree; v0.2.4 is the
 current release.
 
 The accompanying paper (`docs/volfi_v0.2.3_paper.pdf`) documents the method, the accuracy
@@ -32,18 +32,19 @@ A branchless per-quote predicate routes each `(h, c)` to one of four charts, eac
 across its own region so that no single approximation is stretched past where it conditions
 well:
 
-| chart   | source id | region                                              | method                                                         |
-|---------|-----------|-----------------------------------------------------|----------------------------------------------------------------|
-| `NEAR`  | `LEFT`    | `h < 0.3`, below the ceiling                        | matched small-moneyness expansion                              |
-| `FAR`   | `CENTRAL` | `0.3 <= h <= 6.65`, between the two seams           | bivariate Chebyshev table in `W = h^2/(2w)`                    |
-| `WING`  | `WING`    | `c < c_w(h) = C(h, h/sqrt(7.6))`, i.e. `W >= 3.8`   | resurgent deep-OTM evaluator (erf-free), prices to `1e-320`    |
-| `UPPER` | `RIGHT`   | `c > c_top(h) = C(h, 1.85)`, i.e. `v > 1.85`        | erf-free seed + fixed 3-step Householder on the exact equation |
+| chart   | region                                              | method                                                         |
+|---------|-----------------------------------------------------|----------------------------------------------------------------|
+| `NEAR`  | `h < 0.3`, below the ceiling                        | matched small-moneyness expansion                              |
+| `FAR`   | `0.3 <= h <= 6.65`, between the two seams           | bivariate Chebyshev table in `W = h^2/(2w)`                    |
+| `WING`  | `c < c_w(h) = C(h, h/sqrt(7.6))`, i.e. `W >= 3.8`   | resurgent deep-OTM evaluator (erf-free), prices to `1e-320`    |
+| `UPPER` | `c > c_top(h) = C(h, 1.85)`, i.e. `v > 1.85`        | erf-free seed + fixed 3-step Householder on the exact equation |
 
-**Naming.** The paper renames three charts for readability — `NEAR` (was `LEFT`), `FAR`
-(was `CENTRAL`), `UPPER` (was `RIGHT`) — because `LEFT`/`RIGHT` read as two ends of one axis
-and are not: one is a condition on `h`, the other on `c`. **The source keeps the original
-identifiers**; the mapping table at the top of
-[`reproduce/BENCHMARK_PROTOCOL.md`](reproduce/BENCHMARK_PROTOCOL.md) is authoritative.
+**Naming.** These charts were `LEFT`, `CENTRAL`, `RIGHT` and `WING` up to v0.2.3. The pair
+`LEFT`/`RIGHT` reads as two ends of one axis and is not — `LEFT` was a condition on `h`,
+`RIGHT` a condition on `c` — so three of the four were renamed in v0.2.4. Paper and source now
+use the same names. The rename was bitwise neutral and verified to be: see
+[`reproduce/BENCHMARK_PROTOCOL.md`](reproduce/BENCHMARK_PROTOCOL.md) and
+[`reproduce/fingerprint.cpp`](reproduce/fingerprint.cpp), the tool that proves it.
 
 The chart boundaries are fixed by branch-point analysis of the inverse map, not tuned. Only
 two frozen polynomials in `h` are evaluated to route — the wing seam `c_w` and the shared
@@ -206,7 +207,7 @@ likewise not included; `reproduce/README.md` documents how to regenerate it.
 - [`docs/volfi_v0.2.3_paper.pdf`](docs/volfi_v0.2.3_paper.pdf) — the technical paper (method,
   derivations, accuracy certification, timing methodology).
 - [`docs/README.md`](docs/README.md) — documentation index.
-- [`CHANGELOG.md`](CHANGELOG.md) — what changed in v0.2.3, and what it cost.
+- [`CHANGELOG.md`](CHANGELOG.md) — what changed in v0.2.4, and what it cost.
 
 ## Domain conventions
 

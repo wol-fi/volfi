@@ -1,5 +1,51 @@
 # Changelog
 
+## v0.2.4
+
+Chart rename, and nothing else. `LEFT` -> `NEAR`, `CENTRAL` -> `FAR`, `RIGHT` -> `UPPER`;
+`WING` is unchanged. The pair `LEFT`/`RIGHT` read as two ends of one axis and was not —
+`LEFT` was a condition on moneyness `h`, `RIGHT` a condition on price `c` — which misled
+readers of both the paper and the source. Paper and source now use the same four names.
+
+**No behaviour changed.** This was verified, not assumed. `reproduce/fingerprint.cpp` dumps
+every driver's output as `%a` hex doubles over 66,000 points spanning all four charts — the
+scalar entry, the checked entry, the mixed-`h` and fixed-`h` batch drivers, the 2- and 3-step
+warm drivers, the raw-data wrapper, and the routing label per point. The resulting
+339,430-line file is **byte-identical before and after the rename, on AVX-512, AVX2 and
+scalar alike**. The reference numbers in `reproduce/BENCHMARK_PROTOCOL.md` were measured on
+v0.2.3 and carry over unchanged for that reason.
+
+### Changed
+- ~750 identifiers across the headers, both SIMD twins, the CUDA port and every harness.
+- Public API is untouched: `implied_variance_otm`, `implied_volatility`,
+  `implied_variance_grid_batch`, `implied_variance_warm_batch`, `iv_status` and friends carry
+  no chart name. Only internal `br::` / `detail::` names and device kernels changed
+  (`br::left_variance` -> `br::near_variance`, `central_kernel` -> `far_kernel`, and so on).
+- `reproduce/left_ceiling_sweep.cpp` -> `reproduce/near_ceiling_sweep.cpp`.
+
+### Added
+- `reproduce/fingerprint.cpp` — the bitwise-fingerprint tool above. Useful for any future
+  refactor that claims to be neutral.
+
+### Deliberately not renamed
+- The per-point chart tag inside `oracle_*.bin`. It is certification data; `verify_vec`
+  translates it for display (`C`->`F`, `L`->`N`, `R`->`U`), so the gate now prints
+  `[A] [F] [N] [U] [W]`.
+- `br::cwing_price` and `br::c2_price`, which name seams of the retired v0.2.2 geometry and
+  exist only so `old_covered()` can measure what the pre-v0.2.3 architecture covered.
+
+### Note on the checked-in results
+`reproduce/results/*.txt` were produced by v0.2.3 and still show the old per-chart row labels.
+The numbers are unaffected; a fresh run reproduces them row for row under the new names.
+
+### Verification status
+Full CPU re-gate passed: three ISAs, `SMOKE PASS`, bit-identity `grid=0 permuted=0
+fixed-h=0`, `pts>1e-15=0`, identical per-chart maxima, plus the fingerprint diff above. The
+CUDA source was renamed and **statically** checked — every `g::` name it references is
+declared by the regenerated device headers, and no pre-rename identifier survives on the
+device side — but it has **not been recompiled or re-run on a GPU** since the rename. The
+device numbers in the paper and in `BENCHMARK_PROTOCOL.md` were measured on v0.2.3.
+
 ## v0.2.3
 
 Routing rework. The chart boundaries moved so that a real option book almost never reaches

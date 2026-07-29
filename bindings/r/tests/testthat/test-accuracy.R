@@ -12,7 +12,7 @@ test_that("Annulus reference values match", {
   expect_equal(volfi_iv(ctx, cp, tt), sqrt(ww / tt), tolerance = 1e-14)
   expect_equal(volfi_w_otm(h, cp), ww, tolerance = 1e-14)
   expect_equal(volfi_iv_otm(h, cp, tt), sqrt(ww / tt), tolerance = 1e-14)
-  expect_equal(volfi_version(), "0.2.3")
+  expect_equal(volfi_version(), "0.2.4")
 })
 
 test_that("scalar contexts use the native batch engine", {

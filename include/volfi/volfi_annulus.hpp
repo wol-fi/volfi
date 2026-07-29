@@ -27,34 +27,34 @@
 //  Four charts tile the domain; the seam prices cw=cwing(h), ct2=c2(h) (1-D in h,
 //  precomputed once per context by br::) are the branchless route predicate:
 //        c <  cw                    -> WING     (true W>=3; unchanged evaluator)
-//        h <  H_ATM_HI:  c<=ct_left ? LEFT : RIGHT   (ct_left=C(h,1.70) seam, see below)
-//        h <= H_BOX && c<=ct2       -> CENTRAL  (the Phase-6 main table, unchanged)
-//        else                       -> RIGHT    (v>2 endpoint / h>H_BOX)
-//    In the h<H_ATM_HI band the LEFT<->RIGHT seam is at v=1.70 (price ct_left),
-//    NOT v=2: the LEFT finisher extrapolates for v->2 (the h=0.3/v=2 corner), while
-//    RIGHT's exact-equation Newton is machine-precise for v>=1.55.  ct_left is a
+//        h <  H_ATM_HI:  c<=ct_near ? NEAR : UPPER   (ct_near=C(h,1.70) seam, see below)
+//        h <= H_BOX && c<=ct2       -> FAR  (the Phase-6 main table, unchanged)
+//        else                       -> UPPER    (v>2 endpoint / h>H_BOX)
+//    In the h<H_ATM_HI band the NEAR<->UPPER seam is at v=1.70 (price ct_near),
+//    NOT v=2: the NEAR finisher extrapolates for v->2 (the h=0.3/v=2 corner), while
+//    UPPER's exact-equation Newton is machine-precise for v>=1.55.  ct_near is a
 //    per-context (h-only) price, so the predicate stays branchless in the hot loop.
 //    (h==0 -> exact ATM line.)  See volfi_annulus_broadrange.hpp for the recipes.
 //
-//   * CENTRAL (main table, h in [H_ATM_HI,H_BOX], cw<=c<=ct2):  stores W=h^2/(2w).
+//   * FAR (main table, h in [H_ATM_HI,H_BOX], cw<=c<=ct2):  stores W=h^2/(2w).
 //        b   = clamp((bits(h)>>H_SHIFT) - OFF_H, 0, NB-1);  xh = h*HSCALE[b]+HBIAS[b]
 //        cell selected by (k,sub) A2 split; xl = CELL_LSCALE*log2approx(m)+CELL_LBIAS
 //        W = clenshaw2(...);  w = h*h/(2W).  Its own k-routing still guards the
 //        c->1 ATM edge (k>KHI) and the deep seam (k<KLO -> wing/refined).
-//   * LEFT (h<H_ATM_HI, cw<=c<=ct2):  br::left_variance -- rho=c/expm1(h);
+//   * NEAR (h<H_ATM_HI, cw<=c<=ct2):  br::near_variance -- rho=c/expm1(h);
 //        A=binv(rho); s=h/A; v=V0(s)+h^2 V2+h^4 V4 + h^6*clenshaw2 finisher; w=v*v.
-//   * RIGHT (c>ct2 or h>H_BOX):  br::right_variance -- erf-free 3-term seed
+//   * UPPER (c>ct2 or h>H_BOX):  br::upper_variance -- erf-free 3-term seed
 //        (Mills ratio exact) + fixed-cap exact-equation Newton; w=v*v.
 //   * WING (c<cw):  volfi_annulus::wing_variance (resurgent GL-40, UNCHANGED).
 //   The old SMALL-h residual table (region 1) and OUT-OF-BOX clamp (region 2) are
-//   SUPERSEDED by LEFT and RIGHT; the SMH_* tables remain but are off the routed path.
+//   SUPERSEDED by NEAR and UPPER; the SMH_* tables remain but are off the routed path.
 //
-//  scalar==batch: the CENTRAL table core AND the LEFT/RIGHT endpoint charts are
+//  scalar==batch: the FAR table core AND the NEAR/UPPER endpoint charts are
 //  vectorized on BOTH FMA ISAs -- AVX-512 (8-wide) and AVX2+FMA (4-wide, the
 //  __m256d twins).  Their explicit-fma kernels are bit-identical scalar<->SIMD.
 //  Only WING and the analytic ATM/deep edges drop to the noinline `scalar_fallback`
 //  (== the scalar entry), so batch is bit-identical to scalar in every ISA.  The
-//  route gate (central_cell_of / grid_central_cell) is the single source of truth
+//  route gate (far_cell_of / grid_far_cell) is the single source of truth
 //  shared by the vector core and its fallback pass, so no path-divergent floating
 //  branch can disagree.
 //  NOTE (cross-ISA): every intended fusion is an EXPLICIT std::fma / _mm*_fmadd
@@ -92,8 +92,8 @@
 #include <optional>
 #include <limits>
 #include "volfi_annulus_tables.hpp"
-#include "volfi_annulus_broadrange.hpp"  // broad-range chart constants (Binv, LEFT, RIGHT, seams)
-#include "volfi_annulus_endpoint_vec.hpp"  // NEW: LEFT/RIGHT vectorization constants (Cheb V2/V4, erfcx/exp/qnorm)
+#include "volfi_annulus_broadrange.hpp"  // broad-range chart constants (Binv, NEAR, UPPER, seams)
+#include "volfi_annulus_endpoint_vec.hpp"  // NEW: NEAR/UPPER vectorization constants (Cheb V2/V4, erfcx/exp/qnorm)
 #include "paper_volfi.hpp"   // reuse volfi::qnorm, volfi::otm_context, volfi price/Halley
 
 #if defined(__AVX512F__) || defined(__AVX2__)
@@ -188,9 +188,9 @@ inline double log2approx(double m) {
 }
 
 // FULL natural log by reuse: log(x) = ln2 * ( exponent_bits(x) + log2approx(mantissa(x)) ).
-// Uses the SAME validated, already-vectorized log2approx as CENTRAL's index pass, so the
-// LEFT binv L-branch and RIGHT qnorm0 tail call NO libm log yet stay scalar==SIMD bit-identical.
-// (De-risked in dv_left/flog_check.cpp: <=3 ULP vs std::log over the binv L-branch domain.)
+// Uses the SAME validated, already-vectorized log2approx as FAR's index pass, so the
+// NEAR binv L-branch and UPPER qnorm0 tail call NO libm log yet stay scalar==SIMD bit-identical.
+// (De-risked in dv_near/flog_check.cpp: <=3 ULP vs std::log over the binv L-branch domain.)
 static const double VA_LN2 = 0.69314718055994530942;   // ln 2
 inline double full_log(double x) {
     uint64_t bc = detail::bits_of(x);
@@ -253,10 +253,10 @@ inline double clenshaw2_smh_cell(int cell, double xh, double xl) {
 // ============================================================================
 //  BROAD-RANGE CHART EVALUATORS  (br::).  Scalar, branchless-per-chart, built on
 //  the SHARED kernels above (sigma0_poly, clenshaw2) plus volfi::qnorm/phi_cdf.
-//  These are the LEFT matched chart, the RIGHT endpoint chart, the h-free Binv
+//  These are the NEAR matched chart, the UPPER endpoint chart, the h-free Binv
 //  inverse, and the 1-D-in-h seam price curves cwing(h),c2(h).  Ported verbatim
 //  (identical fma order) from the VERIFIED generator float64 reference
-//  (generate_broadrange.py: binv_f64/left_chart_f64/right_chart_f64/route).
+//  (generate_broadrange.py: binv_f64/near_chart_f64/upper_chart_f64/route).
 //  Every fused op that the reference performs with fma() uses std::fma here.
 // ============================================================================
 namespace br {
@@ -285,15 +285,15 @@ inline double cwstar_price(double h) {           // C(h, h/sqrt(7.6))  (W*=3.8, 
     return h * exp_neg(clenshaw1(K::CWS_COEFFS, 18, K::CWS_A, K::CWS_B, h));
 }
 // v0.2.3: ONE upper seam for every band, C(h,1.85).  Replaces c2_price (v=2) for the
-// central band AND ctl_seam (v=1.70) for the small-moneyness band, so the two charts
+// far band AND ctl_seam (v=1.70) for the small-moneyness band, so the two charts
 // share a single continuous ceiling and the router evaluates one polynomial, not two.
 inline double ctop_price(double h) {             // C(h, 1.85)
     return exp_neg(clenshaw1(K::CTOP_COEFFS, 32, K::CTOP_A, K::CTOP_B, h));
 }
-inline double c2_price(double h) {               // C(h, 2)        (v=2 central seam)
+inline double c2_price(double h) {               // C(h, 2)        (v=2 far seam)
     return exp_neg(clenshaw1(K::C2_COEFFS, 27, K::C2_A, K::C2_B, h));
 }
-inline double ctl_seam(double h) {               // C(h, 1.70)  LEFT/RIGHT seam (frozen poly)
+inline double ctl_seam(double h) {               // C(h, 1.70)  NEAR/UPPER seam (frozen poly)
     return clenshaw1(K::CTL_SEAM_C, 9, K::CTL_SEAM_A, K::CTL_SEAM_B, h);
 }
 inline double expm1_small(double h) {            // expm1(h) on (0,0.32] (frozen; no libm)
@@ -314,32 +314,32 @@ inline double binv(double rho) {
     return std::sqrt(A2);
 }
 
-// ---- LEFT chart matched-coordinate helpers -------------------------------
-// V2(s), V4(s) are now 1-D Chebyshev series in s on [0, LEFT_S_CHEB_MAX] (NEW, from
+// ---- NEAR chart matched-coordinate helpers -------------------------------
+// V2(s), V4(s) are now 1-D Chebyshev series in s on [0, NEAR_S_CHEB_MAX] (NEW, from
 // generate_endpoint_vec.py): they REPLACE the exp-bearing closed form AND its s<0.22
-// series crossover, so the LEFT inner loop is branchless with NO libm exp -> vectorizable.
-inline double V0_left(double s) { return sigma0_poly(K::BR_K * s); }   // shared erfinv kernel
-inline double V2_left(double s) { return clenshaw1(K::LEFT_V2_CHEB, K::LEFT_V2_CHEB_N, 0.0, K::LEFT_S_CHEB_MAX, s); }
-inline double V4_left(double s) { return clenshaw1(K::LEFT_V4_CHEB, K::LEFT_V4_CHEB_N, 0.0, K::LEFT_S_CHEB_MAX, s); }
+// series crossover, so the NEAR inner loop is branchless with NO libm exp -> vectorizable.
+inline double V0_near(double s) { return sigma0_poly(K::BR_K * s); }   // shared erfinv kernel
+inline double V2_near(double s) { return clenshaw1(K::NEAR_V2_CHEB, K::NEAR_V2_CHEB_N, 0.0, K::NEAR_S_CHEB_MAX, s); }
+inline double V4_near(double s) { return clenshaw1(K::NEAR_V4_CHEB, K::NEAR_V4_CHEB_N, 0.0, K::NEAR_S_CHEB_MAX, s); }
 
-// LEFT matched small-h chart -> w = sigma^2.  h in (0, H_ATM_HI), c<=c2(h).
+// NEAR matched small-h chart -> w = sigma^2.  h in (0, H_ATM_HI), c<=c2(h).
 // Reformulated inner loop (full_log binv + sigma0_poly + Cheb V2/V4 + frozen finisher):
 // NO libm exp/log -> shared with the SIMD twin -> scalar==batch bit-identity.
-inline double left_variance(double h, double c) {
+inline double near_variance(double h, double c) {
     double rho = c / expm1_small(h);
     double A   = binv(rho);
     double s   = h / A;
-    double x   = V0_left(s);
+    double x   = V0_near(s);
     double h2  = h * h, h4 = h2 * h2;
-    double xt  = std::fma(2.0 * h2, 1.0 / K::LEFT_T_MAX, -1.0);
-    double xs  = std::fma(2.0 * s,  1.0 / K::LEFT_S_MAX, -1.0);
-    double fin = clenshaw2(K::LEFT_FIN_DP, K::LEFT_FIN_DL, K::LEFT_FIN_COEFFS, xt, xs);
-    double v   = std::fma(h4, V4_left(s), std::fma(h2, V2_left(s), x));   // V0+h^2 V2+h^4 V4
+    double xt  = std::fma(2.0 * h2, 1.0 / K::NEAR_T_MAX, -1.0);
+    double xs  = std::fma(2.0 * s,  1.0 / K::NEAR_S_MAX, -1.0);
+    double fin = clenshaw2(K::NEAR_FIN_DP, K::NEAR_FIN_DL, K::NEAR_FIN_COEFFS, xt, xs);
+    double v   = std::fma(h4, V4_near(s), std::fma(h2, V2_near(s), x));   // V0+h^2 V2+h^4 V4
     v          = std::fma(h4 * h2, fin, v);                                // + h^6 finisher
     return v * v;
 }
 
-// ---- RIGHT chart:  erf-free 3-term seed + FIXED-count shared-kernel Newton --
+// ---- UPPER chart:  erf-free 3-term seed + FIXED-count shared-kernel Newton --
 // The transcendentals in the Newton loop (Phi via erfc, and the vega g') are replaced by
 // SHARED branchless kernels (erfcx_poly, exp_neg) so the loop has NO libm erfc/exp and the
 // scalar path and its SIMD twin call the SAME inlines -> scalar==batch bit-identity.  The
@@ -349,12 +349,12 @@ static const double BR_IS2 = 0.70710678118654752440;   // 1/sqrt(2)
 // selection is a plain comparison whose selected coefficients/bounds are the same doubles the
 // SIMD twins blend, and the Clenshaw order is unchanged -> scalar==SIMD bit-identity holds.
 inline double erfcx_poly(double z) {
-    const bool hi = (z > K::RIGHT_ERFCX2_SPLIT);
-    const bool h2 = (z > K::RIGHT_ERFCX_B);       // third piece: warm-start domain only
-    const double* C = h2 ? K::RIGHT_ERFCX2_C2 : (hi ? K::RIGHT_ERFCX2_C1 : K::RIGHT_ERFCX2_C0);
-    const double a  = h2 ? K::RIGHT_ERFCX_B    : (hi ? K::RIGHT_ERFCX2_SPLIT : K::RIGHT_ERFCX_A);
-    const double b  = h2 ? K::RIGHT_ERFCX2_B2  : (hi ? K::RIGHT_ERFCX_B      : K::RIGHT_ERFCX2_SPLIT);
-    return clenshaw1(C, K::RIGHT_ERFCX2_N, a, b, z);
+    const bool hi = (z > K::UPPER_ERFCX2_SPLIT);
+    const bool h2 = (z > K::UPPER_ERFCX_B);       // third piece: warm-start domain only
+    const double* C = h2 ? K::UPPER_ERFCX2_C2 : (hi ? K::UPPER_ERFCX2_C1 : K::UPPER_ERFCX2_C0);
+    const double a  = h2 ? K::UPPER_ERFCX_B    : (hi ? K::UPPER_ERFCX2_SPLIT : K::UPPER_ERFCX_A);
+    const double b  = h2 ? K::UPPER_ERFCX2_B2  : (hi ? K::UPPER_ERFCX_B      : K::UPPER_ERFCX2_SPLIT);
+    return clenshaw1(C, K::UPPER_ERFCX2_N, a, b, z);
 }
 // exp(a), a<=0-ish: Cody-Waite ln2 reduction + Chebyshev poly on [-ln2/2, ln2/2], ldexp.
 inline double exp_neg(double a) {
@@ -439,8 +439,8 @@ inline double qnorm0_seed(double p) {
     double tail = numt / dent;
     return (p < K::QN_P_LOW) ? tail : mid;
 }
-// RIGHT endpoint chart -> w = sigma^2.  v>2 (c>c2(h)) or h>H_BOX.
-inline double right_variance(double h, double c) {
+// UPPER endpoint chart -> w = sigma^2.  v>2 (c>c2(h)) or h>H_BOX.
+inline double upper_variance(double h, double c) {
     double eh   = std::exp(-0.5 * h);       // per-h libm scalar (hoisted to the index pass in batch)
     double ehp  = std::exp(h);              // per-h libm scalar
     double gbar = 0.5 * (1.0 - c) * eh;
@@ -462,7 +462,7 @@ inline double right_variance(double h, double c) {
     // EXPLICIT fma throughout (ffp-contract=fast would otherwise contract 1-0.5*au differently in
     // scalar vs SIMD); the AVX-512/AVX2 twins reproduce this exact op sequence lane for lane.
     const bool lo = (c < 0.5);
-    for (int it = 0; it < K::RIGHT_HH3_STEPS; ++it) {            // FIXED count, no early-exit
+    for (int it = 0; it < K::UPPER_HH3_STEPS; ++it) {            // FIXED count, no early-exit
         double vv  = 2.0 * x;
         double cmC = price_residual(h, vv, ehp, c, onec, lo);
         double f   = 0.5 * cmC * eh;
@@ -485,7 +485,7 @@ inline double right_variance(double h, double c) {
 // ---- D: warm-start refinement (no routing, no seed machinery) ----------------
 // Given the previous variance w_prev for the same (h, strike) -- e.g. the last calibration
 // iteration's result -- refine to the new price c by WARM_HH3_STEPS fixed Householder-3 steps
-// on the exact OTM equation, using the same shared kernels as the RIGHT finisher.  Valid when
+// on the exact OTM equation, using the same shared kernels as the UPPER finisher.  Valid when
 // W = h^2/(2 w_prev) <= 40 and the vol moved by no more than a few percent (see the basin note
 // in volfi_annulus_endpoint_vec.hpp); the caller re-inverts cold outside that basin.  The two
 // per-quote exponentials go through the shared exp kernel (whose Cody--Waite reduction is
@@ -801,23 +801,23 @@ struct context {
     double h2;
 
     // Broad-range routing precompute (depend on h only): the 1-D-in-h seam prices.
-    //   c <  cw   -> WING ;   c <= ct2 (with c>=cw) -> LEFT/CENTRAL ;  else RIGHT.
+    //   c <  cw   -> WING ;   c <= ct2 (with c>=cw) -> NEAR/FAR ;  else UPPER.
     double cw;           // = br::cwstar_price(h)  (W*=4.5 wing seam price, v0.2.3)
-    double ct2;          // = br::c2_price(h)     (v=2 central/right seam price)
-    double ct_left;      // = C(h, LEFT_RIGHT_VSEAM) (region-1 LEFT<->RIGHT seam, v=1.70)
+    double ct2;          // = br::c2_price(h)     (v=2 far/upper seam price)
+    double ct_near;      // = C(h, NEAR_UPPER_VSEAM) (region-1 NEAR<->UPPER seam, v=1.70)
 
-    // region: 0 = central-capable band (H_ATM_HI<=h<=H_BOX); 1 = LEFT band (h<H_ATM_HI);
-    //         2 = RIGHT-only band (h>H_BOX).  Only region 0 carries a vectorizable
-    //         central subset; regions 1/2 are entirely LEFT/RIGHT/WING (scalar batch).
+    // region: 0 = far-capable band (H_ATM_HI<=h<=H_BOX); 1 = NEAR band (h<H_ATM_HI);
+    //         2 = UPPER-only band (h>H_BOX).  Only region 0 carries a vectorizable
+    //         far subset; regions 1/2 are entirely NEAR/UPPER/WING (scalar batch).
     int    region;
     int    band;         // main-table band (region 0 only)
     double xh;           // affine h -> [-1,1] (region 0 only)
 
-    // Per-h scalars hoisted for the vectorized LEFT/RIGHT batch inner loops (libm, once per h).
-    double eh;           // = exp(-h/2)   (RIGHT)
-    double ehp;          // = exp(h)      (RIGHT price)
-    double expm1h;       // = expm1(h)    (LEFT rho = c/expm1h)
-    double xt_left;      // = 2*h^2/LEFT_T_MAX - 1  (LEFT finisher xh; region 1 only, else unused)
+    // Per-h scalars hoisted for the vectorized NEAR/UPPER batch inner loops (libm, once per h).
+    double eh;           // = exp(-h/2)   (UPPER)
+    double ehp;          // = exp(h)      (UPPER price)
+    double expm1h;       // = expm1(h)    (NEAR rho = c/expm1h)
+    double xt_near;      // = 2*h^2/NEAR_T_MAX - 1  (NEAR finisher xh; region 1 only, else unused)
 
     mutable std::optional<volfi::otm_context> vq_cache;
     const volfi::otm_context& volfi_ctx() const {
@@ -826,24 +826,24 @@ struct context {
     }
 
     explicit context(double x)
-        : h(x), h2(x * x), cw(0.0), ct2(0.0), ct_left(0.0), region(0), band(0), xh(0.0),
-          eh(0.0), ehp(0.0), expm1h(0.0), xt_left(0.0)
+        : h(x), h2(x * x), cw(0.0), ct2(0.0), ct_near(0.0), region(0), band(0), xh(0.0),
+          eh(0.0), ehp(0.0), expm1h(0.0), xt_near(0.0)
     {
         cw  = br::cwstar_price(x);     // v0.2.3: one iso-W ray (W*=3.9) for every band
         ct2 = br::ctop_price(x);       // v0.2.3: ONE ceiling C(h,1.85), both bands
         eh     = std::exp(-0.5 * x);
         ehp    = std::exp(x);
-        expm1h = br::expm1_small(x);   // frozen poly (LEFT band only); matches left_variance / SIMD
-        xt_left = std::fma(2.0 * (x * x), 1.0 / volfi_annulus_broadrange::LEFT_T_MAX, -1.0);
-        if (x < H_ATM_HI) {                                     // LEFT band
+        expm1h = br::expm1_small(x);   // frozen poly (NEAR band only); matches near_variance / SIMD
+        xt_near = std::fma(2.0 * (x * x), 1.0 / volfi_annulus_broadrange::NEAR_T_MAX, -1.0);
+        if (x < H_ATM_HI) {                                     // NEAR band
             region = 1;
-            // v=1.70 LEFT<->RIGHT seam price = C(h,1.70), frozen degree-8 poly (see
+            // v=1.70 NEAR<->UPPER seam price = C(h,1.70), frozen degree-8 poly (see
             // broadrange CTL_SEAM_*); the grid router uses the SAME fit -> identical routing.
-            ct_left = ct2;               // LEFT shares the same ceiling
+            ct_near = ct2;               // NEAR shares the same ceiling
             return;
         }
-        if (x > H_BOX)    { region = 2; band = NB - 1; return; } // RIGHT-only band
-        // region 0: central-capable main-table band
+        if (x > H_BOX)    { region = 2; band = NB - 1; return; } // UPPER-only band
+        // region 0: far-capable main-table band
         uint64_t bh = detail::bits_of(x);
         long bi = (long)(bh >> H_SHIFT) - (long)OFF_H;
         if (bi < 0) bi = 0; else if (bi > NB - 1) bi = NB - 1;
@@ -854,18 +854,18 @@ struct context {
     }
 };
 
-// Single source of truth for the CENTRAL vectorizable subset: returns the global
-// main-table cell id iff the new (h,c) routing sends this quote to CENTRAL *and*
-// it lands on a real table cell; -1 otherwise (WING / LEFT / RIGHT / analytic edge
+// Single source of truth for the FAR vectorizable subset: returns the global
+// main-table cell id iff the new (h,c) routing sends this quote to FAR *and*
+// it lands on a real table cell; -1 otherwise (WING / NEAR / UPPER / analytic edge
 // -> handled by the scalar fallback).  Used by the batch table pass AND its
 // fallback pass so they agree bit-for-bit with the scalar entry.
-inline int central_cell_of(const context& q, double c, uint64_t bc) {
-    if (c < q.cw || c > q.ct2) return -1;     // WING (c<cw) or RIGHT (c>ct2)
-    return main_cell_of(q.band, bc);          // CENTRAL table cell, or -1 (analytic edge)
+inline int far_cell_of(const context& q, double c, uint64_t bc) {
+    if (c < q.cw || c > q.ct2) return -1;     // WING (c<cw) or UPPER (c>ct2)
+    return main_cell_of(q.band, bc);          // FAR table cell, or -1 (analytic edge)
 }
 
 
-// Sub-wing router (a CENTRAL quote whose table cell falls below KLO): deep-OTM c.
+// Sub-wing router (a FAR quote whose table cell falls below KLO): deep-OTM c.
 inline double subwing_variance(const context& q, double c) {
     double w_wing = wing_variance(q.h, c);
     double W_wing = q.h2 / (2.0 * w_wing);
@@ -873,10 +873,10 @@ inline double subwing_variance(const context& q, double c) {
     return refined_general_variance(q.volfi_ctx(), c);
 }
 
-// CENTRAL table inverse (unchanged Phase-6 main-table body): reached only when the
-// (h,c) routing selects CENTRAL (H_ATM_HI<=h<=H_BOX, cw<=c<=c2).  Its own internal
+// FAR table inverse (unchanged Phase-6 main-table body): reached only when the
+// (h,c) routing selects FAR (H_ATM_HI<=h<=H_BOX, cw<=c<=c2).  Its own internal
 // k-routing still guards the analytic ATM edge (k>KHI) and the deep seam (k<KLO).
-inline double central_variance(const context& q, double c) {
+inline double far_variance(const context& q, double c) {
     uint64_t bc = detail::bits_of(c);
     int k = (int)((bc >> 52) & C_EXP_MASK) - C_EXP_BIAS;
     if (k > KHI[q.band]) return refined_general_variance(q.volfi_ctx(), c);  // c->1 ATM
@@ -896,9 +896,9 @@ inline double central_variance(const context& q, double c) {
 // ============================================================================
 //  Scalar entry -- the derived branchless (h,c) routing predicate.
 //    c <  cw(h)                       -> WING            (true W>=3)
-//    h <  H_ATM_HI :  c<=c2(h)?LEFT:RIGHT
-//    h <= H_BOX && c<=c2(h)           -> CENTRAL         (v<=2 box)
-//    else                             -> RIGHT           (v>2 / h>H_BOX)
+//    h <  H_ATM_HI :  c<=c2(h)?NEAR:UPPER
+//    h <= H_BOX && c<=c2(h)           -> FAR         (v<=2 box)
+//    else                             -> UPPER           (v>2 / h>H_BOX)
 //  cw=cwing(h), ct2=c2(h) are precomputed once in the context (h-only).
 // ============================================================================
 inline double implied_variance_otm(const context& q, double c) {
@@ -912,11 +912,11 @@ inline double implied_variance_otm(const context& q, double c) {
     if (h == 0.0) return atm_line_variance(c);                  // exact ATM line (rho=inf guard)
     if (c < q.cw) return wing_variance(h, c);                   // WING
     if (q.region == 1)                                          // h < H_ATM_HI
-        // LEFT owns v<=1.70 (finisher in-domain); RIGHT's exact Newton owns v>1.70,
-        // clearing the former h=0.3/v=2 LEFT-finisher extrapolation corner.
-        return (c <= q.ct_left) ? br::left_variance(h, c) : br::right_variance(h, c);
-    if (q.region == 0 && c <= q.ct2) return central_variance(q, c);  // CENTRAL (v<=2 box)
-    return br::right_variance(h, c);                            // RIGHT (v>2 or h>H_BOX)
+        // NEAR owns v<=1.70 (finisher in-domain); UPPER's exact Newton owns v>1.70,
+        // clearing the former h=0.3/v=2 NEAR-finisher extrapolation corner.
+        return (c <= q.ct_near) ? br::near_variance(h, c) : br::upper_variance(h, c);
+    if (q.region == 0 && c <= q.ct2) return far_variance(q, c);  // FAR (v<=2 box)
+    return br::upper_variance(h, c);                            // UPPER (v>2 or h>H_BOX)
 }
 
 inline double implied_variance_otm(double h, double c) {
@@ -1084,7 +1084,7 @@ inline __m512d clenshaw2_avx512_vxh(int dp, int dl, const double* C, __m512d xh,
     return _mm512_sub_pd(_mm512_fmadd_pd(xh, b1, acc0), b2);
 }
 
-// ==== NEW: AVX-512 twins of the LEFT/RIGHT endpoint kernels (namespace-K alias) ====
+// ==== NEW: AVX-512 twins of the NEAR/UPPER endpoint kernels (namespace-K alias) ====
 namespace Kv = volfi_annulus_broadrange;
 
 // full natural log by reuse: ln2*(exponent + log2approx(mantissa)).  Mirrors scalar full_log.
@@ -1136,31 +1136,31 @@ inline __m512d binv_avx512(__m512d rho) {
 // same compile-time double sums the scalar path computes -> per-lane bit-identity to scalar.
 inline __m512d erfcx_poly_avx512(__m512d z) {
     const __m512d zero = _mm512_setzero_pd();
-    __mmask8 hi = _mm512_cmp_pd_mask(z, _mm512_set1_pd(Kv::RIGHT_ERFCX2_SPLIT), _CMP_GT_OQ);
-    __mmask8 h2 = _mm512_cmp_pd_mask(z, _mm512_set1_pd(Kv::RIGHT_ERFCX_B), _CMP_GT_OQ);
+    __mmask8 hi = _mm512_cmp_pd_mask(z, _mm512_set1_pd(Kv::UPPER_ERFCX2_SPLIT), _CMP_GT_OQ);
+    __mmask8 h2 = _mm512_cmp_pd_mask(z, _mm512_set1_pd(Kv::UPPER_ERFCX_B), _CMP_GT_OQ);
     __m512d napb = _mm512_mask_blend_pd(h2, _mm512_mask_blend_pd(hi,
-        _mm512_set1_pd(-(Kv::RIGHT_ERFCX_A + Kv::RIGHT_ERFCX2_SPLIT)),
-        _mm512_set1_pd(-(Kv::RIGHT_ERFCX2_SPLIT + Kv::RIGHT_ERFCX_B))),
-        _mm512_set1_pd(-(Kv::RIGHT_ERFCX_B + Kv::RIGHT_ERFCX2_B2)));
+        _mm512_set1_pd(-(Kv::UPPER_ERFCX_A + Kv::UPPER_ERFCX2_SPLIT)),
+        _mm512_set1_pd(-(Kv::UPPER_ERFCX2_SPLIT + Kv::UPPER_ERFCX_B))),
+        _mm512_set1_pd(-(Kv::UPPER_ERFCX_B + Kv::UPPER_ERFCX2_B2)));
     __m512d bma  = _mm512_mask_blend_pd(h2, _mm512_mask_blend_pd(hi,
-        _mm512_set1_pd(Kv::RIGHT_ERFCX2_SPLIT - Kv::RIGHT_ERFCX_A),
-        _mm512_set1_pd(Kv::RIGHT_ERFCX_B - Kv::RIGHT_ERFCX2_SPLIT)),
-        _mm512_set1_pd(Kv::RIGHT_ERFCX2_B2 - Kv::RIGHT_ERFCX_B));
+        _mm512_set1_pd(Kv::UPPER_ERFCX2_SPLIT - Kv::UPPER_ERFCX_A),
+        _mm512_set1_pd(Kv::UPPER_ERFCX_B - Kv::UPPER_ERFCX2_SPLIT)),
+        _mm512_set1_pd(Kv::UPPER_ERFCX2_B2 - Kv::UPPER_ERFCX_B));
     __m512d t  = _mm512_div_pd(_mm512_fmadd_pd(_mm512_set1_pd(2.0), z, napb), bma);
     __m512d t2 = _mm512_add_pd(t, t);
     __m512d d0 = zero, d1 = zero;
-    for (int j = Kv::RIGHT_ERFCX2_N - 1; j >= 1; --j) {
+    for (int j = Kv::UPPER_ERFCX2_N - 1; j >= 1; --j) {
         __m512d cj = _mm512_mask_blend_pd(h2, _mm512_mask_blend_pd(hi,
-                         _mm512_set1_pd(Kv::RIGHT_ERFCX2_C0[j]),
-                         _mm512_set1_pd(Kv::RIGHT_ERFCX2_C1[j])),
-                         _mm512_set1_pd(Kv::RIGHT_ERFCX2_C2[j]));
+                         _mm512_set1_pd(Kv::UPPER_ERFCX2_C0[j]),
+                         _mm512_set1_pd(Kv::UPPER_ERFCX2_C1[j])),
+                         _mm512_set1_pd(Kv::UPPER_ERFCX2_C2[j]));
         __m512d b0 = _mm512_sub_pd(_mm512_fmadd_pd(t2, d0, cj), d1);
         d1 = d0; d0 = b0;
     }
     __m512d c0 = _mm512_mask_blend_pd(h2, _mm512_mask_blend_pd(hi,
-                     _mm512_set1_pd(Kv::RIGHT_ERFCX2_C0[0]),
-                     _mm512_set1_pd(Kv::RIGHT_ERFCX2_C1[0])),
-                     _mm512_set1_pd(Kv::RIGHT_ERFCX2_C2[0]));
+                     _mm512_set1_pd(Kv::UPPER_ERFCX2_C0[0]),
+                     _mm512_set1_pd(Kv::UPPER_ERFCX2_C1[0])),
+                     _mm512_set1_pd(Kv::UPPER_ERFCX2_C2[0]));
     return _mm512_sub_pd(_mm512_fmadd_pd(t, d0, c0), d1);
 }
 // exp(a): Cody-Waite ln2 reduction + Chebyshev poly + scalef (== ldexp).  Mirrors scalar exp_neg.
@@ -1261,24 +1261,24 @@ inline __m512d qnorm0_seed_avx512(__m512d p) {
     return _mm512_mask_blend_pd(tl, mid, tail);
 }
 
-// LEFT chart, 8 lanes -> w.  Per-lane vectors for c and all h-derived quantities.
-inline __m512d left_variance_avx512(__m512d vc, __m512d v_expm1h, __m512d vh,
+// NEAR chart, 8 lanes -> w.  Per-lane vectors for c and all h-derived quantities.
+inline __m512d near_variance_avx512(__m512d vc, __m512d v_expm1h, __m512d vh,
                                     __m512d vh2, __m512d vh4, __m512d vxt) {
     __m512d rho = _mm512_div_pd(vc, v_expm1h);
     __m512d A   = binv_avx512(rho);
     __m512d s   = _mm512_div_pd(vh, A);
     __m512d x   = sigma0_poly_avx512(_mm512_mul_pd(_mm512_set1_pd(Kv::BR_K), s));
-    __m512d xs  = _mm512_fmadd_pd(_mm512_add_pd(s, s), _mm512_set1_pd(1.0 / Kv::LEFT_S_MAX), _mm512_set1_pd(-1.0));
-    __m512d V2  = clenshaw1_avx512(Kv::LEFT_V2_CHEB, Kv::LEFT_V2_CHEB_N, 0.0, Kv::LEFT_S_CHEB_MAX, s);
-    __m512d V4  = clenshaw1_avx512(Kv::LEFT_V4_CHEB, Kv::LEFT_V4_CHEB_N, 0.0, Kv::LEFT_S_CHEB_MAX, s);
-    __m512d fin = clenshaw2_avx512_vxh(Kv::LEFT_FIN_DP, Kv::LEFT_FIN_DL, Kv::LEFT_FIN_COEFFS, vxt, xs);
+    __m512d xs  = _mm512_fmadd_pd(_mm512_add_pd(s, s), _mm512_set1_pd(1.0 / Kv::NEAR_S_MAX), _mm512_set1_pd(-1.0));
+    __m512d V2  = clenshaw1_avx512(Kv::NEAR_V2_CHEB, Kv::NEAR_V2_CHEB_N, 0.0, Kv::NEAR_S_CHEB_MAX, s);
+    __m512d V4  = clenshaw1_avx512(Kv::NEAR_V4_CHEB, Kv::NEAR_V4_CHEB_N, 0.0, Kv::NEAR_S_CHEB_MAX, s);
+    __m512d fin = clenshaw2_avx512_vxh(Kv::NEAR_FIN_DP, Kv::NEAR_FIN_DL, Kv::NEAR_FIN_COEFFS, vxt, xs);
     __m512d v   = _mm512_fmadd_pd(vh4, V4, _mm512_fmadd_pd(vh2, V2, x));
     v           = _mm512_fmadd_pd(_mm512_mul_pd(vh4, vh2), fin, v);
     return _mm512_mul_pd(v, v);
 }
 
-// RIGHT chart, 8 lanes -> w.  Per-lane c and per-lane per-h scalars (eh,ehp,h,h2).
-inline __m512d right_variance_avx512(__m512d vc, __m512d veh, __m512d vehp, __m512d vh, __m512d vh2) {
+// UPPER chart, 8 lanes -> w.  Per-lane c and per-lane per-h scalars (eh,ehp,h,h2).
+inline __m512d upper_variance_avx512(__m512d vc, __m512d veh, __m512d vehp, __m512d vh, __m512d vh2) {
     const __m512d zero = _mm512_setzero_pd(), one = _mm512_set1_pd(1.0);
     __m512d gbar = _mm512_mul_pd(_mm512_mul_pd(_mm512_set1_pd(0.5), _mm512_sub_pd(one, vc)), veh);
     __m512d x0   = _mm512_sub_pd(zero, qnorm0_seed_avx512(gbar));
@@ -1295,7 +1295,7 @@ inline __m512d right_variance_avx512(__m512d vc, __m512d veh, __m512d vehp, __m5
     __m512d x    = _mm512_fmadd_pd(_mm512_mul_pd(vh2, vh2), x4, _mm512_fmadd_pd(vh2, x2, x0));
     __m512d onec = _mm512_sub_pd(one, vc);
     __mmask8 lo  = _mm512_cmp_pd_mask(vc, _mm512_set1_pd(0.5), _CMP_LT_OQ);
-    for (int it = 0; it < Kv::RIGHT_HH3_STEPS; ++it) {          // HH3 (order 4); mirrors scalar
+    for (int it = 0; it < Kv::UPPER_HH3_STEPS; ++it) {          // HH3 (order 4); mirrors scalar
         __m512d vv  = _mm512_mul_pd(_mm512_set1_pd(2.0), x);
         __m512d cmC = price_residual_avx512(vh, vv, vehp, vc, onec, lo);
         __m512d f   = _mm512_mul_pd(_mm512_mul_pd(_mm512_set1_pd(0.5), cmC), veh);
@@ -1618,7 +1618,7 @@ inline __m256d clenshaw2_avx2_vxh(int dp, int dl, const double* C, __m256d xh, _
     return _mm256_sub_pd(_mm256_fmadd_pd(xh, b1, acc0), b2);
 }
 
-// ==== NEW: AVX2 twins of the LEFT/RIGHT endpoint kernels (namespace-K alias) ====
+// ==== NEW: AVX2 twins of the NEAR/UPPER endpoint kernels (namespace-K alias) ====
 namespace Kv = volfi_annulus_broadrange;
 
 // absolute value: clear the sign bit.  (AVX2 has no _mm256_abs_pd.)
@@ -1682,31 +1682,31 @@ inline __m256d binv_avx2(__m256d rho) {
 // erfcx(z) via the two-piece Chebyshev (C2); mirror of erfcx_poly_avx512.
 inline __m256d erfcx_poly_avx2(__m256d z) {
     const __m256d zero = _mm256_setzero_pd();
-    __m256d hi = _mm256_cmp_pd(z, _mm256_set1_pd(Kv::RIGHT_ERFCX2_SPLIT), _CMP_GT_OQ);
-    __m256d h2 = _mm256_cmp_pd(z, _mm256_set1_pd(Kv::RIGHT_ERFCX_B), _CMP_GT_OQ);
+    __m256d hi = _mm256_cmp_pd(z, _mm256_set1_pd(Kv::UPPER_ERFCX2_SPLIT), _CMP_GT_OQ);
+    __m256d h2 = _mm256_cmp_pd(z, _mm256_set1_pd(Kv::UPPER_ERFCX_B), _CMP_GT_OQ);
     __m256d napb = _mm256_blendv_pd(_mm256_blendv_pd(
-        _mm256_set1_pd(-(Kv::RIGHT_ERFCX_A + Kv::RIGHT_ERFCX2_SPLIT)),
-        _mm256_set1_pd(-(Kv::RIGHT_ERFCX2_SPLIT + Kv::RIGHT_ERFCX_B)), hi),
-        _mm256_set1_pd(-(Kv::RIGHT_ERFCX_B + Kv::RIGHT_ERFCX2_B2)), h2);
+        _mm256_set1_pd(-(Kv::UPPER_ERFCX_A + Kv::UPPER_ERFCX2_SPLIT)),
+        _mm256_set1_pd(-(Kv::UPPER_ERFCX2_SPLIT + Kv::UPPER_ERFCX_B)), hi),
+        _mm256_set1_pd(-(Kv::UPPER_ERFCX_B + Kv::UPPER_ERFCX2_B2)), h2);
     __m256d bma  = _mm256_blendv_pd(_mm256_blendv_pd(
-        _mm256_set1_pd(Kv::RIGHT_ERFCX2_SPLIT - Kv::RIGHT_ERFCX_A),
-        _mm256_set1_pd(Kv::RIGHT_ERFCX_B - Kv::RIGHT_ERFCX2_SPLIT), hi),
-        _mm256_set1_pd(Kv::RIGHT_ERFCX2_B2 - Kv::RIGHT_ERFCX_B), h2);
+        _mm256_set1_pd(Kv::UPPER_ERFCX2_SPLIT - Kv::UPPER_ERFCX_A),
+        _mm256_set1_pd(Kv::UPPER_ERFCX_B - Kv::UPPER_ERFCX2_SPLIT), hi),
+        _mm256_set1_pd(Kv::UPPER_ERFCX2_B2 - Kv::UPPER_ERFCX_B), h2);
     __m256d t  = _mm256_div_pd(_mm256_fmadd_pd(_mm256_set1_pd(2.0), z, napb), bma);
     __m256d t2 = _mm256_add_pd(t, t);
     __m256d d0 = zero, d1 = zero;
-    for (int j = Kv::RIGHT_ERFCX2_N - 1; j >= 1; --j) {
+    for (int j = Kv::UPPER_ERFCX2_N - 1; j >= 1; --j) {
         __m256d cj = _mm256_blendv_pd(_mm256_blendv_pd(
-                         _mm256_set1_pd(Kv::RIGHT_ERFCX2_C0[j]),
-                         _mm256_set1_pd(Kv::RIGHT_ERFCX2_C1[j]), hi),
-                         _mm256_set1_pd(Kv::RIGHT_ERFCX2_C2[j]), h2);
+                         _mm256_set1_pd(Kv::UPPER_ERFCX2_C0[j]),
+                         _mm256_set1_pd(Kv::UPPER_ERFCX2_C1[j]), hi),
+                         _mm256_set1_pd(Kv::UPPER_ERFCX2_C2[j]), h2);
         __m256d b0 = _mm256_sub_pd(_mm256_fmadd_pd(t2, d0, cj), d1);
         d1 = d0; d0 = b0;
     }
     __m256d c0 = _mm256_blendv_pd(_mm256_blendv_pd(
-                     _mm256_set1_pd(Kv::RIGHT_ERFCX2_C0[0]),
-                     _mm256_set1_pd(Kv::RIGHT_ERFCX2_C1[0]), hi),
-                     _mm256_set1_pd(Kv::RIGHT_ERFCX2_C2[0]), h2);
+                     _mm256_set1_pd(Kv::UPPER_ERFCX2_C0[0]),
+                     _mm256_set1_pd(Kv::UPPER_ERFCX2_C1[0]), hi),
+                     _mm256_set1_pd(Kv::UPPER_ERFCX2_C2[0]), h2);
     return _mm256_sub_pd(_mm256_fmadd_pd(t, d0, c0), d1);
 }
 // exp(a): Cody-Waite ln2 reduction + Chebyshev poly + pow2i (== ldexp).  (mirror of exp_neg_avx512.)
@@ -1721,7 +1721,7 @@ inline __m256d exp_neg_avx2(__m256d a) {
     // so each 2^n_i stays a normal double.  For the reachable domain (nf in [-1022,0]) both
     // scalings are exact, so this is bit-identical to a single p*2^nf; beyond it, it underflows
     // to the correct subnormal/0 instead of the +0/-inf/sign-flipped garbage a lone (nf+1023)<<52
-    // would give.  (Two multiplies vs one; negligible cost in the RIGHT Newton g'.)
+    // would give.  (Two multiplies vs one; negligible cost in the UPPER Newton g'.)
     __m256d n1 = _mm256_floor_pd(_mm256_mul_pd(nf, _mm256_set1_pd(0.5)));
     __m256d n2 = _mm256_sub_pd(nf, n1);
     return _mm256_mul_pd(_mm256_mul_pd(p, pow2i_avx2(n1)), pow2i_avx2(n2));
@@ -1811,24 +1811,24 @@ inline __m256d qnorm0_seed_avx2(__m256d p) {
     return _mm256_blendv_pd(mid, tail, tl);
 }
 
-// LEFT chart, 4 lanes -> w.  (mirror of left_variance_avx512.)
-inline __m256d left_variance_avx2(__m256d vc, __m256d v_expm1h, __m256d vh,
+// NEAR chart, 4 lanes -> w.  (mirror of near_variance_avx512.)
+inline __m256d near_variance_avx2(__m256d vc, __m256d v_expm1h, __m256d vh,
                                   __m256d vh2, __m256d vh4, __m256d vxt) {
     __m256d rho = _mm256_div_pd(vc, v_expm1h);
     __m256d A   = binv_avx2(rho);
     __m256d s   = _mm256_div_pd(vh, A);
     __m256d x   = sigma0_poly_avx2(_mm256_mul_pd(_mm256_set1_pd(Kv::BR_K), s));
-    __m256d xs  = _mm256_fmadd_pd(_mm256_add_pd(s, s), _mm256_set1_pd(1.0 / Kv::LEFT_S_MAX), _mm256_set1_pd(-1.0));
-    __m256d V2  = clenshaw1_avx2(Kv::LEFT_V2_CHEB, Kv::LEFT_V2_CHEB_N, 0.0, Kv::LEFT_S_CHEB_MAX, s);
-    __m256d V4  = clenshaw1_avx2(Kv::LEFT_V4_CHEB, Kv::LEFT_V4_CHEB_N, 0.0, Kv::LEFT_S_CHEB_MAX, s);
-    __m256d fin = clenshaw2_avx2_vxh(Kv::LEFT_FIN_DP, Kv::LEFT_FIN_DL, Kv::LEFT_FIN_COEFFS, vxt, xs);
+    __m256d xs  = _mm256_fmadd_pd(_mm256_add_pd(s, s), _mm256_set1_pd(1.0 / Kv::NEAR_S_MAX), _mm256_set1_pd(-1.0));
+    __m256d V2  = clenshaw1_avx2(Kv::NEAR_V2_CHEB, Kv::NEAR_V2_CHEB_N, 0.0, Kv::NEAR_S_CHEB_MAX, s);
+    __m256d V4  = clenshaw1_avx2(Kv::NEAR_V4_CHEB, Kv::NEAR_V4_CHEB_N, 0.0, Kv::NEAR_S_CHEB_MAX, s);
+    __m256d fin = clenshaw2_avx2_vxh(Kv::NEAR_FIN_DP, Kv::NEAR_FIN_DL, Kv::NEAR_FIN_COEFFS, vxt, xs);
     __m256d v   = _mm256_fmadd_pd(vh4, V4, _mm256_fmadd_pd(vh2, V2, x));
     v           = _mm256_fmadd_pd(_mm256_mul_pd(vh4, vh2), fin, v);
     return _mm256_mul_pd(v, v);
 }
 
-// RIGHT chart, 4 lanes -> w.  (mirror of right_variance_avx512.)
-inline __m256d right_variance_avx2(__m256d vc, __m256d veh, __m256d vehp, __m256d vh, __m256d vh2) {
+// UPPER chart, 4 lanes -> w.  (mirror of upper_variance_avx512.)
+inline __m256d upper_variance_avx2(__m256d vc, __m256d veh, __m256d vehp, __m256d vh, __m256d vh2) {
     const __m256d zero = _mm256_setzero_pd(), one = _mm256_set1_pd(1.0);
     __m256d gbar = _mm256_mul_pd(_mm256_mul_pd(_mm256_set1_pd(0.5), _mm256_sub_pd(one, vc)), veh);
     __m256d x0   = _mm256_sub_pd(zero, qnorm0_seed_avx2(gbar));
@@ -1845,7 +1845,7 @@ inline __m256d right_variance_avx2(__m256d vc, __m256d veh, __m256d vehp, __m256
     __m256d x    = _mm256_fmadd_pd(_mm256_mul_pd(vh2, vh2), x4, _mm256_fmadd_pd(vh2, x2, x0));
     __m256d onec = _mm256_sub_pd(one, vc);
     __m256d lo   = _mm256_cmp_pd(vc, _mm256_set1_pd(0.5), _CMP_LT_OQ);
-    for (int it = 0; it < Kv::RIGHT_HH3_STEPS; ++it) {          // HH3 (order 4); mirrors scalar
+    for (int it = 0; it < Kv::UPPER_HH3_STEPS; ++it) {          // HH3 (order 4); mirrors scalar
         __m256d vv  = _mm256_mul_pd(_mm256_set1_pd(2.0), x);
         __m256d cmC = price_residual_avx2(vh, vv, vehp, vc, onec, lo);
         __m256d f   = _mm256_mul_pd(_mm256_mul_pd(_mm256_set1_pd(0.5), cmC), veh);
@@ -2108,16 +2108,16 @@ inline void log2approx_block(const double* c, double* out, int n) {
 
 // ============================================================================
 //  FIXED-h batch (surface): one context -> one h -> one xh; only c varies.
-//  SORT-THEN-BATCH.  Only the CENTRAL subset (route==CENTRAL && real table cell)
-//  is vectorized here; WING/LEFT/RIGHT/analytic-edge quotes drop to the scalar
+//  SORT-THEN-BATCH.  Only the FAR subset (route==FAR && real table cell)
+//  is vectorized here; WING/NEAR/UPPER/analytic-edge quotes drop to the scalar
 //  fallback pass (bit-identical: same shared kernels, same fma order).
 // ============================================================================
 namespace detail {
 
-// (region 0) CENTRAL table core.  xlv is reused as scratch: the vectorized
+// (region 0) FAR table core.  xlv is reused as scratch: the vectorized
 // log2approx pre-pass writes log2m into xlv, then routing rewrites xlv[i] in
 // place to the per-cell abscissa xl = fma(LSCALE, log2m, LBIAS).  A quote is
-// taken here only when central_cell_of() accepts it (route==CENTRAL + cell hit).
+// taken here only when far_cell_of() accepts it (route==FAR + cell hit).
 __attribute__((noinline)) inline void band_table_pass(
         const context& q, const double* c, double* w_out, int n) {
     const int    band  = q.band;
@@ -2142,7 +2142,7 @@ __attribute__((noinline)) inline void band_table_pass(
             double ci = c[base + i];
             if (!(ci > 0.0) || ci >= 1.0) { tloc[i] = -1; continue; }
             uint64_t bc = bits_of(ci);
-            int cell = central_cell_of(q, ci, bc);     // route==CENTRAL gate + table cell
+            int cell = far_cell_of(q, ci, bc);     // route==FAR gate + table cell
             if (cell < 0) { tloc[i] = -1; continue; }
             int t = cell - cbase;
             tloc[i] = t;
@@ -2194,47 +2194,47 @@ __attribute__((noinline)) inline void band_table_pass(
     }
 }
 
-// non-central band (region 1 LEFT / region 2 RIGHT) or non-table: everything scalar.
+// non-far band (region 1 NEAR / region 2 UPPER) or non-table: everything scalar.
 __attribute__((noinline)) inline void all_scalar_pass(
         const context& q, const double* c, double* w_out, int n) {
     for (int i = 0; i < n; ++i) w_out[i] = scalar_fallback(q, c[i]);
 }
 
-// ---- Fixed-h LEFT / RIGHT bucket processors (idx[] = absolute quote indices) ----
+// ---- Fixed-h NEAR / UPPER bucket processors (idx[] = absolute quote indices) ----
 // The per-h scalars are broadcast from the context (index-pass libm, once per h).
-// The vector lanes reproduce br::left_variance / br::right_variance bit-for-bit
+// The vector lanes reproduce br::near_variance / br::upper_variance bit-for-bit
 // (verified in kernel_bit_test), and the tail calls the SAME scalar kernels, so
 // batch == scalar entry per quote (invariant b).  On non-512 builds the whole
 // bucket runs through the scalar tail (still bit-identical, just not vectorized).
-__attribute__((noinline)) inline void left_pass_fixed(
+__attribute__((noinline)) inline void near_pass_fixed(
         const context& q, const double* c, double* w_out, const int* idx, int nb) {
     int e = 0;
 #if defined(VA_SIMD512)
     const __m512d vE  = _mm512_set1_pd(q.expm1h), vh = _mm512_set1_pd(q.h),
                   vh2 = _mm512_set1_pd(q.h2), vh4 = _mm512_set1_pd(q.h2 * q.h2),
-                  vxt = _mm512_set1_pd(q.xt_left);
+                  vxt = _mm512_set1_pd(q.xt_near);
     double cb[8], wb[8];
     for (; e + 8 <= nb; e += 8) {
         for (int l = 0; l < 8; ++l) cb[l] = c[idx[e + l]];
-        __m512d w = left_variance_avx512(_mm512_loadu_pd(cb), vE, vh, vh2, vh4, vxt);
+        __m512d w = near_variance_avx512(_mm512_loadu_pd(cb), vE, vh, vh2, vh4, vxt);
         _mm512_storeu_pd(wb, w);
         for (int l = 0; l < 8; ++l) w_out[idx[e + l]] = wb[l];
     }
 #elif defined(VA_SIMD256)
     const __m256d vE  = _mm256_set1_pd(q.expm1h), vh = _mm256_set1_pd(q.h),
                   vh2 = _mm256_set1_pd(q.h2), vh4 = _mm256_set1_pd(q.h2 * q.h2),
-                  vxt = _mm256_set1_pd(q.xt_left);
+                  vxt = _mm256_set1_pd(q.xt_near);
     double cb[4], wb[4];
     for (; e + 4 <= nb; e += 4) {
         for (int l = 0; l < 4; ++l) cb[l] = c[idx[e + l]];
-        __m256d w = left_variance_avx2(_mm256_loadu_pd(cb), vE, vh, vh2, vh4, vxt);
+        __m256d w = near_variance_avx2(_mm256_loadu_pd(cb), vE, vh, vh2, vh4, vxt);
         _mm256_storeu_pd(wb, w);
         for (int l = 0; l < 4; ++l) w_out[idx[e + l]] = wb[l];
     }
 #endif
-    for (; e < nb; ++e) { int i = idx[e]; w_out[i] = br::left_variance(q.h, c[i]); }
+    for (; e < nb; ++e) { int i = idx[e]; w_out[i] = br::near_variance(q.h, c[i]); }
 }
-__attribute__((noinline)) inline void right_pass_fixed(
+__attribute__((noinline)) inline void upper_pass_fixed(
         const context& q, const double* c, double* w_out, const int* idx, int nb) {
     int e = 0;
 #if defined(VA_SIMD512)
@@ -2243,7 +2243,7 @@ __attribute__((noinline)) inline void right_pass_fixed(
     double cb[8], wb[8];
     for (; e + 8 <= nb; e += 8) {
         for (int l = 0; l < 8; ++l) cb[l] = c[idx[e + l]];
-        __m512d w = right_variance_avx512(_mm512_loadu_pd(cb), veh, vehp, vh, vh2);
+        __m512d w = upper_variance_avx512(_mm512_loadu_pd(cb), veh, vehp, vh, vh2);
         _mm512_storeu_pd(wb, w);
         for (int l = 0; l < 8; ++l) w_out[idx[e + l]] = wb[l];
     }
@@ -2253,16 +2253,16 @@ __attribute__((noinline)) inline void right_pass_fixed(
     double cb[4], wb[4];
     for (; e + 4 <= nb; e += 4) {
         for (int l = 0; l < 4; ++l) cb[l] = c[idx[e + l]];
-        __m256d w = right_variance_avx2(_mm256_loadu_pd(cb), veh, vehp, vh, vh2);
+        __m256d w = upper_variance_avx2(_mm256_loadu_pd(cb), veh, vehp, vh, vh2);
         _mm256_storeu_pd(wb, w);
         for (int l = 0; l < 4; ++l) w_out[idx[e + l]] = wb[l];
     }
 #endif
-    for (; e < nb; ++e) { int i = idx[e]; w_out[i] = br::right_variance(q.h, c[i]); }
+    for (; e < nb; ++e) { int i = idx[e]; w_out[i] = br::upper_variance(q.h, c[i]); }
 }
 
-// (region 0) endpoint + scalar fallback for the CENTRAL vector core's leftovers:
-// RIGHT (c>ct2) -> vectorized RIGHT bucket; WING (c<cw) / analytic edge -> scalar.
+// (region 0) endpoint + scalar fallback for the FAR vector core's leftovers:
+// UPPER (c>ct2) -> vectorized UPPER bucket; WING (c<cw) / analytic edge -> scalar.
 __attribute__((noinline)) inline void band_endpoint_fallback(
         const context& q, const double* c, double* w_out, int n) {
     constexpr int TILE = 4096;
@@ -2276,15 +2276,15 @@ __attribute__((noinline)) inline void band_endpoint_fallback(
             // WING has precedence over ct2 in the scalar routing: at large h the wing
             // seam cw can EXCEED the v=2 seam ct2, so c<cw must be tested FIRST.
             if (ci < q.cw) { w_out[ai] = scalar_fallback(q, ci); continue; }             // WING
-            if (central_cell_of(q, ci, bits_of(ci)) >= 0) continue;   // CENTRAL: already written
-            if (ci > q.ct2) ridx[rc++] = ai;                          // RIGHT (v>2)
+            if (far_cell_of(q, ci, bits_of(ci)) >= 0) continue;   // FAR: already written
+            if (ci > q.ct2) ridx[rc++] = ai;                          // UPPER (v>2)
             else            w_out[ai] = scalar_fallback(q, ci);       // analytic edge (in box, no cell)
         }
-        right_pass_fixed(q, c, w_out, ridx, rc);
+        upper_pass_fixed(q, c, w_out, ridx, rc);
     }
 }
 
-// (region 1 LEFT band / region 2 RIGHT-only band) endpoint bucketer: LEFT and RIGHT
+// (region 1 NEAR band / region 2 UPPER-only band) endpoint bucketer: NEAR and UPPER
 // through the vector kernels, WING (c<cw) and degenerate c through the scalar entry.
 __attribute__((noinline)) inline void band_endpoint_region12(
         const context& q, const double* c, double* w_out, int n) {
@@ -2297,27 +2297,27 @@ __attribute__((noinline)) inline void band_endpoint_region12(
             const int ai = base + i; double ci = c[ai];
             if (!(ci > 0.0) || ci >= 1.0) { w_out[ai] = scalar_fallback(q, ci); continue; }
             if (ci < q.cw) { w_out[ai] = scalar_fallback(q, ci); continue; }   // WING
-            if (q.region == 1) { if (ci <= q.ct_left) lidx[lc++] = ai; else ridx[rc++] = ai; }
-            else               { ridx[rc++] = ai; }                            // region 2: RIGHT
+            if (q.region == 1) { if (ci <= q.ct_near) lidx[lc++] = ai; else ridx[rc++] = ai; }
+            else               { ridx[rc++] = ai; }                            // region 2: UPPER
         }
-        left_pass_fixed (q, c, w_out, lidx, lc);
-        right_pass_fixed(q, c, w_out, ridx, rc);
+        near_pass_fixed (q, c, w_out, lidx, lc);
+        upper_pass_fixed(q, c, w_out, ridx, rc);
     }
 }
 } // namespace detail
 
-// Fixed-h surface batch.  CENTRAL (region 0) stays the frozen vector table core;
-// LEFT/RIGHT endpoints now vectorize too (region 1/2, and region-0 v>2).  Only
+// Fixed-h surface batch.  FAR (region 0) stays the frozen vector table core;
+// NEAR/UPPER endpoints now vectorize too (region 1/2, and region-0 v>2).  Only
 // WING and the analytic ATM/deep edges drop to the scalar entry.  h==0 (exact ATM
 // line) is entirely scalar.  batch == scalar entry per quote (invariant b).
 inline void implied_variance_otm_batch(const context& q,
                                        const double* c, double* w_out, int n) {
     if (q.h == 0.0) { detail::all_scalar_pass(q, c, w_out, n); return; }  // exact ATM line
     if (q.region == 0) {
-        detail::band_table_pass(q, c, w_out, n);        // CENTRAL vector core (route-gated)
-        detail::band_endpoint_fallback(q, c, w_out, n); // RIGHT vector + WING/edge scalar
+        detail::band_table_pass(q, c, w_out, n);        // FAR vector core (route-gated)
+        detail::band_endpoint_fallback(q, c, w_out, n); // UPPER vector + WING/edge scalar
     } else {
-        detail::band_endpoint_region12(q, c, w_out, n); // LEFT/RIGHT vector + WING scalar
+        detail::band_endpoint_region12(q, c, w_out, n); // NEAR/UPPER vector + WING scalar
     }
 }
 
@@ -2393,9 +2393,9 @@ inline double implied_variance_book_tick(double logK, double logF, double c, dou
 
 
 // ============================================================================
-//  MIXED-h grid batch -- BOTH h and c vary.  Only the CENTRAL subset is
+//  MIXED-h grid batch -- BOTH h and c vary.  Only the FAR subset is
 //  vectorized: h in [H_ATM_HI,H_BOX], cwing(h)<=c<=c2(h), and a real main-table
-//  cell (per-band affine xh -> per-lane-xh Clenshaw twin).  WING/LEFT/RIGHT and
+//  cell (per-band affine xh -> per-lane-xh Clenshaw twin).  WING/NEAR/UPPER and
 //  every analytic edge drop to the scalar fallback pass (bit-identical: same
 //  shared kernels + noinline scalar entry).  The seam prices cwing(h),c2(h) are
 //  the single-source route gate, matching the scalar entry exactly.
@@ -2405,26 +2405,26 @@ inline double implied_variance_book_tick(double logK, double logF, double c, dou
 #endif
 
 namespace detail {
-static constexpr int GRID_NBUCK = NCELLS;   // CENTRAL main-table cells only
+static constexpr int GRID_NBUCK = NCELLS;   // FAR main-table cells only
 
-// Grid CENTRAL gate (single source of truth for the table pass AND fallback pass):
-// returns the global main-table cell for a quote routed to CENTRAL with a real
-// cell hit; -1 otherwise (WING / LEFT / RIGHT / edge -> scalar fallback).  Also
+// Grid FAR gate (single source of truth for the table pass AND fallback pass):
+// returns the global main-table cell for a quote routed to FAR with a real
+// cell hit; -1 otherwise (WING / NEAR / UPPER / edge -> scalar fallback).  Also
 // writes the band on a hit.  Mirrors the scalar routing bit-for-bit.
-inline int grid_central_cell(double hh, double cc, uint64_t bc, int& band_out) {
+inline int grid_far_cell(double hh, double cc, uint64_t bc, int& band_out) {
     if (!(cc > 0.0) || cc >= 1.0) return -1;
-    if (hh < H_ATM_HI || hh > H_BOX) return -1;         // LEFT band / RIGHT-only band
+    if (hh < H_ATM_HI || hh > H_BOX) return -1;         // NEAR band / UPPER-only band
     if (cc < br::cwstar_price(hh)) return -1;           // WING (W*=3.9 ray)
-    if (cc > br::ctop_price(hh))  return -1;            // RIGHT (above the ceiling)
+    if (cc > br::ctop_price(hh))  return -1;            // UPPER (above the ceiling)
     uint64_t bh = bits_of(hh);
     long bi = (long)(bh >> H_SHIFT) - (long)OFF_H;
     if (bi < 0) bi = 0; else if (bi > NB - 1) bi = NB - 1;
     band_out = (int)bi;
-    return main_cell_of((int)bi, bc);                  // CENTRAL cell, or -1 (analytic edge)
+    return main_cell_of((int)bi, bc);                  // FAR cell, or -1 (analytic edge)
 }
 
-// Grid ENDPOINT route for a NON-central quote (precondition: grid_central_cell<0):
-// 0 = scalar (analytic ATM-deep edge / degenerate / h==0), 1 = LEFT, 2 = RIGHT,
+// Grid ENDPOINT route for a NON-far quote (precondition: grid_far_cell<0):
+// 0 = scalar (analytic ATM-deep edge / degenerate / h==0), 1 = NEAR, 2 = UPPER,
 // 3 = WING.  Mirrors the scalar implied_variance_otm routing bit-for-bit so the
 // vectorized buckets reproduce the scalar entry exactly.
 inline int grid_endpoint_route(double hh, double cc) {
@@ -2432,9 +2432,9 @@ inline int grid_endpoint_route(double hh, double cc) {
     if (!(hh > 0.0)) return 0;                                  // h==0 ATM line, h<0/NaN guard -> scalar
     if (cc < br::cwstar_price(hh)) return 3;                    // WING (W*=3.9 ray, every band)
     double ctop = br::ctop_price(hh);                           // one ceiling, both bands
-    if (hh < H_ATM_HI) return (cc <= ctop) ? 1 : 2;             // region 1: LEFT else RIGHT
-    if (hh <= H_BOX)   return (cc > ctop) ? 2 : 0;              // region 0: RIGHT else edge
-    return 2;                                                   // region 2 (h>H_BOX): RIGHT
+    if (hh < H_ATM_HI) return (cc <= ctop) ? 1 : 2;             // region 1: NEAR else UPPER
+    if (hh <= H_BOX)   return (cc > ctop) ? 2 : 0;              // region 0: UPPER else edge
+    return 2;                                                   // region 2 (h>H_BOX): UPPER
 }
 
 __attribute__((noinline)) inline void grid_table_pass(
@@ -2458,7 +2458,7 @@ __attribute__((noinline)) inline void grid_table_pass(
             const double hh = h[base + i], cc = c[base + i];
             uint64_t bc = bits_of(cc);
             int band;
-            int cell = grid_central_cell(hh, cc, bc, band);
+            int cell = grid_far_cell(hh, cc, bc, band);
             if (cell < 0) { gcell[i] = -1; continue; }
             double xh = std::fma(hh, HSCALE[band], HBIAS[band]);
             if (xh < -1.0) xh = -1.0; else if (xh > 1.0) xh = 1.0;
@@ -2510,12 +2510,12 @@ __attribute__((noinline)) inline void grid_table_pass(
     }
 }
 
-// Grid ENDPOINT pass: the CENTRAL vector core (grid_table_pass) leaves every
-// non-central quote unwritten; this pass buckets them into LEFT and RIGHT and runs
+// Grid ENDPOINT pass: the FAR vector core (grid_table_pass) leaves every
+// non-far quote unwritten; this pass buckets them into NEAR and UPPER and runs
 // each through the per-lane-h vector kernels (per-h expm1/exp libm hoisted into the
 // index pass, exactly as in kernel_bit_test), with WING / analytic edges / h==0
 // dropping to the scalar entry.  Bucket-contiguous arrays feed a straight 8-wide
-// load; the tail (and every non-512 build) uses the SAME br::left/right scalar
+// load; the tail (and every non-512 build) uses the SAME br::near/upper scalar
 // kernels -> batch == scalar entry per quote (invariant b).
 __attribute__((noinline)) inline void grid_fallback_pass(
         const double* h, const double* c, double* w_out, int n) {
@@ -2527,7 +2527,7 @@ __attribute__((noinline)) inline void grid_fallback_pass(
     static thread_local int    wo_[TILE], wreg_[TILE];
     static thread_local double wc2_[TILE], wh2_[TILE];
     static thread_local int    wo2_[TILE];
-    const double invTmax = 1.0 / volfi_annulus_broadrange::LEFT_T_MAX;
+    const double invTmax = 1.0 / volfi_annulus_broadrange::NEAR_T_MAX;
 
     for (int base = 0; base < n; base += TILE) {
         const int m = (n - base < TILE) ? (n - base) : TILE;
@@ -2535,15 +2535,15 @@ __attribute__((noinline)) inline void grid_fallback_pass(
         for (int i = 0; i < m; ++i) {
             const double hh = h[base + i], cc = c[base + i];
             int band;
-            if (grid_central_cell(hh, cc, bits_of(cc), band) >= 0) continue;   // CENTRAL: done
+            if (grid_far_cell(hh, cc, bits_of(cc), band) >= 0) continue;   // FAR: done
             int rt = grid_endpoint_route(hh, cc);
-            if (rt == 1) {                                                      // LEFT
+            if (rt == 1) {                                                      // NEAR
                 double h2 = hh * hh;
                 lc_[lc] = cc; le_[lc] = br::expm1_small(hh); lh_[lc] = hh;
                 lh2_[lc] = h2; lh4_[lc] = h2 * h2;
                 lxt_[lc] = std::fma(2.0 * h2, invTmax, -1.0);
                 lo_[lc] = base + i; ++lc;
-            } else if (rt == 2) {                                              // RIGHT
+            } else if (rt == 2) {                                              // UPPER
                 rc_[rc] = cc; reh_[rc] = std::exp(-0.5 * hh); rehp_[rc] = std::exp(hh);
                 rh_[rc] = hh; rh2_[rc] = hh * hh;
                 ro_[rc] = base + i; ++rc;
@@ -2564,7 +2564,7 @@ __attribute__((noinline)) inline void grid_fallback_pass(
         int e = 0;
 #if defined(VA_SIMD512)
         for (; e + 8 <= lc; e += 8) {
-            __m512d w = left_variance_avx512(_mm512_loadu_pd(lc_ + e), _mm512_loadu_pd(le_ + e),
+            __m512d w = near_variance_avx512(_mm512_loadu_pd(lc_ + e), _mm512_loadu_pd(le_ + e),
                         _mm512_loadu_pd(lh_ + e), _mm512_loadu_pd(lh2_ + e),
                         _mm512_loadu_pd(lh4_ + e), _mm512_loadu_pd(lxt_ + e));
             double wb[8]; _mm512_storeu_pd(wb, w);
@@ -2572,31 +2572,31 @@ __attribute__((noinline)) inline void grid_fallback_pass(
         }
 #elif defined(VA_SIMD256)
         for (; e + 4 <= lc; e += 4) {
-            __m256d w = left_variance_avx2(_mm256_loadu_pd(lc_ + e), _mm256_loadu_pd(le_ + e),
+            __m256d w = near_variance_avx2(_mm256_loadu_pd(lc_ + e), _mm256_loadu_pd(le_ + e),
                         _mm256_loadu_pd(lh_ + e), _mm256_loadu_pd(lh2_ + e),
                         _mm256_loadu_pd(lh4_ + e), _mm256_loadu_pd(lxt_ + e));
             double wb[4]; _mm256_storeu_pd(wb, w);
             for (int l = 0; l < 4; ++l) w_out[lo_[e + l]] = wb[l];
         }
 #endif
-        for (; e < lc; ++e) w_out[lo_[e]] = br::left_variance(lh_[e], lc_[e]);
+        for (; e < lc; ++e) w_out[lo_[e]] = br::near_variance(lh_[e], lc_[e]);
         e = 0;
 #if defined(VA_SIMD512)
         for (; e + 8 <= rc; e += 8) {
-            __m512d w = right_variance_avx512(_mm512_loadu_pd(rc_ + e), _mm512_loadu_pd(reh_ + e),
+            __m512d w = upper_variance_avx512(_mm512_loadu_pd(rc_ + e), _mm512_loadu_pd(reh_ + e),
                         _mm512_loadu_pd(rehp_ + e), _mm512_loadu_pd(rh_ + e), _mm512_loadu_pd(rh2_ + e));
             double wb[8]; _mm512_storeu_pd(wb, w);
             for (int l = 0; l < 8; ++l) w_out[ro_[e + l]] = wb[l];
         }
 #elif defined(VA_SIMD256)
         for (; e + 4 <= rc; e += 4) {
-            __m256d w = right_variance_avx2(_mm256_loadu_pd(rc_ + e), _mm256_loadu_pd(reh_ + e),
+            __m256d w = upper_variance_avx2(_mm256_loadu_pd(rc_ + e), _mm256_loadu_pd(reh_ + e),
                         _mm256_loadu_pd(rehp_ + e), _mm256_loadu_pd(rh_ + e), _mm256_loadu_pd(rh2_ + e));
             double wb[4]; _mm256_storeu_pd(wb, w);
             for (int l = 0; l < 4; ++l) w_out[ro_[e + l]] = wb[l];
         }
 #endif
-        for (; e < rc; ++e) w_out[ro_[e]] = br::right_variance(rh_[e], rc_[e]);
+        for (; e < rc; ++e) w_out[ro_[e]] = br::upper_variance(rh_[e], rc_[e]);
         // WING: three regime sub-buckets (piece A / piece B / series), each lane-uniform.
         // The scalar tail (and every non-512 build) calls the SAME wing_variance, whose
         // regime choice comes from the SAME wing_Lt -> value-identical per quote.
@@ -2634,10 +2634,10 @@ __attribute__((noinline)) inline void grid_fallback_pass(
     }
 }
 // ---- vectorized frozen routing seams (bit-identical to scalar br:: seams) ----
-// Only the LEFT route needs vectorizing: cwing(h) (WING gate) and ctl(h)
-// (LEFT/RIGHT gate).  c2(h) (central/right gate) stays scalar in the deferred
+// Only the NEAR route needs vectorizing: cwing(h) (WING gate) and ctl(h)
+// (NEAR/UPPER gate).  c2(h) (far/upper gate) stays scalar in the deferred
 // drain.  All use the shared clenshaw/exp_neg kernels, so the batch route mask
-// equals grid_endpoint_route()'s LEFT decision quote-for-quote.
+// equals grid_endpoint_route()'s NEAR decision quote-for-quote.
 namespace Kv2 = volfi_annulus_broadrange;
 #if defined(VA_SIMD512)
 inline __m512d cwing_price_avx512(__m512d h){
@@ -2675,13 +2675,13 @@ inline __m256d expm1_small_avx2(__m256d h){
 #endif
 
 // ============================================================================
-//  v0.2.2 PREFIX INTERLEAVING (AVX-512 only).  The speculative driver's LEFT path
+//  v0.2.2 PREFIX INTERLEAVING (AVX-512 only).  The speculative driver's NEAR path
 //  is a chain of SERIAL Chebyshev recurrences -- the two seam polys, expm1, binv's
 //  log + regime fit, sigma0, V2, V4 -- each a dependent fma->sub ladder whose
 //  latency the machine cannot hide within ONE 8-lane group.  Measured: the shipped
 //  1-group loop leaves the FMA ports idle (a deg-22 Clenshaw shape runs ~4 cycles
 //  per degree against a 1-op/cycle port), while the register file has headroom
-//  (left_variance_avx512 uses 20 of 32 zmm, no spills).
+//  (near_variance_avx512 uses 20 of 32 zmm, no spills).
 //  So we run VOLFI_PFX_WAYS independent 8-lane groups through those prefix chains
 //  simultaneously and keep the register-heavy finisher (clenshaw2's Tl[17] basis,
 //  ~16 live zmm) strictly ONE group at a time.  Naive whole-kernel interleaving was
@@ -2818,17 +2818,17 @@ inline void binv_pfx(const __m512d* rho, __m512d* out) {
 }
 #endif // VA_SIMD512
 
-// Speculative-LEFT streaming grid batch (the empirical live path: ~90% LEFT).
+// Speculative-NEAR streaming grid batch (the empirical live path: ~90% NEAR).
 // Streams (h,c) 8/4-wide; routes via the frozen seam polynomials (no libm, no
-// runtime Black eval); runs the LEFT kernel UNCONDITIONALLY on every lane and
-// stores the LEFT lanes in place (no sort, no scatter for the majority); the
-// non-LEFT minority is compressed into a deferred buffer that the existing
-// table+fallback machinery drains and scatters back.  LEFT lanes are bit-identical
-// to the scalar entry (left_variance on unclamped h<H_ATM_HI); deferred lanes are
+// runtime Black eval); runs the NEAR kernel UNCONDITIONALLY on every lane and
+// stores the NEAR lanes in place (no sort, no scatter for the majority); the
+// non-NEAR minority is compressed into a deferred buffer that the existing
+// table+fallback machinery drains and scatters back.  NEAR lanes are bit-identical
+// to the scalar entry (near_variance on unclamped h<H_ATM_HI); deferred lanes are
 // bit-identical (grid_table_pass/grid_fallback_pass).  h is clamped from ABOVE to
 // H_ATM_HI before the speculative kernel: this is the identity for every stored
-// LEFT lane (h<0.3) and merely keeps the discarded off-chart lanes out of the
-// expm1 poly's tail.  NO lower clamp -- the LEFT route admits any h>0 (down to the
+// NEAR lane (h<0.3) and merely keeps the discarded off-chart lanes out of the
+// expm1 poly's tail.  NO lower clamp -- the NEAR route admits any h>0 (down to the
 // smallest subnormal), so raising a tiny positive h would alter a stored lane and
 // break bit-identity (a max(1e-300,.) floor did exactly that; removed 2026-07-13).
 // Discarded lanes may go inf/NaN; the kernel is purely lane-wise so masked store
@@ -2838,7 +2838,7 @@ __attribute__((noinline)) inline void speculative_grid_batch(
     constexpr int TILE = VOLFI_GRID_TILE;
     static thread_local double dh_[TILE], dc_[TILE], dw_[TILE];
     static thread_local int    didx_[TILE];
-    const double invTmax = 1.0 / volfi_annulus_broadrange::LEFT_T_MAX;
+    const double invTmax = 1.0 / volfi_annulus_broadrange::NEAR_T_MAX;
     for (int base = 0; base < n; base += TILE) {
         const int m = (n - base < TILE) ? (n - base) : TILE;
         int ndef = 0, i = 0;
@@ -2883,12 +2883,12 @@ __attribute__((noinline)) inline void speculative_grid_batch(
             sigma0_poly_pfx<N>(sk,xv);
             for (int k=0;k<N;++k)
                 xs[k]=_mm512_fmadd_pd(_mm512_add_pd(s[k],s[k]),
-                                      _mm512_set1_pd(1.0/Kv::LEFT_S_MAX),_mm512_set1_pd(-1.0));
-            clenshaw1_pfx<N>(Kv::LEFT_V2_CHEB,Kv::LEFT_V2_CHEB_N,0.0,Kv::LEFT_S_CHEB_MAX,s,V2);
-            clenshaw1_pfx<N>(Kv::LEFT_V4_CHEB,Kv::LEFT_V4_CHEB_N,0.0,Kv::LEFT_S_CHEB_MAX,s,V4);
+                                      _mm512_set1_pd(1.0/Kv::NEAR_S_MAX),_mm512_set1_pd(-1.0));
+            clenshaw1_pfx<N>(Kv::NEAR_V2_CHEB,Kv::NEAR_V2_CHEB_N,0.0,Kv::NEAR_S_CHEB_MAX,s,V2);
+            clenshaw1_pfx<N>(Kv::NEAR_V4_CHEB,Kv::NEAR_V4_CHEB_N,0.0,Kv::NEAR_S_CHEB_MAX,s,V4);
             for (int k=0;k<N;++k){          // finisher ONE group at a time (Tl[17] basis)
-                __m512d fin=clenshaw2_avx512_vxh(Kv::LEFT_FIN_DP,Kv::LEFT_FIN_DL,
-                                                 Kv::LEFT_FIN_COEFFS,vxt[k],xs[k]);
+                __m512d fin=clenshaw2_avx512_vxh(Kv::NEAR_FIN_DP,Kv::NEAR_FIN_DL,
+                                                 Kv::NEAR_FIN_COEFFS,vxt[k],xs[k]);
                 __m512d v=_mm512_fmadd_pd(vh4[k],V4[k],_mm512_fmadd_pd(vh2[k],V2[k],xv[k]));
                 v=_mm512_fmadd_pd(_mm512_mul_pd(vh4[k],vh2[k]),fin,v);
                 vw[k]=_mm512_mul_pd(v,v); }
@@ -2910,10 +2910,10 @@ __attribute__((noinline)) inline void speculative_grid_batch(
             __mmask8 ml = mv & _mm512_cmp_pd_mask(vc,vcw,_CMP_GE_OQ)
                         & _mm512_cmp_pd_mask(vh,hatm,_CMP_LT_OQ)
                         & _mm512_cmp_pd_mask(vc,vctl,_CMP_LE_OQ);
-            __m512d vhc=_mm512_min_pd(vh,hatm);   // upper clamp only; identity for stored LEFT lanes (h<0.3)
+            __m512d vhc=_mm512_min_pd(vh,hatm);   // upper clamp only; identity for stored NEAR lanes (h<0.3)
             __m512d vE=expm1_small_avx512(vhc), vh2=_mm512_mul_pd(vhc,vhc), vh4=_mm512_mul_pd(vh2,vh2);
             __m512d vxt=_mm512_fmadd_pd(_mm512_mul_pd(two,vh2),vinvT,negone);
-            __m512d vw=left_variance_avx512(vc,vE,vhc,vh2,vh4,vxt);
+            __m512d vw=near_variance_avx512(vc,vE,vhc,vh2,vh4,vxt);
             _mm512_mask_storeu_pd(w_out+base+i, ml, vw);
             unsigned dm=(unsigned)(uint8_t)(~ml);
             if (dm){ double hs[8],cs[8]; _mm512_storeu_pd(hs,vh); _mm512_storeu_pd(cs,vc);
@@ -2933,10 +2933,10 @@ __attribute__((noinline)) inline void speculative_grid_batch(
                                      _mm256_cmp_pd(vh,z,_CMP_GT_OQ));
             __m256d ml=_mm256_and_pd(_mm256_and_pd(mv,_mm256_cmp_pd(vc,vcw,_CMP_GE_OQ)),
                                      _mm256_and_pd(_mm256_cmp_pd(vh,hatm,_CMP_LT_OQ),_mm256_cmp_pd(vc,vctl,_CMP_LE_OQ)));
-            __m256d vhc=_mm256_min_pd(vh,hatm);   // upper clamp only; identity for stored LEFT lanes (h<0.3)
+            __m256d vhc=_mm256_min_pd(vh,hatm);   // upper clamp only; identity for stored NEAR lanes (h<0.3)
             __m256d vE=expm1_small_avx2(vhc), vh2=_mm256_mul_pd(vhc,vhc), vh4=_mm256_mul_pd(vh2,vh2);
             __m256d vxt=_mm256_fmadd_pd(_mm256_mul_pd(two,vh2),vinvT,negone);
-            __m256d vw=left_variance_avx2(vc,vE,vhc,vh2,vh4,vxt);
+            __m256d vw=near_variance_avx2(vc,vE,vhc,vh2,vh4,vxt);
             _mm256_maskstore_pd(w_out+base+i, _mm256_castpd_si256(ml), vw);
             unsigned dm=(~(unsigned)_mm256_movemask_pd(ml)) & 0xFu;
             if (dm){ double hs[4],cs[4]; _mm256_storeu_pd(hs,vh); _mm256_storeu_pd(cs,vc);
@@ -2947,7 +2947,7 @@ __attribute__((noinline)) inline void speculative_grid_batch(
 #endif
         for (; i < m; ++i) {                                   // scalar tail (and non-SIMD builds)
             double hh=h[base+i], cc=c[base+i];
-            if (grid_endpoint_route(hh,cc)==1) w_out[base+i]=br::left_variance(hh,cc);
+            if (grid_endpoint_route(hh,cc)==1) w_out[base+i]=br::near_variance(hh,cc);
             else { dh_[ndef]=hh; dc_[ndef]=cc; didx_[ndef]=base+i; ++ndef; }
         }
         if (ndef){ grid_table_pass(dh_,dc_,dw_,ndef); grid_fallback_pass(dh_,dc_,dw_,ndef);
@@ -2961,12 +2961,12 @@ __attribute__((noinline)) inline void speculative_grid_batch(
 //
 // ADAPTIVE DISPATCH: two internally-verified drivers produce BIT-IDENTICAL
 // results (each equals the scalar entry per quote), so the choice between them
-// affects speed only, never values.  The LEFT-speculative streaming driver wins
+// affects speed only, never values.  The NEAR-speculative streaming driver wins
 // when the feed is dominated by the small-moneyness chart (a real option book:
-// ~90% LEFT), but taxes minority-chart feeds (it evaluates LEFT speculatively on
+// ~90% NEAR), but taxes minority-chart feeds (it evaluates NEAR speculatively on
 // every lane and defers the rest); the classic two-pass driver is better on
-// central/wing-dominated feeds such as uniform stress grids.  A strided sample
-// of the h array (<=2048 probes, h < H_ATM_HI as the LEFT-band proxy) picks the
+// far/wing-dominated feeds such as uniform stress grids.  A strided sample
+// of the h array (<=2048 probes, h < H_ATM_HI as the NEAR-band proxy) picks the
 // driver; the sample is deterministic in the input, so repeated calls on the
 // same feed always take the same path.
 inline void implied_variance_grid_batch(const double* h, const double* c,
@@ -2977,8 +2977,8 @@ inline void implied_variance_grid_batch(const double* h, const double* c,
         const int stride = n / ns;
         int nl = 0;
         for (int k = 0; k < ns; ++k) nl += (h[(long)k * stride] < H_ATM_HI);
-        if (2 * nl >= ns) {                                   // >=50% LEFT-band
-            detail::speculative_grid_batch(h, c, w_out, n);   // LEFT-speculative streaming
+        if (2 * nl >= ns) {                                   // >=50% NEAR-band
+            detail::speculative_grid_batch(h, c, w_out, n);   // NEAR-speculative streaming
             return;
         }
     }
@@ -3009,7 +3009,7 @@ inline int implied_variance_grid_batch_permuted(const double* h, const double* c
         for (int i = 0; i < m; ++i) {
             const double hh = h[base + i], cc = c[base + i];
             int band;
-            int cell = detail::grid_central_cell(hh, cc, detail::bits_of(cc), band);
+            int cell = detail::grid_far_cell(hh, cc, detail::bits_of(cc), band);
             if (cell < 0) { gcell[i] = -1; continue; }
             double xh = std::fma(hh, HSCALE[band], HBIAS[band]);
             if (xh < -1.0) xh = -1.0; else if (xh > 1.0) xh = 1.0;
@@ -3056,12 +3056,12 @@ inline int implied_variance_grid_batch_permuted(const double* h, const double* c
                 w_perm[cur] = h2v[idx] / (2.0 * W); perm[cur] = base + idx; ++cur;
             }
         }
-        // Endpoint (non-central) buckets: LEFT/RIGHT vectorized, WING/edge scalar.
+        // Endpoint (non-far) buckets: NEAR/UPPER vectorized, WING/edge scalar.
         // Results are appended to w_perm in bucket order (perm records the origin).
         static thread_local double lc_[TILE], le_[TILE], lh_[TILE], lh2_[TILE], lh4_[TILE], lxt_[TILE];
         static thread_local double rc_[TILE], reh_[TILE], rehp_[TILE], rh_[TILE], rh2_[TILE];
         static thread_local int    lo_[TILE], ro_[TILE];
-        const double invTmax = 1.0 / volfi_annulus_broadrange::LEFT_T_MAX;
+        const double invTmax = 1.0 / volfi_annulus_broadrange::NEAR_T_MAX;
         int lc = 0, rc = 0;
         for (int i = 0; i < m; ++i) {
             if (gcell[i] >= 0) continue;
@@ -3082,7 +3082,7 @@ inline int implied_variance_grid_batch_permuted(const double* h, const double* c
         int e = 0;
 #if defined(VA_SIMD512)
         for (; e + 8 <= lc; e += 8) {
-            __m512d w = detail::left_variance_avx512(_mm512_loadu_pd(lc_ + e), _mm512_loadu_pd(le_ + e),
+            __m512d w = detail::near_variance_avx512(_mm512_loadu_pd(lc_ + e), _mm512_loadu_pd(le_ + e),
                         _mm512_loadu_pd(lh_ + e), _mm512_loadu_pd(lh2_ + e),
                         _mm512_loadu_pd(lh4_ + e), _mm512_loadu_pd(lxt_ + e));
             _mm512_storeu_pd(w_perm + cur, w);
@@ -3091,7 +3091,7 @@ inline int implied_variance_grid_batch_permuted(const double* h, const double* c
         }
 #elif defined(VA_SIMD256)
         for (; e + 4 <= lc; e += 4) {
-            __m256d w = detail::left_variance_avx2(_mm256_loadu_pd(lc_ + e), _mm256_loadu_pd(le_ + e),
+            __m256d w = detail::near_variance_avx2(_mm256_loadu_pd(lc_ + e), _mm256_loadu_pd(le_ + e),
                         _mm256_loadu_pd(lh_ + e), _mm256_loadu_pd(lh2_ + e),
                         _mm256_loadu_pd(lh4_ + e), _mm256_loadu_pd(lxt_ + e));
             _mm256_storeu_pd(w_perm + cur, w);
@@ -3099,11 +3099,11 @@ inline int implied_variance_grid_batch_permuted(const double* h, const double* c
             cur += 4;
         }
 #endif
-        for (; e < lc; ++e) { w_perm[cur] = br::left_variance(lh_[e], lc_[e]); perm[cur] = lo_[e]; ++cur; }
+        for (; e < lc; ++e) { w_perm[cur] = br::near_variance(lh_[e], lc_[e]); perm[cur] = lo_[e]; ++cur; }
         e = 0;
 #if defined(VA_SIMD512)
         for (; e + 8 <= rc; e += 8) {
-            __m512d w = detail::right_variance_avx512(_mm512_loadu_pd(rc_ + e), _mm512_loadu_pd(reh_ + e),
+            __m512d w = detail::upper_variance_avx512(_mm512_loadu_pd(rc_ + e), _mm512_loadu_pd(reh_ + e),
                         _mm512_loadu_pd(rehp_ + e), _mm512_loadu_pd(rh_ + e), _mm512_loadu_pd(rh2_ + e));
             _mm512_storeu_pd(w_perm + cur, w);
             for (int l = 0; l < 8; ++l) perm[cur + l] = ro_[e + l];
@@ -3111,14 +3111,14 @@ inline int implied_variance_grid_batch_permuted(const double* h, const double* c
         }
 #elif defined(VA_SIMD256)
         for (; e + 4 <= rc; e += 4) {
-            __m256d w = detail::right_variance_avx2(_mm256_loadu_pd(rc_ + e), _mm256_loadu_pd(reh_ + e),
+            __m256d w = detail::upper_variance_avx2(_mm256_loadu_pd(rc_ + e), _mm256_loadu_pd(reh_ + e),
                         _mm256_loadu_pd(rehp_ + e), _mm256_loadu_pd(rh_ + e), _mm256_loadu_pd(rh2_ + e));
             _mm256_storeu_pd(w_perm + cur, w);
             for (int l = 0; l < 4; ++l) perm[cur + l] = ro_[e + l];
             cur += 4;
         }
 #endif
-        for (; e < rc; ++e) { w_perm[cur] = br::right_variance(rh_[e], rc_[e]); perm[cur] = ro_[e]; ++cur; }
+        for (; e < rc; ++e) { w_perm[cur] = br::upper_variance(rh_[e], rc_[e]); perm[cur] = ro_[e]; ++cur; }
     }
     return cur;
 }

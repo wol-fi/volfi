@@ -1,4 +1,4 @@
-// Python binding for the volfi v0.2.3 routed implied-volatility inverter.
+// Python binding for the volfi v0.2.4 routed implied-volatility inverter.
 //
 // Array inputs are inverted through the vectorized grid-batch driver, so a NumPy call gets
 // the SIMD path; both scalar and array paths return bit-identical results (the module must
@@ -141,7 +141,7 @@ static py::array_t<double> implied_variance_warm(py::object h0, py::object c0, p
 }
 
 PYBIND11_MODULE(_volfi, m) {
-  m.doc() = "volfi v0.2.3: routed, vectorizable Black-Scholes implied-volatility inverter";
+  m.doc() = "volfi v0.2.4: routed, vectorizable Black-Scholes implied-volatility inverter";
 
   py::enum_<va::iv_status>(m, "iv_status", "Input-classification status of a checked inversion")
       .value("ok", va::iv_status::ok)
@@ -163,5 +163,5 @@ PYBIND11_MODULE(_volfi, m) {
   m.def("implied_variance_warm", &implied_variance_warm, py::arg("h"), py::arg("c"),
         py::arg("w_prev"), py::arg("steps") = 2,
         "Streaming warm restart from previous variances (few-ULP contract; see README).");
-  m.def("version", []() { return "0.2.3"; });
+  m.def("version", []() { return "0.2.4"; });
 }

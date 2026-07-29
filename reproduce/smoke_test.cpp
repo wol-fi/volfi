@@ -1,6 +1,6 @@
 // smoke_test.cpp -- self-contained broad-domain round-trip smoke test for the
 // Phase-8 volfi-annulus inverter (umbrella header only).  Phase-8 vectorizes the
-// LEFT and RIGHT charts in the batch drivers; this smoke exercises all four charts
+// NEAR and UPPER charts in the batch drivers; this smoke exercises all four charts
 // + corners/seams and checks scalar==grid-batch bit-for-bit.  It is NOT the
 // machine-precision gate (that is verify_vec.py/.cpp vs mpmath); it checks that the
 // whole broad domain -- including the h=0.3/v=2 corner, v>2, the chart seams,
@@ -19,10 +19,10 @@ using namespace volfi_annulus;
 static const char* rlabel(double h,double c){
   if(!(c>0.0)||c>=1.0) return "EDGE";
   if(c<br::cwing_price(h)) return "WING";
-  if(h<H_ATM_HI){ double ctl=1.0-br::onem_otm(h,volfi_annulus_broadrange::LEFT_RIGHT_VSEAM,std::exp(h));
-    return (c<=ctl)?"LEFT":"RIGHT"; }
-  if(h<=H_BOX && c<=br::c2_price(h)) return "CENTRAL";
-  return "RIGHT";
+  if(h<H_ATM_HI){ double ctl=1.0-br::onem_otm(h,volfi_annulus_broadrange::NEAR_UPPER_VSEAM,std::exp(h));
+    return (c<=ctl)?"NEAR":"UPPER"; }
+  if(h<=H_BOX && c<=br::c2_price(h)) return "FAR";
+  return "UPPER";
 }
 static inline uint64_t B(double x){ uint64_t u; std::memcpy(&u,&x,8); return u; }
 
@@ -30,15 +30,15 @@ int main(){
   // (h,v) probes across every chart + the flagged corners/seams.
   std::vector<std::pair<double,double>> pts;
   auto add=[&](double h,double v){ pts.push_back({h,v}); };
-  // CENTRAL box
+  // FAR box
   for(double h : {0.35,0.6,1.0,2.0,4.0,6.0}) for(double v : {0.1,0.3,0.6,1.0,1.5,1.9}) add(h,v);
-  // LEFT small-h
+  // NEAR small-h
   for(double h : {0.005,0.02,0.08,0.15,0.25,0.299}) for(double v : {0.05,0.2,0.6,1.0,1.4,1.65}) add(h,v);
   // the former FAILING corner h->0.3, v->2
   for(double h : {0.26,0.28,0.294,0.299}) for(double v : {1.80,1.90,1.96,1.99}) add(h,v);
-  // LEFT<->RIGHT seam v=1.70 both sides, h<0.3
+  // NEAR<->UPPER seam v=1.70 both sides, h<0.3
   for(double h : {0.05,0.15,0.28}) for(double v : {1.66,1.69,1.71,1.74}) add(h,v);
-  // RIGHT v>2 (any h)
+  // UPPER v>2 (any h)
   for(double h : {0.05,0.3,1.0,3.0,6.6}) for(double v : {2.1,3.0,4.5,6.0,7.5}) add(h,v);
   // v=2 seam both sides at h in box
   for(double h : {0.5,1.5,4.0}) for(double v : {1.95,1.99,2.01,2.05}) add(h,v);
@@ -74,7 +74,7 @@ int main(){
   long mism=0;
   for(int i=0;i<n;i++) if(B(ws[i])!=B(wg[i])) ++mism;
 
-  std::printf("smoke: %d broad probes across WING/LEFT/CENTRAL/RIGHT + corners/seams\n",n);
+  std::printf("smoke: %d broad probes across WING/NEAR/FAR/UPPER + corners/seams\n",n);
   std::printf("  worst round-trip rel-vol = %.3e  (route=%s, h=%.4g, v=%.4g)\n",worst,wroute,wh,wv);
   std::printf("  nonfinite/nonpositive    = %d\n",fail);
   std::printf("  scalar==grid-batch mismatches = %ld\n",mism);

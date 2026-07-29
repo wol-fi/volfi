@@ -1,5 +1,5 @@
-// Does the LEFT (matched small-h) chart stay machine-precise up to v=2?
-// Sweep h in (1e-4, 0.3), v in [1.50, 2.00], call br::left_variance directly
+// Does the NEAR (matched small-h) chart stay machine-precise up to v=2?
+// Sweep h in (1e-4, 0.3), v in [1.50, 2.00], call br::near_variance directly
 // (bypassing the router), compare sqrt(w) against the construction v.
 // Reports worst rel error per v-band, so the certified ceiling is read off.
 #include "paper_volfi.hpp"
@@ -19,7 +19,7 @@ int main() {
             double v = 1.50 + 0.50 * (j + 0.5) / NV;
             double c = volfi::black_otm_from_variance(v * v, h);
             if (!(c > 0.0) || c >= 1.0) continue;
-            double w = br::left_variance(h, c);
+            double w = br::near_variance(h, c);
             double rel = std::fabs(std::sqrt(w) - v) / v;
             int b = (int)((v - 1.50) / 0.025); if (b < 0) b = 0; if (b >= NB) b = NB - 1;
             if (rel > worst[b]) { worst[b] = rel; wh[b] = h; wv[b] = v; }

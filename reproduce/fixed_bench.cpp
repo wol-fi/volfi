@@ -1,4 +1,4 @@
-// Lean fixed-h surface: bit-identity (scalar==batch) + scalar-vs-AVX2 speedup, LEFT & RIGHT & CENTRAL.
+// Lean fixed-h surface: bit-identity (scalar==batch) + scalar-vs-AVX2 speedup, NEAR & UPPER & FAR.
 #include "volfi_annulus_all.hpp"
 #include <cstdio>
 #include <cstring>
@@ -22,7 +22,7 @@ static void run(double h,double vlo,double vhi,const char* tag){
   for(int i=0;i<M;i++){double c=cc[i];
     if(!(c>0.0)||c>=1.0){++nE;continue;}
     if(c<br::cwing_price(h)){++nW;continue;}
-    int band; if(detail::grid_central_cell(h,c,detail::bits_of(c),band)>=0){++nC;continue;}
+    int band; if(detail::grid_far_cell(h,c,detail::bits_of(c),band)>=0){++nC;continue;}
     int rt=detail::grid_endpoint_route(h,c); if(rt==1)++nL; else if(rt==2)++nR; else ++nE; }
   auto t0=std::chrono::steady_clock::now(); volatile double sink=0;
   for(int r=0;r<300;r++) for(int i=0;i<M;i++) sink+=implied_variance_otm(q,cc[i]);
@@ -42,8 +42,8 @@ int main(){
 #else
   printf("ISA=scalar\n");
 #endif
-  run(0.20,0.45,1.55,"LEFT   ");
-  run(1.00,2.20,7.5, "RIGHT  ");
-  run(1.00,0.80,1.75,"CENTRAL");
+  run(0.20,0.45,1.55,"NEAR   ");
+  run(1.00,2.20,7.5, "UPPER  ");
+  run(1.00,0.80,1.75,"FAR");
   return 0;
 }

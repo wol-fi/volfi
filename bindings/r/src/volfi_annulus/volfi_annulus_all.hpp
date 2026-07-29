@@ -12,9 +12,9 @@
 //
 // Charts (branchless per-context seam prices route between them):
 //   WING    resurgent evaluator, true W=h^2/2w >= 3  (GL-40, erf-free)
-//   LEFT    matched small-h chart, h < 0.3, v <= 1.70
-//   CENTRAL Phase-6 bivariate-Chebyshev main table, h in [0.3,6.65], v <= 2
-//   RIGHT   erf-free seed + exact-equation Newton, v > 1.70 / h > 6.65
+//   NEAR    matched small-h chart, h < 0.3, v <= 1.70
+//   FAR Phase-6 bivariate-Chebyshev main table, h in [0.3,6.65], v <= 2
+//   UPPER   erf-free seed + exact-equation Newton, v > 1.70 / h > 6.65
 //
 // Build: -std=c++17 -O3 -march=native -ffp-contract=off -fno-fast-math -funroll-loops
 //        (-funroll-loops is a pure-speed flag, v0.2.2: it unrolls the four deg>16

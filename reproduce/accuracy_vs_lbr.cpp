@@ -1,7 +1,7 @@
 // accuracy_vs_lbr.cpp -- independent-oracle accuracy of ANNULUS vs Let's Be Rational.
 //   reads an oracle file (int64 n; then n x {double h, double c, double v_oracle});
 //   for each quote computes annulus sigma and LBR sigma, scores rel error and ULP
-//   distance vs the oracle double, broken down by routed chart (WING/LEFT/CENTRAL/RIGHT).
+//   distance vs the oracle double, broken down by routed chart (WING/NEAR/FAR/UPPER).
 //   Optional: --dump <file> writes "h v_oracle rel_annulus region" rows for the heatmap.
 // Build (Linux, with LBR):  see linux_accuracy.sh
 #include "paper_volfi.hpp"
@@ -36,9 +36,9 @@ static char region_of(double h,double c){
     if(!(c>0.0)||c>=1.0) return 'X';
     if(h==0.0) return 'A';                                   // exact ATM line
     if(c < br::cwing_price(h)) return 'W';                   // WING
-    int band; if(detail::grid_central_cell(h,c,detail::bits_of(c),band)>=0) return 'C';
+    int band; if(detail::grid_far_cell(h,c,detail::bits_of(c),band)>=0) return 'C';
     int rt=detail::grid_endpoint_route(h,c);
-    return rt==1?'L': rt==2?'R':'E';                         // LEFT / RIGHT / edge
+    return rt==1?'L': rt==2?'R':'E';                         // NEAR / UPPER / edge
 }
 struct Stat{ double maxrel=0, sumsq=0; double maxulp=0; long n=0;
     void add(double rel,double u){ maxrel=std::max(maxrel,rel); sumsq+=rel*rel; maxulp=std::max(maxulp,u); ++n; }

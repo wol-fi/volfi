@@ -1,7 +1,7 @@
 // volfi_gpu_book.cu -- FULL-BOOK GPU port of the volfi-annulus inverter (v2).
 // =============================================================================
-// Extends the v1 CENTRAL-only kernel (volfi_gpu.cu) to all four charts --
-// LEFT / CENTRAL / RIGHT / WING -- with the BUCKET-ORDER COALESCED driver the
+// Extends the v1 FAR-only kernel (volfi_gpu.cu) to all four charts --
+// NEAR / FAR / UPPER / WING -- with the BUCKET-ORDER COALESCED driver the
 // CPU phase breakdown motivated: quotes are partitioned by chart ONCE on the
 // host (in a live book this order is persistent), each chart runs as its own
 // kernel over a CONTIGUOUS slice, and there is NO per-snapshot sort, gather or
@@ -10,10 +10,10 @@
 //
 // SAME ALGORITHM, OP-FOR-OP: every device function below mirrors the scalar
 // CPU path in ../volfi_annulus.hpp line by line -- same explicit fma order,
-// same frozen polynomials, same fixed iteration counts (RIGHT: 3 Householder-3,
+// same frozen polynomials, same fixed iteration counts (UPPER: 3 Householder-3,
 // WING: 6 Newton).  The only per-quote host precomputes are the SAME per-h
 // libm scalars the CPU batch drivers hoist to their index pass (exp(-h/2),
-// exp(h) for RIGHT) plus the CENTRAL band/xh context -- no math is moved.
+// exp(h) for UPPER) plus the FAR band/xh context -- no math is moved.
 // Correctness gate: every GPU result is ULP-compared against the UNTOUCHED CPU
 // reference (../volfi_annulus_all.hpp compiled as host code in this same TU);
 // mismatches(>1ulp) MUST be 0 -- see "What mismatches would mean" in README.md.
@@ -28,7 +28,7 @@
 //   ./volfi_gpu_book 4000000 200     # optional: n_target n_iters
 //
 // Exclusions (reported, never silent): the scalar-only analytic fallbacks stay
-// CPU-side exactly as in v1 -- the beta>16.4 rescue wedge (h>16.2), CENTRAL
+// CPU-side exactly as in v1 -- the beta>16.4 rescue wedge (h>16.2), FAR
 // cells outside the table (analytic ATM edge / sub-wing sliver), h==0.  On the
 // SPX market feed these are ~0 quotes.
 // =============================================================================
@@ -134,7 +134,7 @@ __device__ inline double d_clenshaw2(int dp, int dl, const double* C, double xh,
 }
 
 // =============================================================================
-//  LEFT chart (== br::left_variance chain: expm1_small, binv, V0/V2/V4, finisher)
+//  NEAR chart (== br::near_variance chain: expm1_small, binv, V0/V2/V4, finisher)
 // =============================================================================
 __device__ inline double d_expm1_small(double h) {
     return h * d_clenshaw1(g::EXPM1G_C, 11, g::EXPM1G_A, g::EXPM1G_B, h);
@@ -151,36 +151,36 @@ __device__ inline double d_binv(double rho) {
               :                         d_clenshaw1(g::BINV_CB3, 13, g::BINV_L_B3A, g::BINV_L_B3B, L);
     return sqrt(A2);
 }
-__device__ inline double d_V0_left(double s) { return d_sigma0_poly(g::BR_K * s); }
-__device__ inline double d_V2_left(double s) { return d_clenshaw1(g::LEFT_V2_CHEB, g::LEFT_V2_CHEB_N, 0.0, g::LEFT_S_CHEB_MAX, s); }
-__device__ inline double d_V4_left(double s) { return d_clenshaw1(g::LEFT_V4_CHEB, g::LEFT_V4_CHEB_N, 0.0, g::LEFT_S_CHEB_MAX, s); }
+__device__ inline double d_V0_near(double s) { return d_sigma0_poly(g::BR_K * s); }
+__device__ inline double d_V2_near(double s) { return d_clenshaw1(g::NEAR_V2_CHEB, g::NEAR_V2_CHEB_N, 0.0, g::NEAR_S_CHEB_MAX, s); }
+__device__ inline double d_V4_near(double s) { return d_clenshaw1(g::NEAR_V4_CHEB, g::NEAR_V4_CHEB_N, 0.0, g::NEAR_S_CHEB_MAX, s); }
 
-__device__ inline double d_left_variance(double h, double c) {
+__device__ inline double d_near_variance(double h, double c) {
     double rho = c / d_expm1_small(h);
     double A   = d_binv(rho);
     double s   = h / A;
-    double x   = d_V0_left(s);
+    double x   = d_V0_near(s);
     double h2  = h * h, h4 = h2 * h2;
-    double xt  = fma(2.0 * h2, 1.0 / g::LEFT_T_MAX, -1.0);
-    double xs  = fma(2.0 * s,  1.0 / g::LEFT_S_MAX, -1.0);
-    double fin = d_clenshaw2(g::LEFT_FIN_DP, g::LEFT_FIN_DL, g::LEFT_FIN_COEFFS, xt, xs);
-    double v   = fma(h4, d_V4_left(s), fma(h2, d_V2_left(s), x));
+    double xt  = fma(2.0 * h2, 1.0 / g::NEAR_T_MAX, -1.0);
+    double xs  = fma(2.0 * s,  1.0 / g::NEAR_S_MAX, -1.0);
+    double fin = d_clenshaw2(g::NEAR_FIN_DP, g::NEAR_FIN_DL, g::NEAR_FIN_COEFFS, xt, xs);
+    double v   = fma(h4, d_V4_near(s), fma(h2, d_V2_near(s), x));
     v          = fma(h4 * h2, fin, v);
     return v * v;
 }
 
 // =============================================================================
-//  RIGHT chart (== br:: erfcx_poly, exp_neg, qnorm0_seed, price_residual, HH3)
+//  UPPER chart (== br:: erfcx_poly, exp_neg, qnorm0_seed, price_residual, HH3)
 //  eh = exp(-h/2), ehp = exp(h) are host-hoisted per-h libm scalars, exactly as
 //  in the CPU batch drivers' index pass.
 // =============================================================================
 __device__ inline double d_erfcx_poly(double z) {
-    const bool hi = (z > g::RIGHT_ERFCX2_SPLIT);
-    const bool h2 = (z > g::RIGHT_ERFCX_B);
-    const double* C = h2 ? g::RIGHT_ERFCX2_C2 : (hi ? g::RIGHT_ERFCX2_C1 : g::RIGHT_ERFCX2_C0);
-    const double a  = h2 ? g::RIGHT_ERFCX_B    : (hi ? g::RIGHT_ERFCX2_SPLIT : g::RIGHT_ERFCX_A);
-    const double b  = h2 ? g::RIGHT_ERFCX2_B2  : (hi ? g::RIGHT_ERFCX_B      : g::RIGHT_ERFCX2_SPLIT);
-    return d_clenshaw1(C, g::RIGHT_ERFCX2_N, a, b, z);
+    const bool hi = (z > g::UPPER_ERFCX2_SPLIT);
+    const bool h2 = (z > g::UPPER_ERFCX_B);
+    const double* C = h2 ? g::UPPER_ERFCX2_C2 : (hi ? g::UPPER_ERFCX2_C1 : g::UPPER_ERFCX2_C0);
+    const double a  = h2 ? g::UPPER_ERFCX_B    : (hi ? g::UPPER_ERFCX2_SPLIT : g::UPPER_ERFCX_A);
+    const double b  = h2 ? g::UPPER_ERFCX2_B2  : (hi ? g::UPPER_ERFCX_B      : g::UPPER_ERFCX2_SPLIT);
+    return d_clenshaw1(C, g::UPPER_ERFCX2_N, a, b, z);
 }
 __device__ inline double d_exp_neg(double a) {
     double nf = floor(fma(a, g::INV_LN2, 0.5));
@@ -230,7 +230,7 @@ __device__ inline double d_price_residual(double h, double v, double ehp,
     double om = fma( ehp, phi_r, phi_my);
     return lo ? (c - bl) : (om - onec);
 }
-__device__ inline double d_right_variance(double h, double c, double eh, double ehp) {
+__device__ inline double d_upper_variance(double h, double c, double eh, double ehp) {
     double gbar = 0.5 * (1.0 - c) * eh;
     double x0   = -d_qnorm0_seed(gbar);
     double m    = g::SQRT_PI2 * d_erfcx_poly(x0 * D_BR_IS2);
@@ -244,7 +244,7 @@ __device__ inline double d_right_variance(double h, double c, double eh, double 
     double x    = fma(h2 * h2, x4, fma(h2, x2, x0));
     double onec = 1.0 - c;
     const bool lo = (c < 0.5);
-    for (int it = 0; it < g::RIGHT_HH3_STEPS; ++it) {
+    for (int it = 0; it < g::UPPER_HH3_STEPS; ++it) {
         double vv  = 2.0 * x;
         double cmC = d_price_residual(h, vv, ehp, c, onec, lo);
         double f   = 0.5 * cmC * eh;
@@ -404,10 +404,10 @@ __device__ inline double d_wing_variance(double h, double c) {
 }
 
 // =============================================================================
-//  CENTRAL chart (== central_variance table interior; band/xh host-precomputed,
+//  FAR chart (== far_variance table interior; band/xh host-precomputed,
 //  host guarantees the quote lands on a real table cell -- v1 kernel logic).
 // =============================================================================
-__device__ inline double d_central_variance(double h2, double xh, int band, double c) {
+__device__ inline double d_far_variance(double h2, double xh, int band, double c) {
     uint64_t bc = d_bits(c);
     int k = (int)((bc >> 52) & D_C_EXP_MASK) - g::C_EXP_BIAS;
     int oc  = g::OCTBASE[band] + (k - g::KLO[band]);
@@ -423,19 +423,19 @@ __device__ inline double d_central_variance(double h2, double xh, int band, doub
 // =============================================================================
 //  Per-chart kernels over CONTIGUOUS bucket slices (grid-stride).
 // =============================================================================
-__global__ void left_kernel(const double* h, const double* c, double* w, int n) {
+__global__ void near_kernel(const double* h, const double* c, double* w, int n) {
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x)
-        w[i] = d_left_variance(h[i], c[i]);
+        w[i] = d_near_variance(h[i], c[i]);
 }
-__global__ void central_kernel(const double* h, const double* c, const double* xh,
+__global__ void far_kernel(const double* h, const double* c, const double* xh,
                                const int* band, double* w, int n) {
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x)
-        w[i] = d_central_variance(h[i] * h[i], xh[i], band[i], c[i]);
+        w[i] = d_far_variance(h[i] * h[i], xh[i], band[i], c[i]);
 }
-__global__ void right_kernel(const double* h, const double* c, const double* eh,
+__global__ void upper_kernel(const double* h, const double* c, const double* eh,
                              const double* ehp, double* w, int n) {
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x)
-        w[i] = d_right_variance(h[i], c[i], eh[i], ehp[i]);
+        w[i] = d_upper_variance(h[i], c[i], eh[i], ehp[i]);
 }
 __global__ void wing_kernel(const double* h, const double* c, double* w, int n) {
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x)
@@ -446,8 +446,8 @@ __global__ void wing_kernel(const double* h, const double* c, double* w, int n) 
 //  HOST driver: load feed -> route via the CPU reference -> bucket-order ->
 //  tile to n_target -> ULP cross-check -> per-chart + full-book timing.
 // =============================================================================
-enum { R_WING = 0, R_LEFT = 1, R_CENTRAL = 2, R_RIGHT = 3 };
-static const char* RNAME[4] = { "WING", "LEFT", "CENTRAL", "RIGHT" };
+enum { R_WING = 0, R_NEAR = 1, R_FAR = 2, R_UPPER = 3 };
+static const char* RNAME[4] = { "WING", "NEAR", "FAR", "UPPER" };
 
 struct Quote { double h, c, w_ref, xh, eh, ehp; int band, route; };
 
@@ -463,7 +463,7 @@ static int64_t ulp_diff(double a, double b) {
 // Route classifier + per-h host precomputes.  ONE definition, used by both the
 // market feed and the synthetic chart-pure surfaces, so the two input stages can
 // never drift apart.  Returns false for the scalar-only analytic fallbacks
-// (rescue wedge / off-table CENTRAL cell / non-positive reference), counting
+// (rescue wedge / off-table FAR cell / non-positive reference), counting
 // each exclusion so it is reported rather than silently dropped.
 static bool classify_quote(double hh, double cc, Quote& Q,
                            long& excl_rescue, long& excl_cell, long& excl_edge) {
@@ -477,12 +477,12 @@ static bool classify_quote(double hh, double cc, Quote& Q,
         if (!(beta <= wing_detail::WING_B_HI)) { excl_rescue++; return false; }  // rescue wedge: CPU-side
         Q.route = R_WING;
     } else if (ctx.region == 1) {                            // h < H_ATM_HI
-        Q.route = (cc <= ctx.ct_left) ? R_LEFT : R_RIGHT;
-    } else if (ctx.region == 0 && cc <= ctx.ct2) {           // CENTRAL box
-        if (central_cell_of(ctx, cc, detail::bits_of(cc)) < 0) { excl_cell++; return false; } // analytic edge
-        Q.route = R_CENTRAL;
+        Q.route = (cc <= ctx.ct_near) ? R_NEAR : R_UPPER;
+    } else if (ctx.region == 0 && cc <= ctx.ct2) {           // FAR box
+        if (far_cell_of(ctx, cc, detail::bits_of(cc)) < 0) { excl_cell++; return false; } // analytic edge
+        Q.route = R_FAR;
     } else {
-        Q.route = R_RIGHT;
+        Q.route = R_UPPER;
     }
     Q.w_ref = implied_variance_otm(ctx, cc);
     if (!(Q.w_ref > 0.0)) { excl_edge++; return false; }
@@ -519,16 +519,16 @@ int main(int argc, char** argv) {
     }
     int nq = (int)q.size();
 
-    // ---- BUCKET ORDER: LEFT | CENTRAL(by cell) | WING(by regime) | RIGHT ----
+    // ---- BUCKET ORDER: NEAR | FAR(by cell) | WING(by regime) | UPPER ----
     // In a live book this order is computed once and PERSISTS across snapshots;
     // there is no per-snapshot sort and no scatter (results stay in book order).
     std::stable_sort(q.begin(), q.end(), [](const Quote& a, const Quote& b) {
-        static const int ord[4] = { 2, 0, 1, 3 };            // LEFT, CENTRAL, WING, RIGHT
+        static const int ord[4] = { 2, 0, 1, 3 };            // NEAR, FAR, WING, UPPER
         if (ord[a.route] != ord[b.route]) return ord[a.route] < ord[b.route];
-        if (a.route == R_CENTRAL) {                          // cell-coherent central slice
+        if (a.route == R_FAR) {                          // cell-coherent far slice
             context ca(a.h), cb(b.h);
-            return central_cell_of(ca, a.c, volfi_annulus::detail::bits_of(a.c))
-                 < central_cell_of(cb, b.c, volfi_annulus::detail::bits_of(b.c));
+            return far_cell_of(ca, a.c, volfi_annulus::detail::bits_of(a.c))
+                 < far_cell_of(cb, b.c, volfi_annulus::detail::bits_of(b.c));
         }
         if (a.route == R_WING) {                             // regime-coherent wing slice
             double la = wing_Lt(a.h, a.c), lb = wing_Lt(b.h, b.c);
@@ -545,13 +545,13 @@ int main(int argc, char** argv) {
     int n = nq * rep;
     std::vector<double> H(n), C(n), XH(n), EH(n), EHP(n), Wref(n), Wgpu(n);
     std::vector<int> BAND(n);
-    int off[5];   // slice offsets in bucket order LEFT|CENTRAL|WING|RIGHT (tiled)
-    off[0] = 0; off[1] = cnt[R_LEFT] * rep; off[2] = off[1] + cnt[R_CENTRAL] * rep;
-    off[3] = off[2] + cnt[R_WING] * rep;    off[4] = off[3] + cnt[R_RIGHT] * rep;
+    int off[5];   // slice offsets in bucket order NEAR|FAR|WING|UPPER (tiled)
+    off[0] = 0; off[1] = cnt[R_NEAR] * rep; off[2] = off[1] + cnt[R_FAR] * rep;
+    off[3] = off[2] + cnt[R_WING] * rep;    off[4] = off[3] + cnt[R_UPPER] * rep;
     {
-        // q is already ordered LEFT,CENTRAL,WING,RIGHT contiguously; tile slice-wise
+        // q is already ordered NEAR,FAR,WING,UPPER contiguously; tile slice-wise
         int pos = 0, qpos = 0;
-        int route_seq[4] = { R_LEFT, R_CENTRAL, R_WING, R_RIGHT };
+        int route_seq[4] = { R_NEAR, R_FAR, R_WING, R_UPPER };
         for (int blk = 0; blk < 4; ++blk) {
             int r = route_seq[blk];
             int cblk = cnt[r];
@@ -570,9 +570,9 @@ int main(int argc, char** argv) {
     std::printf("=== volfi-annulus GPU FULL-BOOK port (bucket-order coalesced) ===\n");
     std::printf("feed=%d quotes  ->  eligible=%d  excluded: rescue=%ld cell=%ld edge=%ld\n",
                 nf, nq, excl_rescue, excl_cell, excl_edge);
-    std::printf("route mix: LEFT=%.2f%%  CENTRAL=%.2f%%  WING=%.2f%%  RIGHT=%.2f%%   (tiled x%d -> N=%d)\n",
-                100.0*cnt[R_LEFT]/nq, 100.0*cnt[R_CENTRAL]/nq, 100.0*cnt[R_WING]/nq,
-                100.0*cnt[R_RIGHT]/nq, rep, n);
+    std::printf("route mix: NEAR=%.2f%%  FAR=%.2f%%  WING=%.2f%%  UPPER=%.2f%%   (tiled x%d -> N=%d)\n",
+                100.0*cnt[R_NEAR]/nq, 100.0*cnt[R_FAR]/nq, 100.0*cnt[R_WING]/nq,
+                100.0*cnt[R_UPPER]/nq, rep, n);
 
     // ---- device buffers ----
     double *dH, *dC, *dXH, *dEH, *dEHP, *dW; int* dBAND;
@@ -593,11 +593,11 @@ int main(int argc, char** argv) {
     const int TPB = 256;
     auto blocks = [&](int m) { return std::min(4096, (m + TPB - 1) / TPB); };
     auto launch_all = [&]() {
-        if (nL) left_kernel   <<<blocks(nL), TPB>>>(dH + off[0], dC + off[0], dW + off[0], nL);
-        if (nC) central_kernel<<<blocks(nC), TPB>>>(dH + off[1], dC + off[1], dXH + off[1],
+        if (nL) near_kernel   <<<blocks(nL), TPB>>>(dH + off[0], dC + off[0], dW + off[0], nL);
+        if (nC) far_kernel<<<blocks(nC), TPB>>>(dH + off[1], dC + off[1], dXH + off[1],
                                                     dBAND + off[1], dW + off[1], nC);
         if (nW) wing_kernel   <<<blocks(nW), TPB>>>(dH + off[2], dC + off[2], dW + off[2], nW);
-        if (nR) right_kernel  <<<blocks(nR), TPB>>>(dH + off[3], dC + off[3], dEH + off[3],
+        if (nR) upper_kernel  <<<blocks(nR), TPB>>>(dH + off[3], dC + off[3], dEH + off[3],
                                                     dEHP + off[3], dW + off[3], nR);
     };
 
@@ -608,7 +608,7 @@ int main(int argc, char** argv) {
     CUDA_CHECK(cudaMemcpy(Wgpu.data(), dW, n * sizeof(double), cudaMemcpyDeviceToHost));
     {
         long mism[4] = {0,0,0,0}; int64_t worst[4] = {0,0,0,0};
-        int route_of_slice[4] = { R_LEFT, R_CENTRAL, R_WING, R_RIGHT };
+        int route_of_slice[4] = { R_NEAR, R_FAR, R_WING, R_UPPER };
         for (int s = 0; s < 4; ++s)
             for (int i = off[s]; i < off[s + 1]; ++i) {
                 int64_t d = ulp_diff(Wgpu[i], Wref[i]);
@@ -641,14 +641,14 @@ int main(int argc, char** argv) {
         return (double)ms;
     };
     std::printf("\nTIMING (%d iters, ns/eval):\n", n_iters);
-    if (nL) { double ms = time_ms([&]{ left_kernel<<<blocks(nL),TPB>>>(dH+off[0],dC+off[0],dW+off[0],nL); });
-              std::printf("  LEFT     n=%8d  %8.4f ns/eval\n", nL, 1e6*ms/((double)n_iters*nL)); }
-    if (nC) { double ms = time_ms([&]{ central_kernel<<<blocks(nC),TPB>>>(dH+off[1],dC+off[1],dXH+off[1],dBAND+off[1],dW+off[1],nC); });
-              std::printf("  CENTRAL  n=%8d  %8.4f ns/eval\n", nC, 1e6*ms/((double)n_iters*nC)); }
+    if (nL) { double ms = time_ms([&]{ near_kernel<<<blocks(nL),TPB>>>(dH+off[0],dC+off[0],dW+off[0],nL); });
+              std::printf("  NEAR     n=%8d  %8.4f ns/eval\n", nL, 1e6*ms/((double)n_iters*nL)); }
+    if (nC) { double ms = time_ms([&]{ far_kernel<<<blocks(nC),TPB>>>(dH+off[1],dC+off[1],dXH+off[1],dBAND+off[1],dW+off[1],nC); });
+              std::printf("  FAR  n=%8d  %8.4f ns/eval\n", nC, 1e6*ms/((double)n_iters*nC)); }
     if (nW) { double ms = time_ms([&]{ wing_kernel<<<blocks(nW),TPB>>>(dH+off[2],dC+off[2],dW+off[2],nW); });
               std::printf("  WING     n=%8d  %8.4f ns/eval\n", nW, 1e6*ms/((double)n_iters*nW)); }
-    if (nR) { double ms = time_ms([&]{ right_kernel<<<blocks(nR),TPB>>>(dH+off[3],dC+off[3],dEH+off[3],dEHP+off[3],dW+off[3],nR); });
-              std::printf("  RIGHT    n=%8d  %8.4f ns/eval\n", nR, 1e6*ms/((double)n_iters*nR)); }
+    if (nR) { double ms = time_ms([&]{ upper_kernel<<<blocks(nR),TPB>>>(dH+off[3],dC+off[3],dEH+off[3],dEHP+off[3],dW+off[3],nR); });
+              std::printf("  UPPER    n=%8d  %8.4f ns/eval\n", nR, 1e6*ms/((double)n_iters*nR)); }
     {
         double ms = time_ms(launch_all);
         std::printf("  FULL BOOK (all four kernels, market mix): N=%d  %8.4f ns/eval\n",
@@ -664,7 +664,7 @@ int main(int argc, char** argv) {
     // =========================================================================
     //  CHART-PURE FIXED-h SURFACES -- one row per chart, same footing.
     // =========================================================================
-    // The market feed routes 0% to RIGHT (high-variance quotes are not tradeable
+    // The market feed routes 0% to UPPER (high-variance quotes are not tradeable
     // in the 2024 SPX book), so the feed alone can never time that chart: nR==0
     // and its line is skipped.  These synthetic surfaces use the SAME fixed
     // (h, v-range) workloads as the CPU benchmark's per-chart rows, so all four
@@ -682,15 +682,15 @@ int main(int argc, char** argv) {
         struct Spec { int route; const char* name; double h, vlo, vhi; };
         // These v-ranges mirror the CPU benchmark's per-chart rows and MUST move
         // when a seam moves: v0.2.3 dropped the shared ceiling to 1.85 and lifted
-        // the wing seam to v=h/sqrt(7.6), which put the top of the old CENTRAL
+        // the wing seam to v=h/sqrt(7.6), which put the top of the old FAR
         // ([.,1.95]) and WING ([.,0.40]) ranges into the neighbouring chart.  The
         // route filter below discards those quotes rather than mistiming them, so
         // a stale range costs sample count, not correctness -- watch off-chart.
         const Spec specs[4] = {
-            { R_CENTRAL, "CENTRAL", 1.00, 0.41, 1.80 },   // CPU row: central batch, h=1
-            { R_LEFT,    "LEFT",    0.20, 0.30, 1.60 },   // CPU row: left batch, h=0.2
+            { R_FAR, "FAR", 1.00, 0.41, 1.80 },   // CPU row: far batch, h=1
+            { R_NEAR,    "NEAR",    0.20, 0.30, 1.60 },   // CPU row: near batch, h=0.2
             { R_WING,    "WING",    1.00, 0.15, 0.35 },   // below the wing seam h/sqrt(7.6)=0.363
-            { R_RIGHT,   "RIGHT",   1.00, 2.10, 8.00 },   // CPU row: right batch, h=1
+            { R_UPPER,   "UPPER",   1.00, 2.10, 8.00 },   // CPU row: upper batch, h=1
         };
         // Matches volfi::black_otm_from_variance (paper_volfi.hpp) -- inlined here
         // because that header is not part of volfi_annulus_all.hpp.
@@ -749,10 +749,10 @@ int main(int argc, char** argv) {
 
             auto launch = [&]() {
                 switch (S.route) {
-                    case R_LEFT:    left_kernel   <<<blocks(nn),TPB>>>(aH, aC, aW, nn); break;
-                    case R_CENTRAL: central_kernel<<<blocks(nn),TPB>>>(aH, aC, aXH, aB, aW, nn); break;
+                    case R_NEAR:    near_kernel   <<<blocks(nn),TPB>>>(aH, aC, aW, nn); break;
+                    case R_FAR: far_kernel<<<blocks(nn),TPB>>>(aH, aC, aXH, aB, aW, nn); break;
                     case R_WING:    wing_kernel   <<<blocks(nn),TPB>>>(aH, aC, aW, nn); break;
-                    case R_RIGHT:   right_kernel  <<<blocks(nn),TPB>>>(aH, aC, aEH, aEHP, aW, nn); break;
+                    case R_UPPER:   upper_kernel  <<<blocks(nn),TPB>>>(aH, aC, aEH, aEHP, aW, nn); break;
                 }
             };
 

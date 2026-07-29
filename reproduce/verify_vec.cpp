@@ -1,8 +1,8 @@
 // verify_vec.cpp -- adversarial verification of the endpoint-vectorized build.
 //  * accuracy: sqrt(w) vs the independent mpmath oracle, per chart, worst-30
 //  * bit-identity: scalar entry == grid batch == permuted batch == fixed-h batch
-//  * route census: how many quotes the grid driver sends to CENTRAL/LEFT/RIGHT/scalar
-//    and how many of LEFT/RIGHT actually reach an 8-wide SIMD block.
+//  * route census: how many quotes the grid driver sends to FAR/NEAR/UPPER/scalar
+//    and how many of NEAR/UPPER actually reach an 8-wide SIMD block.
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
@@ -82,8 +82,13 @@ int main(int argc,char**argv){
     for(auto&kv:per){ auto&a=kv.second.all; std::sort(a.begin(),a.end());
         double med=a[a.size()/2];
         int o=0; for(double r:a) if(r>1e-15)o++;
+        // The per-point chart tag is stored in the golden oracle file and still uses
+        // the pre-v0.2.4 letters (C/L/R).  Translate for display only -- regenerating
+        // the oracle just to relabel it would touch the certification data itself.
+        char tag = kv.first;
+        switch (tag) { case 'C': tag='F'; break; case 'L': tag='N'; break; case 'R': tag='U'; break; }
         printf("   [%c] n=%zu  max=%.4e  median=%.4e  pts>1e-15=%d\n",
-               kv.first,a.size(),kv.second.mx,med,o);
+               tag,a.size(),kv.second.mx,med,o);
     }
     printf("WORST-30 (rel, h, c, tag):\n");
     for(int k=0;k<30 && k<(int)worst.size();++k){ int64_t i=worst[k].second;
@@ -91,17 +96,17 @@ int main(int argc,char**argv){
                worst[k].first,H[i],C[i],V[i],std::sqrt(Ws[i]),T[i]);
     }
 
-    // ---- route census on the grid driver (mirror grid_central_cell/grid_endpoint_route) ----
+    // ---- route census on the grid driver (mirror grid_far_cell/grid_endpoint_route) ----
     int nc=0,nl=0,nr=0,nsc=0;
     for(int64_t i=0;i<n;++i){
         int band; uint64_t bc=detail::bits_of(C[i]);
-        if(detail::grid_central_cell(H[i],C[i],bc,band)>=0){nc++;continue;}
+        if(detail::grid_far_cell(H[i],C[i],bc,band)>=0){nc++;continue;}
         int rt=detail::grid_endpoint_route(H[i],C[i]);
         if(rt==1)nl++; else if(rt==2)nr++; else nsc++;
     }
-    printf("ROUTE census (grid): CENTRAL=%d LEFT=%d RIGHT=%d scalar/WING=%d\n",nc,nl,nr,nsc);
-    printf("   (LEFT/RIGHT SIMD-eligible 8-blocks per TILE depend on per-tile bucket fill;\n"
-           "    total LEFT=%d RIGHT=%d >> 8 so vector lanes are exercised on AVX-512)\n",nl,nr);
+    printf("ROUTE census (grid): FAR=%d NEAR=%d UPPER=%d scalar/WING=%d\n",nc,nl,nr,nsc);
+    printf("   (NEAR/UPPER SIMD-eligible 8-blocks per TILE depend on per-tile bucket fill;\n"
+           "    total NEAR=%d UPPER=%d >> 8 so vector lanes are exercised on AVX-512)\n",nl,nr);
 
     // optional: %a hex dump of a few probe rows for manual cross-ISA diff
     if(argc>1 && std::strcmp(argv[1],"--hex")==0){

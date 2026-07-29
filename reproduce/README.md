@@ -1,4 +1,4 @@
-# Reproduce — verification and benchmarks for volfi v0.2.3
+# Reproduce — verification and benchmarks for volfi v0.2.4
 
 A self-contained bundle that certifies the two invariants of the routed inverter and
 reproduces the paper's timing table. The library headers live in `../include/volfi`; the
@@ -27,12 +27,18 @@ INC="-I../include/volfi"
 | `bench_sweep.cpp`        | yes       | batch-size sweep behind the paper's latency figure          |
 | `bench_phases.cpp`       | no        | cold-driver phase breakdown (route / sort / kernel / drain) |
 | `feed_route_mix.cpp`     | no        | route mix of a quote file under the shipped classifier      |
-| `left_ceiling_sweep.cpp` | no        | the measurement that fixes the shared ceiling at `v = 1.85` |
+| `near_ceiling_sweep.cpp` | no        | the measurement that fixes the shared ceiling at `v = 1.85` |
 | `build_all.sh`           | partly    | builds every harness above in one command                   |
+| `fingerprint.cpp`        | no        | bitwise dump of every driver; proves a refactor changed nothing |
 | `oracle_*.bin`           | —         | 40-digit `mpmath` golden vectors (loaded by the above)      |
 | `results/run*.txt`       | —         | reference outputs from the paper's quiet-host run           |
 | `results/batchsweep.txt` | —         | batch-size sweep output (the latency figure's data)         |
 | `results/gpu_run_*.txt`  | —         | raw output of the H100 campaign, both passes                |
+
+The checked-in `results/` files were produced by v0.2.3, so their per-chart rows still
+carry the old `CENTRAL`/`LEFT`/`RIGHT` labels. The numbers are unchanged — v0.2.4 is a
+rename only, and bitwise identical (see `fingerprint.cpp`) — so a fresh run reproduces them
+row for row under the new names.
 
 (The v0.1 baseline kernel `paper_volfi.hpp`, pulled in by both the engine and the comparison
 benchmark, ships in `../include/volfi` and is found via `-I../include/volfi`.)

@@ -42,7 +42,7 @@ static inline uint64_t bd(double x) { uint64_t u; std::memcpy(&u, &x, 8); return
 static inline bool feasible(double c) { return c > 0.0 && c < 1.0; }
 
 // route() classifier -- copied verbatim from benchmark_vec.cpp (mirrors the entry).
-enum { R_WING = 0, R_LEFT = 1, R_CENTRAL = 2, R_RIGHT = 3, R_EDGE = 4 };
+enum { R_WING = 0, R_NEAR = 1, R_FAR = 2, R_UPPER = 3, R_EDGE = 4 };
 int route(double h, double c) {
     using namespace volfi_annulus;
     if (!(c > 0.0) || c >= 1.0) return R_EDGE;
@@ -50,12 +50,12 @@ int route(double h, double c) {
     double cw = br::cwing_price(h);
     if (c < cw) return R_WING;
     if (h < H_ATM_HI) {
-        double ct_left = 1.0 - br::onem_otm(h, volfi_annulus_broadrange::LEFT_RIGHT_VSEAM, std::exp(h));
-        return (c <= ct_left) ? R_LEFT : R_RIGHT;
+        double ct_near = 1.0 - br::onem_otm(h, volfi_annulus_broadrange::NEAR_UPPER_VSEAM, std::exp(h));
+        return (c <= ct_near) ? R_NEAR : R_UPPER;
     }
     double ct2 = br::c2_price(h);
-    if (h <= H_BOX && c <= ct2) return R_CENTRAL;
-    return R_RIGHT;
+    if (h <= H_BOX && c <= ct2) return R_FAR;
+    return R_UPPER;
 }
 
 static double median(std::vector<double> v) {
@@ -113,9 +113,9 @@ int main() {
     for (int i = 0; i < n; ++i) { rid[i] = route(h[i], c[i]); mc[rid[i]]++; }
 
     std::printf("=== PHASE BREAKDOWN, cold mixed feed (N=%d) ===\n", n);
-    std::printf("route mix: WING=%.2f%% LEFT=%.2f%% CENTRAL=%.2f%% RIGHT=%.2f%% EDGE=%.2f%%\n\n",
-                100.0 * mc[R_WING] / n, 100.0 * mc[R_LEFT] / n, 100.0 * mc[R_CENTRAL] / n,
-                100.0 * mc[R_RIGHT] / n, 100.0 * mc[R_EDGE] / n);
+    std::printf("route mix: WING=%.2f%% NEAR=%.2f%% FAR=%.2f%% UPPER=%.2f%% EDGE=%.2f%%\n\n",
+                100.0 * mc[R_WING] / n, 100.0 * mc[R_NEAR] / n, 100.0 * mc[R_FAR] / n,
+                100.0 * mc[R_UPPER] / n, 100.0 * mc[R_EDGE] / n);
 
     std::vector<double> w(n), w_true(n), w_prev(n);
     implied_variance_grid_batch(h.data(), c.data(), w_true.data(), n);   // ground truth (untimed)
@@ -123,7 +123,7 @@ int main() {
 
     // ---------- baselines & route-free floor ----------
     std::printf("-- drivers --\n");
-    double t_cold = bench("cold speculative (baseline)", "specul. LEFT kernel + masked store", n,
+    double t_cold = bench("cold speculative (baseline)", "specul. NEAR kernel + masked store", n,
         [&] { implied_variance_grid_batch(h.data(), c.data(), w.data(), n); });
     double t_two = bench("classic two-pass driver", "route + radix sort + per-bucket + scatter", n,
         [&] { detail::grid_table_pass(h.data(), c.data(), w.data(), n);
@@ -163,7 +163,7 @@ int main() {
     std::printf("  route-free floor (warm)      : %8.3f ns/quote\n", t_warm);
     std::printf("  cold speculative (baseline)  : %8.3f  -> overhead %.2f  (classify + minority drain;\n",
                 t_cold, ov_spec);
-    std::printf("                                             sort/scatter ALREADY avoided for the 90%% LEFT)\n");
+    std::printf("                                             sort/scatter ALREADY avoided for the 90%% NEAR)\n");
     std::printf("  classic two-pass driver      : %8.3f  -> overhead %.2f  (full per-quote route +\n",
                 t_two, ov_two);
     std::printf("                                             counting sort + per-bucket + scatter)\n");

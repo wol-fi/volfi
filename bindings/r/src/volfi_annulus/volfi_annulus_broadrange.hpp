@@ -11,41 +11,41 @@
 // boundary prices emitted below):
 //     cw = cwing(h);  ct2 = c2(h);
 //     if      (c <  cw)                  -> WING            (true W>=3)
-//     else if (h <  H_ATM_HI)            -> (c<=ct2 ? LEFT : RIGHT)
-//     else if (h <= H_BOX && c <= ct2)   -> CENTRAL         (v<=2, in box)
-//     else                               -> RIGHT
+//     else if (h <  H_ATM_HI)            -> (c<=ct2 ? NEAR : UPPER)
+//     else if (h <= H_BOX && c <= ct2)   -> FAR         (v<=2, in box)
+//     else                               -> UPPER
 //
 // PER-CHART RUNTIME RECIPE
 // ------------------------
 // WING  (existing volfi_annulus::wing_variance, unchanged): resurgent GL-40
 //       evaluator; machine for W>=2.5. Seam at W=3.
 //
-// LEFT  (h<H_ATM_HI, c<=c2(h); replaces old small-h residual table+corner):
+// NEAR  (h<H_ATM_HI, c<=c2(h); replaces old small-h residual table+corner):
 //   rho = c/expm1(h);  A = volfi_binv(rho);  s = h/A;
 //   x   = sigma0_poly(k*s);                 // V0, existing erfinv kernel (k*s<=E2)
-//   V2  = (s<LEFT_S_V2X)? series : (k/(2s)-k*s/12 - p/(2x))/p,  p=k*exp(-x^2/8)
-//   V4  = (s<LEFT_S_V4X)? series : closed form (see de-risk)
-//   xt = 2*h^2/LEFT_T_MAX-1;  xs = 2*s/LEFT_S_MAX-1;
-//   v  = x + h^2*V2 + h^4*V4 + h^6*clenshaw2(2,16,LEFT_FIN_COEFFS,xt,xs);  w=v*v
+//   V2  = (s<NEAR_S_V2X)? series : (k/(2s)-k*s/12 - p/(2x))/p,  p=k*exp(-x^2/8)
+//   V4  = (s<NEAR_S_V4X)? series : closed form (see de-risk)
+//   xt = 2*h^2/NEAR_T_MAX-1;  xs = 2*s/NEAR_S_MAX-1;
+//   v  = x + h^2*V2 + h^4*V4 + h^6*clenshaw2(2,16,NEAR_FIN_COEFFS,xt,xs);  w=v*v
 //   FINISHER = single dp=2 x dl=16 factored residual cell (branchless, erf-free).
-//   Free zone (no finisher needed): h <= LEFT_FREE_C * v^{-1/3}.
+//   Free zone (no finisher needed): h <= NEAR_FREE_C * v^{-1/3}.
 //
-// RIGHT (v>2 / c>c2(h); replaces old out-of-box clamp; also covers v<=2 beyond
+// UPPER (v>2 / c>c2(h); replaces old out-of-box clamp; also covers v<=2 beyond
 //        the box via Newton). 3-term erf-free seed + EXACT Newton finisher; NO
 //        residual table (provably infeasible at the low-v/high-W corner):
 //   gbar = 0.5*(1-c)*e^{-h/2};  x0 = -qnorm(gbar);   // LOWER TAIL (not (1+ct)/2)
 //   p = k*e^{-x0^2/2};  m = gbar/p;   // Mills ratio EXACT, no erfc kernel
 //   inv=1/x0; B1'=inv-m; x2=-B1'/8; B2'=(inv^3-inv+m)/3; x4=x0*x2^2/2+x2*inv^2/8+B2'/128;
 //   x = x0 + h^2*x2 + h^4*x4;  v=2x;
-//   FINISHER (skip if h<=RIGHT_FREE_C*v^1.5): Newton on the exact equation
+//   FINISHER (skip if h<=UPPER_FREE_C*v^1.5): Newton on the exact equation
 //     g(x)=(1-C(h,2x))*e^{-h/2}/2 = gbar,  g'(x) = -k*e^{-x^2/2}*e^{-h^2/(8x^2)}
 //     x -= (g(x)-gbar)/g'(x);  ~4-9 iters to 1e-16;  v=2x, w=v*v.
 //   (Uses the existing Black pricer; for batch bit-identity run a FIXED step count.)
 //
 // SUPERSEDES: the old small-h residual table (SMH_* in volfi_annulus_tables.hpp)
-//   is REPLACED by the LEFT matched chart. Keep it only as an alternative; it is
-//   no longer on the routed path. The CENTRAL table and the WING are UNCHANGED
-//   and still required. NO new 2-D table beyond the LEFT finisher cell.
+//   is REPLACED by the NEAR matched chart. Keep it only as an alternative; it is
+//   no longer on the routed path. The FAR table and the WING are UNCHANGED
+//   and still required. NO new 2-D table beyond the NEAR finisher cell.
 // ---------------------------------------------------------------------------
 #ifndef VOLFI_ANNULUS_BROADRANGE_HPP
 #define VOLFI_ANNULUS_BROADRANGE_HPP
@@ -58,7 +58,7 @@ static const double BR_K = 0.3989422804014327;  // 1/sqrt(2*pi)
 // ===================== 1. Binv evaluator =====================
 // A = Binv(rho), rho in [RHO_STAR,+inf), A in (0, 2.4510196252]. 3 branchless
 // Chebyshev regimes (Clenshaw). B(A)=phi(A)/A-Phi(-A), decreasing bijection.
-// Domain EXTENDED to A_MAX (max A on the W=3 / cwing boundary) so the LEFT
+// Domain EXTENDED to A_MAX (max A on the W=3 / cwing boundary) so the NEAR
 // chart never extrapolates Binv; wing takes W>3 (clean overlap at W=3).
 static const double BINV_RHO_A = 0.39559311480261206;  // = B(0.5)
 static const double BINV_RHO_B = 0.0833154705876863;  // = B(1.0)
@@ -94,7 +94,7 @@ static const double BINV_CB2[25] = {
   -5.61181142339571e-19,
 };
 // regime b3 (v0.2.3): continues b2 for L in [B2B, B2B+3*ln2], i.e. 3 octaves past the
-// old W=3 wing seam, so the LEFT chart no longer has to hand those quotes to WING.
+// old W=3 wing seam, so the NEAR chart no longer has to hand those quotes to WING.
 // A in [2.4510196252, 3.017933919]  (W in [3, 4.554]).  13 coefficients reach
 // 1.07e-16 relative in A -- 4.7x better than b2 on half the coefficient count, because
 // the interval is narrower and A(L) is smoother out here (~0.19 per octave, decelerating).
@@ -102,7 +102,7 @@ static const double BINV_CB2[25] = {
 static const double BINV_L_B3A = 6.958307262339952;   // == BINV_L_B2B
 static const double BINV_L_B3B = 9.037748804019788;   // == BINV_L_B2B + 3*ln2
 static const double BINV_RHO_C  = 0.0009507045065752332;   // = exp(-B3A): the b2/b3 split
-// = exp(-B3B): b3's lower rho edge, and hence the LEFT-band wing seam (see BR_RHO_STAR note).
+// = exp(-B3B): b3's lower rho edge, and hence the NEAR-band wing seam (see BR_RHO_STAR note).
 static const double BINV_RHO_C3 = 0.00011883806332190412;
 // 17 significant digits: these MUST round-trip to the fitted doubles exactly.
 static const double BINV_CB3[13] = {
@@ -113,26 +113,26 @@ static const double BINV_CB3[13] = {
   -1.0856852461243313e-15,
 };
 
-// ===================== 2. LEFT chart =====================
-static const double LEFT_S_V2X = 0.22;  // s<this -> V2 series
-static const double LEFT_S_V4X = 0.22;  // s<this -> V4 series
+// ===================== 2. NEAR chart =====================
+static const double NEAR_S_V2X = 0.22;  // s<this -> V2 series
+static const double NEAR_S_V4X = 0.22;  // s<this -> V4 series
 // V2 ~ c3 s^3 + c5 s^5 + ... + c13 s^13 (6 terms; machine-precise to s~0.25)
-static const double LEFT_V2_SER[6] = {
+static const double NEAR_V2_SER[6] = {
   -0.00034722222222222224,-5.993716931216931e-05,-9.584780092592592e-06,
   -1.5113141062576826e-06,-2.3757434284401892e-07,-3.7806454640352825e-08,
 };
 // V4 ~ c3 s^3 + ... + c13 s^13. c3,c5,c7 exact (s^7 CORRECTED vs memo);
 // c9,c11,c13 refit numerically -- the memo's c9=4644419/17978967982080 is
 // WRONG (=2.58e-7); the true value is ~4.13e-8 (series relerr 3.9e-8 -> 2.8e-16).
-static const double LEFT_V4_SER[6] = {
+static const double NEAR_V4_SER[6] = {
   5.5114638447971785e-06,1.179797729276896e-06,2.254363555361819e-07,
   4.1335064263082484e-08,7.405611870477427e-09,1.306301807263956e-09,
 };
-static const double LEFT_T_MAX = 0.09;  // xt=2*h^2/T_MAX-1  (=H_ATM_HI^2)
-static const double LEFT_S_MAX = 1.7115;  // xs=2*s/S_MAX-1
-static const int    LEFT_FIN_DP = 2, LEFT_FIN_DL = 16;  // finisher degrees
-// LEFT finisher: row-major (dp+1) rows x (dl+1) stride; v += h^6*clenshaw2(...)
-static const double LEFT_FIN_COEFFS[51] = {
+static const double NEAR_T_MAX = 0.09;  // xt=2*h^2/T_MAX-1  (=H_ATM_HI^2)
+static const double NEAR_S_MAX = 1.7115;  // xs=2*s/S_MAX-1
+static const int    NEAR_FIN_DP = 2, NEAR_FIN_DL = 16;  // finisher degrees
+// NEAR finisher: row-major (dp+1) rows x (dl+1) stride; v += h^6*clenshaw2(...)
+static const double NEAR_FIN_COEFFS[51] = {
   -3.5172877955019804e-07,-5.716397786842268e-07,-3.113218020272888e-07,-1.2266203854672106e-07,
   -4.217207364368739e-08,-1.4546700585455367e-08,-4.8228289613926755e-09,-1.5843157374080016e-09,
   -5.114772006848562e-10,-1.633283538103422e-10,-5.1435852639769366e-11,-1.5916993785329346e-11,
@@ -147,39 +147,39 @@ static const double LEFT_FIN_COEFFS[51] = {
   -1.624768286873682e-14,-1.274570942692742e-14,-8.885307243758622e-15,-4.590022802901165e-15,
   -1.8712712634306945e-15,-2.6177680435847486e-16,9.940926371521975e-17,
 };
-static const double LEFT_FREE_C = 0.033;  // free zone h<=LEFT_FREE_C*v^(-1/3)
+static const double NEAR_FREE_C = 0.033;  // free zone h<=NEAR_FREE_C*v^(-1/3)
 
-// ===================== 3. RIGHT chart =====================
+// ===================== 3. UPPER chart =====================
 // No Mills/residual tables: Mills ratio m=gbar/phi is EXACT; V2R/V4R and the
 // Newton finisher are closed form. Only tunables below.
-static const double RIGHT_FREE_C = 0.0039;  // free zone h<=RIGHT_FREE_C*v^1.5
-static const int    RIGHT_NEWTON_MAX = 10;  // safeguarded Newton cap
+static const double UPPER_FREE_C = 0.0039;  // free zone h<=UPPER_FREE_C*v^1.5
+static const int    UPPER_NEWTON_MAX = 10;  // safeguarded Newton cap
 
 // ===================== 4. Seams =====================
 static const double BR_RHO_STAR    = 0.000950704506575233;  // = B(A_MAX), wing seam (W=3)
 static const double BR_CTILDE_STAR = 0.6826894921370859;  // = E(2)=2*Phi(1)-1
 static const double BR_H_ATM_HI    = 0.3;
-// 2*sqrt(6): the h at which the W=3 wing ray (v=h/sqrt6) crosses the v=2 CENTRAL/RIGHT seam.
+// 2*sqrt(6): the h at which the W=3 wing ray (v=h/sqrt6) crosses the v=2 FAR/UPPER seam.
 // For h above it the wing seam sits ABOVE v=2, so WING owns a wedge of the v>2 region that
-// RIGHT is not accurate on.  v0.2.3 lowered the region-0 wing floor to the table floor, which
-// would have handed that wedge to RIGHT; the router keeps the W=3 ray as the wedge boundary.
+// UPPER is not accurate on.  v0.2.3 lowered the region-0 wing floor to the table floor, which
+// would have handed that wedge to UPPER; the router keeps the W=3 ray as the wedge boundary.
 static const double BR_H_WEDGE     = 4.898979485566356;
 static const double BR_H_BOX       = 6.6526957;
-// LEFT<->RIGHT seam for the h<H_ATM_HI band.  The LEFT matched finisher is fit to
-// s<=LEFT_S_MAX (~v<=1.94) and EXTRAPOLATES for v->2 at the h=0.3/v=2 double
-// corner (measured up to 2.2e-15).  RIGHT's exact-equation Newton is machine
+// NEAR<->UPPER seam for the h<H_ATM_HI band.  The NEAR matched finisher is fit to
+// s<=NEAR_S_MAX (~v<=1.94) and EXTRAPOLATES for v->2 at the h=0.3/v=2 double
+// corner (measured up to 2.2e-15).  UPPER's exact-equation Newton is machine
 // precise for all v>=1.55 (measured <=4.3e-16 down to h=1e-4).  So for h<H_ATM_HI
-// route the seam at v=1.70 (LEFT<=6e-16 for v<=1.7, RIGHT<=4.3e-16 for v>=1.7 --
-// a wide both-clean overlap [1.55,1.80]).  Threshold price c2left(h)=C(h,1.70)
+// route the seam at v=1.70 (NEAR<=6e-16 for v<=1.7, UPPER<=4.3e-16 for v>=1.7 --
+// a wide both-clean overlap [1.55,1.80]).  Threshold price c2near(h)=C(h,1.70)
 // is computed per-context from onem_otm (only the region-1 branch reads it).
-static const double LEFT_RIGHT_VSEAM = 1.70;
-// FROZEN ctl(h) = C(h,1.70), the LEFT/RIGHT seam price, as a direct degree-8
+static const double NEAR_UPPER_VSEAM = 1.70;
+// FROZEN ctl(h) = C(h,1.70), the NEAR/UPPER seam price, as a direct degree-8
 // Chebyshev in h over [0,0.35] (only the region-1 branch h<0.3 reads it).  This
 // REPLACES the former per-quote runtime Black evaluation (1-onem_otm) so the
 // routing decision costs a small polynomial rather than an erfc+exp pair; the
 // scalar context and the grid router BOTH use this fit, so their chart choice is
 // identical (bit-identity) and differs from the exact seam only within ~3e-16 of
-// c=C(h,1.70), inside the [1.55,1.80] overlap band where LEFT and RIGHT are both
+// c=C(h,1.70), inside the [1.55,1.80] overlap band where NEAR and UPPER are both
 // machine-precise.  Max rel error vs exact on [0,0.30]: 3.0e-16.
 static const double CTL_SEAM_A = 0.0;
 static const double CTL_SEAM_B = 0.34999999999999998;
@@ -189,7 +189,7 @@ static const double CTL_SEAM_C[9] = {
   -5.12247409033188540e-11,7.73315075222300009e-13,1.54781687689203498e-14,
 };
 // FROZEN expm1(h) = h * g(h) with g = expm1(h)/h a degree-10 Chebyshev over
-// [0,0.32]; used by the LEFT chart (rho = c/expm1(h)) so the vectorized driver
+// [0,0.32]; used by the NEAR chart (rho = c/expm1(h)) so the vectorized driver
 // needs no scalar libm expm1.  Max rel error of expm1 vs libm on (0,0.30]: 1.0e-16.
 static const double EXPM1G_A = 0.0;
 static const double EXPM1G_B = 0.32000000000000001;
@@ -203,9 +203,9 @@ static const double BR_INV_SQRT6   = 0.408248290463863;
 // c2(h)=C(h,2): fit of log(price); c2 = exp(clenshaw(C2_COEFFS,...,h))
 static const double C2_A = 1e-06, C2_B = 16.0;
 // v0.2.3: ONE upper seam for every band, C(h,1.70), replacing BOTH c2_price (v=2,
-// CENTRAL|RIGHT) and ctl_seam (v=1.70, LEFT|RIGHT).  RIGHT is measured machine-precise
+// FAR|UPPER) and ctl_seam (v=1.70, NEAR|UPPER).  UPPER is measured machine-precise
 // from v>=1.55, so 1.70 sits inside its certified range; the small-moneyness chart is
-// certified to the same level, so LEFT and CENTRAL now share one continuous ceiling and
+// certified to the same level, so NEAR and FAR now share one continuous ceiling and
 // the router evaluates one polynomial instead of two.
 static const double CTOP_A = 1e-06, CTOP_B = 16.0;   // C(h,1.85), v0.2.3 unified ceiling
 static const double CTOP_COEFFS[32] = {
@@ -237,13 +237,13 @@ static const double CW_A = 1e-06, CW_B = 16.0;
 // v0.2.3 wing seam: the SAME construction as CW_COEFFS one ray deeper.
 // cwstar(h) = C(h, h/sqrt(7.6)), i.e. the iso-W contour W* = 3.8, replacing W = 3.
 // W*=4 (not deeper) is set by the LARGE-VOLATILITY chart, not by the table: above
-// v=2 this same ray is the RIGHT|WING boundary, and RIGHT is measured to break down
+// v=2 this same ray is the UPPER|WING boundary, and UPPER is measured to break down
 // once W exceeds its own limit -- measured 4.004 at v=2, and lower below that, so the
-// CEILING caps the seam depth: at the unified ceiling v=1.85 RIGHT breaks at
+// CEILING caps the seam depth: at the unified ceiling v=1.85 UPPER breaks at
 // W=3.8717, so W*=3.8 keeps ~1.9% margin.  The table and the b3
 // regime both reach considerably deeper (table >=4.45 in every band, b3 to A=3.018).  A single smooth ray for
-// every band -- the tabulated charts now reach it: LEFT because Binv's b3 regime extends the
-// domain to A = 3.0179 (max A on this curve is 3.0012), CENTRAL because the table gained 3
+// every band -- the tabulated charts now reach it: NEAR because Binv's b3 regime extends the
+// domain to A = 3.0179 (max A on this curve is 3.0012), FAR because the table gained 3
 // deep octaves per band (4 in band 2).  Fitted worst 1.7e-15 relative in the seam price;
 // a seam is a definition, so what matters is that it is identical in scalar/SIMD/GPU and
 // that both neighbouring charts are certified across it.
@@ -267,6 +267,6 @@ static const double CW_COEFFS[23] = {
   1.1669919752896463e-16,-8.810120231126233e-17,
 };
 
-// NEW payload: 170 doubles = 1360 bytes (Binv 57 + left-series 12 + left-finisher 51 + seam-curves 50).
+// NEW payload: 170 doubles = 1360 bytes (Binv 57 + near-series 12 + near-finisher 51 + seam-curves 50).
 } // namespace volfi_annulus_broadrange
 #endif // VOLFI_ANNULUS_BROADRANGE_HPP
