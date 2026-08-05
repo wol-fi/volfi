@@ -1,4 +1,4 @@
-# volfi v0.2.4
+# volfi v0.2.4: Fast Implied Volatility
 
 `volfi` is a header-only C++17 reference implementation for inverting the Black–Scholes
 price–to–implied-volatility map at machine precision.
