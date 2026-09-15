@@ -1,0 +1,7 @@
+=== node persistence on spx2024_otmcall_tradeable.csv ===
+  quotes 640051, nodes (exdate,K,cp) 43485, nodes quoted on >= 2 days 37508, consecutive-day pairs 596566
+  whole-book regions over all quotes: A 576959 (90.14%)  B 57094 (8.92%)  fallback 21 (0.003%)
+  shipped router over all quotes: near 582890  far 43436  wing 7748  upper 0
+  a: median 2.531, 90% 6.131, 99% 8.198, max 13.928
+  |delta a| day to day: median 0.2040, 90% 0.8865, 99% 1.9516
+  a = 2 pi crossings: 12949 of 596566 pairs (2.171%)   whole-book region changes: 12949 (2.171%)   shipped chart changes: 5358 (0.898%)

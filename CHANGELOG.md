@@ -1,5 +1,80 @@
 # Changelog
 
+## v0.3.0
+
+The book kernel. One straight-line evaluation with a single branch and a 63-term table that
+answers all but three quotes in thirty thousand of a real S&P 500 book, without routing and
+without iteration. The routed four-chart inverter of v0.2.4 is unchanged and stands behind it as
+the fallback and as the coverage of the whole feasible domain. The paper was retitled and
+rewritten around it (`docs/volfi_v0.3.0_paper.pdf`).
+
+### Added
+- `include/volfi/volfi_wb.hpp`, `volfi_wb_tables.hpp`, `volfi_wb_vec.hpp` — the whole-book
+  kernel: `volfi_wb::implied_variance_wb(h, c, &code)` and its lane-for-lane AVX-512 / AVX2 twin
+  `implied_variance_wb_batch`. Region A (`a < 2 pi`, `theta = h/a <= 0.35`): 17 exact rational
+  rows in `t^2 = h^2/A0^2`. Region B (`a >= 2 pi`, `h <= min(4, 0.16 a + 0.85)`): 18 rows
+  re-expanded in the conformal variable `q = z/(sqrt(1+z)+1)^2`, `z = h^2/(4 pi^2)`. One
+  two-cell table (`G(a)` on `[0, 2 pi]`, 23 terms; `V0/sqrt(a)` in `u = 1/sqrt(a)` on
+  `[2 pi, 700]`, 40 terms). Two new kernels for the vector path: a division-free `log1p` with
+  a Sterbenz-exact reduction (0.87 ULP) and a division-free `expm1` on `(0, 16.5]` (1.00 ULP).
+- `volfi_near_certified*.hpp`, `volfi_near_rec*.hpp`, `volfi_near_book*.hpp` — the intrinsic
+  `NEAR` chart in its three forms (certified matched chart, 11-row recurrence chart, 12-cell
+  table), which the book kernel grew out of and which the paper's tables still measure.
+- `reproduce/book/` — the v0.3.0 campaign: gates, 40-digit truth sets (including the
+  20,000-point campaign on every switch of the kernel and its 60-digit recheck), the one-binary
+  CPU harness with Let's Be Rational and the PDE method, branch-wise harnesses, node persistence,
+  the exact-row generator (`gen/rows_exact.py`, the recursion of Proposition 1), the table
+  generator, and the raw outputs of the quiet-host and H100 runs.
+- `gpu/volfi_near_certified_gpu.cu`, `gpu/make_near_cuda.py`, `gpu/run_near_gpu.sh`,
+  `gpu/run_pde_gpu.sh` — the device port of the intrinsic kernels with its host self-check, and
+  the container recipe that builds the PDE method's OpenCL path on the same card.
+- `make book` and the CMake test `book`: the SIMD twin's bit-identity and the truth-set accuracy
+  of the book kernel, no external inputs.
+
+### Numbers (quiet host, one binary, medians; H100 PCIe, 300 passes)
+- Accuracy: entry point worst `5.7e-16` (4 ULP) on the 20,000-point boundary campaign,
+  `5.3e-16` (3 ULP) on the regular grid, `4.9e-16` on the traded feed; no point above `1e-15`
+  on any set.
+- CPU, full feed, ns per quote: book kernel batch **29** (AVX-512) / **51** (AVX2), scalar
+  118 / 142; Let's Be Rational at its release flags 194 / 193; PDE method scalar 76 / 86;
+  routed charts 45 / 89 batch. Book kernel batch is 6.7× / 3.8× the reference.
+- H100: book kernel 0.032 ns per quote on the feed sorted by `a`, 0.072 in file order, 1.12
+  with uploads and readback on every pass; recurrence kernel 0.021 on the `NEAR` tile; the PDE
+  method 7.68 under its own transfer-inclusive convention, 4.93 kernels plus readback.
+- Every device result bit-identical to the CPU scalar entry (host self-check: 0 mismatches on
+  832,287 covered probes; device runs: 0 mismatches).
+
+### Changed
+- Version strings, CMake project version and binding versions to 0.3.0. The Python and R
+  bindings expose the routed v0.2.4 API unchanged; a binding of the book kernel is not part of
+  this release.
+- The reference is now timed at its author's release flags (`-O3 -DNDEBUG -ffp-contract=fast`),
+  where it is 17% faster than the v0.2 campaign's build (contraction off, assertions on). Every
+  ratio in the v0.3.0 paper uses the release build; the v0.2.4 tables keep their own build and
+  say so.
+
+### Removed
+- `include/volfi/tmp_base.hpp`, `current_libm.hpp`, `volfi_reorder.hpp`: referenced by nothing.
+- `reproduce/oracle_real.bin`: the 1,150 real-quote oracle points derive from the licensed
+  OptionMetrics feed and are no longer redistributed, consistent with the feed itself. The
+  harnesses skip it when absent; the "real" rows of the paper are reproducible from a licensed
+  copy through the recipe in `reproduce/README.md`.
+- `docs/volfi_v0.2.3_paper.pdf`, superseded by `docs/volfi_v0.3.0_paper.pdf`.
+
+### Not redistributed
+The market feed and everything derived from it (OptionMetrics licence), Jäckel's Let's Be
+Rational sources, and the PDE method's sources and 46 MB table. The comparison harnesses take
+their paths as arguments; see `NOTICE.md`.
+
+### Verification status
+From the release tree with only `-Iinclude/volfi`: v0.2.4 suite `SMOKE PASS`, bit-identity
+`grid=0 permuted=0 fixed-h=0`, `pts>1e-15=0`, `WARM PASS`; `wb_vec_gate` 0 mismatches on
+393,806 quotes and 2.39 ULP worst on the truth set, on AVX-512, AVX2 and scalar builds;
+`wb_gate` 29,997 of 30,000 feed quotes covered; `rec_vec_gate` 0 mismatches on 344,178 `NEAR`
+quotes; `wb_truth_score` 4 ULP worst on 20,000 boundary points; the device port's host
+self-check 0 mismatches in all four sections. The device runs themselves are the 2026-09-14
+H100 sessions in `reproduce/book/results/`.
+
 ## v0.2.4
 
 Chart rename, and nothing else. `LEFT` -> `NEAR`, `CENTRAL` -> `FAR`, `RIGHT` -> `UPPER`;

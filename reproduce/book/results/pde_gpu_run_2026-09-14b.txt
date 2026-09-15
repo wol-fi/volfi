@@ -1,0 +1,93 @@
+
+==========
+== CUDA ==
+==========
+tr: misaligned [:upper:] and/or [:lower:] construct
+
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+=== OpenCL loader + NVIDIA ICD (the CUDA image ships neither) ===
+debconf: delaying package configuration, since apt-utils is not installed
+libnvidia-opencl.so.1
+Platform #0: NVIDIA CUDA
+ `-- Device #0: NVIDIA H100 PCIe
+  Device Name                                     NVIDIA H100 PCIe
+  Device Version                                  OpenCL 3.0 CUDA
+  Double-precision Floating-point support         (cl_khr_fp64)
+=== build: the authors' objects at their flags (-O2 -fopenmp, as compile_aws), our driver at ours ===
+In file included from /usr/include/CL/cl.h:20,
+                 from GCOpenCL.h:31,
+                 from GCOpenCL.cpp:24:
+/usr/include/CL/cl_version.h:22:104: note: '#pragma message: cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 300 (OpenCL 3.0)'
+   22 | #pragma message("cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 300 (OpenCL 3.0)")
+      |                                                                                                        ^
+In file included from /usr/include/CL/cl.h:20,
+                 from GCOpenCL.h:31,
+                 from gcImpVolBasic.h:36,
+                 from gcImpVolBasic.cpp:23:
+/usr/include/CL/cl_version.h:22:104: note: '#pragma message: cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 300 (OpenCL 3.0)'
+   22 | #pragma message("cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 300 (OpenCL 3.0)")
+      |                                                                                                        ^
+In file included from /usr/include/CL/cl.h:20,
+                 from /w/pde/GCOpenCL.h:31,
+                 from /w/pde/gcImpVolBasic.h:36,
+                 from /w/gpu/pde_compare.cpp:38:
+/usr/include/CL/cl_version.h:22:104: note: '#pragma message: cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 300 (OpenCL 3.0)'
+   22 | #pragma message("cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 300 (OpenCL 3.0)")
+      |                                                                                                        ^
+In file included from /usr/include/CL/cl.h:20,
+                 from /w/pde/GCOpenCL.h:31,
+                 from /w/pde/gcImpVolBasic.h:36,
+                 from /w/gpu/pde_branch.cpp:23:
+/usr/include/CL/cl_version.h:22:104: note: '#pragma message: cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 300 (OpenCL 3.0)'
+   22 | #pragma message("cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 300 (OpenCL 3.0)")
+      |                                                                                                        ^
+BUILD OK
+=== run: 4,980,000-quote tile, 20 iterations ===
+=== PDE method vs whole-book chart vs routed inverter, market feed N=30000 ===
+PDE partition loaded in 0.2 s: c in [3.94e-07, 0.997], k in [1e-08, 5]
+[1] PDE evaluate(k,x) scalar on the feed: outside partition 0, max rel err in sigma 1.169e-05 at h=0.0001747 c=1.516e-02 (v=0.0382), mean 2.846e-09
+    PDE iv() vector (with its SR fallback): non-finite/non-positive 0, max rel err 1.169e-05 at h=0.0001747 c=1.516e-02, mean 2.846e-09
+    first quotes: h=0.03120 c=2.44977e-02  ref v=0.0944811660  evaluate=0.0944811660  iv=0.0944811660
+[2] CPU, ns/quote on the feed (median of 7 x 4):
+    PDE evaluate() scalar, 1 thread               88.79
+    PDE iv() vector, OpenMP 1 thread             103.21   (includes its input transform and SR fallback)
+    PDE iv() vector, OpenMP 28 threads            10.44   (their published CPU convention)
+    whole-book chart scalar / batch              121.40 /    28.34
+    routed inverter scalar / batch               285.37 /    39.65
+[3] GPU: OpenCL device initialised, partition uploaded in 1.0 s; tile 4979968 quotes
+    device results vs our reference: non-finite/non-positive 0, max rel err 1.169e-05, mean 2.846e-09
+    PDE ivGC, uploads + 2 kernels + readback (published convention)  7.7582 ns/quote  (20 iters, median of 3)
+    PDE evaluateGC, 2 kernels + readback only                        5.0887 ns/quote
+    compare: whole-book kernel on the H100, kernel-resident 0.0724 (file order) / transfers-inclusive line [5c] of the CUDA driver
+=== repeat ===
+=== PDE method vs whole-book chart vs routed inverter, market feed N=30000 ===
+PDE partition loaded in 0.2 s: c in [3.94e-07, 0.997], k in [1e-08, 5]
+[1] PDE evaluate(k,x) scalar on the feed: outside partition 0, max rel err in sigma 1.169e-05 at h=0.0001747 c=1.516e-02 (v=0.0382), mean 2.846e-09
+    PDE iv() vector (with its SR fallback): non-finite/non-positive 0, max rel err 1.169e-05 at h=0.0001747 c=1.516e-02, mean 2.846e-09
+    first quotes: h=0.03120 c=2.44977e-02  ref v=0.0944811660  evaluate=0.0944811660  iv=0.0944811660
+[2] CPU, ns/quote on the feed (median of 7 x 4):
+    PDE evaluate() scalar, 1 thread               87.70
+    PDE iv() vector, OpenMP 1 thread             102.70   (includes its input transform and SR fallback)
+    PDE iv() vector, OpenMP 28 threads            10.98   (their published CPU convention)
+    whole-book chart scalar / batch              122.48 /    28.29
+    routed inverter scalar / batch               284.14 /    39.81
+[3] GPU: OpenCL device initialised, partition uploaded in 0.5 s; tile 4979968 quotes
+    device results vs our reference: non-finite/non-positive 0, max rel err 1.169e-05, mean 2.846e-09
+    PDE ivGC, uploads + 2 kernels + readback (published convention)  7.6351 ns/quote  (20 iters, median of 3)
+    PDE evaluateGC, 2 kernels + readback only                        4.9305 ns/quote
+    compare: whole-book kernel on the H100, kernel-resident 0.0724 (file order) / transfers-inclusive line [5c] of the CUDA driver
+=== branch-wise: PDE on region-filtered tiles of 4,980,000 (Near / Far / Wing), 20 iterations ===
+=== BRANCH-WISE latency on region-filtered tiles of 4980000 quotes (feed subsets cycled), ns/quote ===
+  region   feed n | PDE scalar |  wb scalar   wb batch |  rt scalar   rt batch |     PDE ivGC   PDE evalGC
+  Near      27574 |      86.45 |     118.63      25.28 |     278.28      20.73 |       7.0905       4.9811
+  Far        2084 |      68.25 |     139.74      36.29 |     191.90     205.67 |       6.7703       4.6219
+  Wing        342 |      70.01 |     179.33      37.75 |    1234.87     257.56 |       6.7084       4.5956
+=== repeat ===

@@ -1,0 +1,42 @@
+=== market feed, reference = whole-book chart (3 ULP) (n=30000) ===
+  region         n outside   max rel    mean rel    worst at
+  Near       27574       0   1.169e-05  3.074e-09  h=0.0001747 c=1.516e-02
+  Far         2084       0   1.684e-08  2.703e-10  h=0.5342 c=3.650e-04
+  Wing         342       0   5.281e-09  1.391e-10  h=0.4114 c=9.139e-05
+  wb-A       27337       0   1.169e-05  3.088e-09  h=0.0001747 c=1.516e-02
+  wb-B        2660       0   2.452e-08  3.656e-10  h=0.2355 c=1.672e-04
+  All        30000       0   1.169e-05  2.846e-09  h=0.0001747 c=1.516e-02
+=== oracle_heat.bin, reference = 40-digit oracle (n=16039) ===
+  region         n outside   max rel    mean rel    worst at
+  Near          73       0   4.406e-09  6.821e-11  h=0.2345 c=1.857e-01
+  Far          512       0   4.377e-09  5.331e-11  h=2.272 c=4.714e-03
+  Wing         281    5244   4.803e-08  3.573e-10  h=2.701 c=7.171e-08
+  Upper       3656    6273   2.153e-09  3.915e-12  h=2.701 c=1.692e-01
+  wb-A         132       0   4.406e-09  1.583e-10  h=0.2345 c=1.857e-01
+  wb-B         115     178   4.803e-08  8.203e-10  h=2.701 c=7.171e-08
+  All         4522   11517   4.803e-08  3.251e-11  h=2.701 c=7.171e-08
+=== oracle_real.bin, reference = 40-digit oracle (n=1150) ===
+  region         n outside   max rel    mean rel    worst at
+  Near        1011       0   1.543e-06  3.597e-09  h=0.000175 c=1.346e-02
+  Far           58       0   2.009e-09  1.736e-10  h=0.3424 c=2.437e-04
+  Wing          81       0   4.659e-09  2.948e-10  h=0.2849 c=8.372e-05
+  wb-A         845       0   1.543e-06  4.179e-09  h=0.000175 c=1.346e-02
+  wb-B         305       0   1.040e-08  4.578e-10  h=0.06989 c=8.907e-05
+  All         1150       0   1.543e-06  3.192e-09  h=0.000175 c=1.346e-02
+=== oracle_stressed.bin, reference = 40-digit oracle (n=95) ===
+  region         n outside   max rel    mean rel    worst at
+  Near          24       0   1.527e-08  6.733e-10  h=0.05 c=4.110e-05
+  Far            3       0   1.917e-11  6.510e-12  h=2 c=1.423e-01
+  Wing           3      31   9.694e-11  5.607e-11  h=4 c=2.932e-07
+  Upper         14      20   1.594e-11  1.238e-12  h=0.05 c=9.995e-01
+  wb-A          18       0   2.646e-10  4.951e-11  h=0.01 c=3.976e-03
+  wb-B           4       9   1.527e-08  3.835e-09  h=0.05 c=4.110e-05
+  All           44      51   1.527e-08  3.719e-10  h=0.05 c=4.110e-05
+=== oracle_edge.bin, reference = 40-digit oracle (n=9) ===
+  region         n outside   max rel    mean rel    worst at
+  Near           1       0   6.239e-14  6.239e-14  h=0.0001 c=3.829e-01
+  Wing           0       4   0.000e+00  0.000e+00  h=0 c=0.000e+00
+  Upper          0       3   0.000e+00  0.000e+00  h=0 c=0.000e+00
+  Edge           0       1   0.000e+00  0.000e+00  h=0 c=0.000e+00
+  wb-B           0       1   0.000e+00  0.000e+00  h=0 c=0.000e+00
+  All            1       8   6.239e-14  6.239e-14  h=0.0001 c=3.829e-01

@@ -40,3 +40,21 @@ gpu/volfi_annulus_tables_cuda.cuh
 gpu/volfi_constants_cuda.cuh
 gpu/volfi_gpu_book
 gpu/build.log
+
+# v0.3.0: generated device tables (gpu/make_near_cuda.py), build outputs, and inputs that are
+# NOT redistributed (licensed-feed derivatives, third-party sources)
+gpu/volfi_near_certified_tables_cuda.cuh
+gpu/volfi_near_book_tables_L*_cuda.cuh
+gpu/volfi_near_rec_tables_cuda.cuh
+gpu/volfi_wb_tables_cuda.cuh
+gpu/volfi_near_gpu_L*
+gpu/ncheck_L*
+gpu/build_L*.log
+gpu/*.tgz
+reproduce/book/out/
+reproduce/book/third_party/
+reproduce/book/market_feed.csv
+reproduce/book/market_feed_ref.txt
+reproduce/book/spx2024_otmcall_tradeable.csv
+reproduce/book/*.worst
+reproduce/book/loadPartition.txt

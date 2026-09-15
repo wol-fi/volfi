@@ -1,4 +1,4 @@
-"""volfi v0.2.4 - routed, vectorizable machine-precision Black-Scholes implied volatility.
+"""volfi v0.3.0 - routed, vectorizable machine-precision Black-Scholes implied volatility.
 
 Conventions (matching the C++ library and the paper):
     h  = |log(K / F)|                absolute log-moneyness, >= 0
@@ -19,7 +19,7 @@ import numpy as np
 from . import _volfi
 from ._volfi import iv_status, version
 
-__version__ = "0.2.4"
+__version__ = "0.3.0"
 
 __all__ = [
     "implied_variance",

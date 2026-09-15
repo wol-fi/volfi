@@ -1,0 +1,22 @@
+/usr/local/lib/python3.10/dist-packages/numba/np/ufunc/parallel.py:373: NumbaWarning: The TBB threading layer requires TBB version 2021 update 6 or later i.e., TBB_INTERFACE_VERSION >= 12060. Found TBB_INTERFACE_VERSION = 12050. The TBB threading layer is disabled.
+  warnings.warn(problem)
+fast-vollib 0.2.3 quotes 30000
+numba 0.67.0
+  jackel_iv_normalized (numba)       max rel 3.31e-14 at h=2.255e-03 c=4.450e-03  mean 1.95e-15  nonfinite 0
+     Wing   n=   342 max 2.12e-15 mean 5.06e-16
+     Near   n= 27574 max 3.31e-14 mean 2.09e-15
+     Far    n=  2084 max 1.99e-15 mean 4.09e-16
+  jackel_iv_normalized (numba)       median    411.3 ns/quote   best    403.7   (reps 7, batch 30000)
+  jackel_iv_black (numba)            max rel 3.31e-14 at h=3.769e-04 c=5.133e-03  mean 2.16e-15  nonfinite 0
+     Wing   n=   342 max 2.12e-15 mean 5.09e-16
+     Near   n= 27574 max 3.31e-14 mean 2.31e-15
+     Far    n=  2084 max 2.08e-15 mean 4.25e-16
+  jackel_iv_black (numba)            median    462.9 ns/quote   best    456.3   (reps 7, batch 30000)
+  fast_implied_volatility (Halley)   max rel 6.79e-05 at h=1.351e+00 c=1.909e-04  mean 7.81e-09  nonfinite 0
+     Wing   n=   342 max 6.79e-05 mean 4.66e-07
+     Near   n= 27574 max 6.17e-14 mean 3.22e-15
+     Far    n=  2084 max 6.05e-05 mean 3.60e-08
+  fast_implied_volatility (Halley)   median   2159.6 ns/quote   best   2144.4   (reps 7, batch 30000)
+  jackel_iv_normalized (numba)       median    349.7 ns/quote   best    337.1   (reps 7, batch 30000)
+  jackel_iv_black (numba)            median    351.4 ns/quote   best    332.6   (reps 7, batch 30000)
+  fast_implied_volatility (Halley)   median   2228.6 ns/quote   best   2153.0   (reps 7, batch 30000)

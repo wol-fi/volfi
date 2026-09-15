@@ -1,0 +1,5 @@
+=== BRANCH-WISE latency on region-filtered tiles of 30000 quotes (feed subsets cycled), ns/quote ===
+  region   feed n | PDE scalar |  wb scalar   wb batch |  rt scalar   rt batch
+  Near      27574 |      96.71 |     126.77      25.36 |     332.38      23.91
+  Far        2084 |      83.12 |     142.67      38.97 |     197.70     260.52
+  Wing        342 |      78.08 |     187.58      39.93 |    1395.30     270.84

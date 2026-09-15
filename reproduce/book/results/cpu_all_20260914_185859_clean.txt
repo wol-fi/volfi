@@ -1,0 +1,149 @@
+== CPU like-for-like: LBR / PDE / routed / whole-book ==  Mon Sep 14 18:59:00 CEST 2026
+   cpu  11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz   load 0.07 0.59 0.70
+   LBR  <LetsBeRational>  (its Makefile's flags)   PDE <PDE-method-for-implied-volatility>  (its compile script's flags)
+
+################ accuracy on the manuscript's oracle sets
+=== oracle_heat.bin  n=16039 ===
+  region      n | WHOLE-BOOK  max_rel  rms  ulp  >1e-15 | ROUTED      max_rel  rms  ulp  >1e-15 | LBR         max_rel  rms  ulp  >1e-15 | whole-book coverage
+  Near       73 | 4.04e-16 1.64e-16     3    0           | 6.67e-16 2.19e-16     4    0           | 5.50e-16 1.89e-16     3    0           | A 36  B 1  fallback 36
+  Far       512 | 4.91e-16 1.25e-16     3    0           | 4.25e-16 1.17e-16     2    0           | 4.17e-16 1.16e-16     2    0           | A 96  B 23  fallback 393
+  Wing     5525 | 5.25e-16 8.63e-17     3    0           | 5.25e-16 8.16e-17     3    0           | 1.00e+00 1.90e-02 4600626167524467712   10           | A 0  B 269  fallback 5256
+  Upper    9929 | 4.29e-16 1.03e-16     3    0           | 4.29e-16 1.03e-16     3    0           | 5.10e-14 2.62e-15   426 1036           | A 0  B 0  fallback 9929
+  All     16039 | 5.25e-16 9.85e-17     3    0           | 6.67e-16 9.72e-17     4    0           | 1.00e+00 1.12e-02 4600626167524467712 1046           |
+
+=== oracle_real.bin  n=1150 ===
+  region      n | WHOLE-BOOK  max_rel  rms  ulp  >1e-15 | ROUTED      max_rel  rms  ulp  >1e-15 | LBR         max_rel  rms  ulp  >1e-15 | whole-book coverage
+  Near     1011 | 4.66e-16 1.58e-16     3    0           | 8.54e-16 2.97e-16     6    0           | 5.16e-16 1.42e-16     3    0           | A 813  B 198  fallback 0
+  Far        58 | 4.88e-16 1.58e-16     4    0           | 2.64e-16 1.18e-16     2    0           | 2.89e-16 1.14e-16     2    0           | A 32  B 26  fallback 0
+  Wing       81 | 3.96e-16 1.64e-16     3    0           | 3.11e-16 1.11e-16     2    0           | 3.31e-16 1.15e-16     2    0           | A 0  B 81  fallback 0
+  All      1150 | 4.88e-16 1.59e-16     4    0           | 8.54e-16 2.81e-16     6    0           | 5.16e-16 1.39e-16     3    0           |
+
+=== oracle_stressed.bin  n=95 ===
+  region      n | WHOLE-BOOK  max_rel  rms  ulp  >1e-15 | ROUTED      max_rel  rms  ulp  >1e-15 | LBR         max_rel  rms  ulp  >1e-15 | whole-book coverage
+  Near       24 | 3.70e-16 1.58e-16     2    0           | 6.94e-16 2.29e-16     5    0           | 4.16e-16 1.90e-16     3    0           | A 18  B 1  fallback 5
+  Far         3 | 1.48e-16 8.55e-17     1    0           | 1.48e-16 8.55e-17     1    0           | 1.48e-16 8.55e-17     1    0           | A 0  B 1  fallback 2
+  Wing       34 | 3.47e-16 9.29e-17     2    0           | 1.73e-16 6.72e-17     1    0           | 2.78e-16 8.72e-17     2    0           | A 0  B 11  fallback 23
+  Upper      34 | 1.78e-16 9.43e-17     1    0           | 1.78e-16 9.43e-17     1    0           | 3.44e-14 7.34e-15   306   12           | A 0  B 0  fallback 34
+  All        95 | 3.70e-16 1.13e-16     2    0           | 6.94e-16 1.35e-16     5    0           | 3.44e-14 4.39e-15   306   12           |
+
+=== oracle_edge.bin  n=9 ===
+  region      n | WHOLE-BOOK  max_rel  rms  ulp  >1e-15 | ROUTED      max_rel  rms  ulp  >1e-15 | LBR         max_rel  rms  ulp  >1e-15 | whole-book coverage
+  Near        1 | 2.22e-16 2.22e-16     1    0           | 2.22e-16 2.22e-16     1    0           | 4.44e-16 4.44e-16     2    0           | A 0  B 0  fallback 1
+  Wing        4 | 0.00e+00 0.00e+00     0    0           | 0.00e+00 0.00e+00     0    0           | 1.37e-04 6.87e-05 955232792138    2           | A 0  B 1  fallback 3
+  Upper       3 | 1.18e-16 1.14e-16     1    0           | 1.18e-16 1.14e-16     1    0           | 1.25e-14 7.25e-15   112    1           | A 0  B 0  fallback 3
+  Edge        1 | 5.55e-16 5.55e-16     4    0           | 5.55e-16 5.55e-16     4    0           | 1.39e-16 1.39e-16     1    0           | A 0  B 0  fallback 1
+  All         9 | 5.55e-16 2.10e-16     4    0           | 5.55e-16 2.10e-16     4    0           | 1.37e-04 4.58e-05 955232792138    3           |
+
+=== market feed, reference = whole-book chart (3 ULP) (n=30000) ===
+  region         n outside   max rel    mean rel    worst at
+  Near       27574       0   1.169e-05  3.074e-09  h=0.0001747 c=1.516e-02
+  Far         2084       0   1.684e-08  2.703e-10  h=0.5342 c=3.650e-04
+  Wing         342       0   5.281e-09  1.391e-10  h=0.4114 c=9.139e-05
+  wb-A       27337       0   1.169e-05  3.088e-09  h=0.0001747 c=1.516e-02
+  wb-B        2660       0   2.452e-08  3.656e-10  h=0.2355 c=1.672e-04
+  All        30000       0   1.169e-05  2.846e-09  h=0.0001747 c=1.516e-02
+=== oracle_heat.bin, reference = 40-digit oracle (n=16039) ===
+  region         n outside   max rel    mean rel    worst at
+  Near          73       0   4.406e-09  6.821e-11  h=0.2345 c=1.857e-01
+  Far          512       0   4.377e-09  5.331e-11  h=2.272 c=4.714e-03
+  Wing         281    5244   4.803e-08  3.573e-10  h=2.701 c=7.171e-08
+  Upper       3656    6273   2.153e-09  3.915e-12  h=2.701 c=1.692e-01
+  wb-A         132       0   4.406e-09  1.583e-10  h=0.2345 c=1.857e-01
+  wb-B         115     178   4.803e-08  8.203e-10  h=2.701 c=7.171e-08
+  All         4522   11517   4.803e-08  3.251e-11  h=2.701 c=7.171e-08
+=== oracle_real.bin, reference = 40-digit oracle (n=1150) ===
+  region         n outside   max rel    mean rel    worst at
+  Near        1011       0   1.543e-06  3.597e-09  h=0.000175 c=1.346e-02
+  Far           58       0   2.009e-09  1.736e-10  h=0.3424 c=2.437e-04
+  Wing          81       0   4.659e-09  2.948e-10  h=0.2849 c=8.372e-05
+  wb-A         845       0   1.543e-06  4.179e-09  h=0.000175 c=1.346e-02
+  wb-B         305       0   1.040e-08  4.578e-10  h=0.06989 c=8.907e-05
+  All         1150       0   1.543e-06  3.192e-09  h=0.000175 c=1.346e-02
+=== oracle_stressed.bin, reference = 40-digit oracle (n=95) ===
+  region         n outside   max rel    mean rel    worst at
+  Near          24       0   1.527e-08  6.733e-10  h=0.05 c=4.110e-05
+  Far            3       0   1.917e-11  6.510e-12  h=2 c=1.423e-01
+  Wing           3      31   9.694e-11  5.607e-11  h=4 c=2.932e-07
+  Upper         14      20   1.594e-11  1.239e-12  h=0.05 c=9.995e-01
+  wb-A          18       0   2.646e-10  4.951e-11  h=0.01 c=3.976e-03
+  wb-B           4       9   1.527e-08  3.835e-09  h=0.05 c=4.110e-05
+  All           44      51   1.527e-08  3.719e-10  h=0.05 c=4.110e-05
+=== oracle_edge.bin, reference = 40-digit oracle (n=9) ===
+  region         n outside   max rel    mean rel    worst at
+  Near           1       0   6.239e-14  6.239e-14  h=0.0001 c=3.829e-01
+  Wing           0       4   0.000e+00  0.000e+00  h=0 c=0.000e+00
+  Upper          0       3   0.000e+00  0.000e+00  h=0 c=0.000e+00
+  Edge           0       1   0.000e+00  0.000e+00  h=0 c=0.000e+00
+  wb-B           0       1   0.000e+00  0.000e+00  h=0 c=0.000e+00
+  All            1       8   6.239e-14  6.239e-14  h=0.0001 c=3.829e-01
+################ timing 512
+=== CPU like-for-like, ISA=AVX-512, feed N=30000, 7 runs x 4 sweeps, one binary ===
+  batch == scalar: routed mismatches=0  whole-book mismatches=0  [both must be 0]
+  ns/quote:  tile    |      LBR |  PDE scl  PDE iv1 |   RT scl RT batch |   WB scl WB batch |  LBR/WBb PDE/WBb
+[1] full feed
+  feed         30000 |   194.11 |    75.96    84.13 |   289.23    44.94 |   118.20    28.94 |   6.71  2.62
+  64-chunks    30000 |          |                   |             74.69 |             29.79 |
+[2] branch-wise, region-filtered tiles of 30000 (subset cycled)
+  Near         27574 |   187.75 |    76.34    93.37 |   280.61    22.87 |   115.39    25.04 |   7.50  3.05
+  Far           2084 |   248.01 |    64.71    69.66 |   167.61   229.74 |   134.96    38.36 |   6.46  1.69
+  Wing           342 |   249.39 |    66.78    68.64 |  1237.19   277.07 |   173.86    39.00 |   6.40  1.71
+################ timing 512, -flto on every side
+lto-wrapper: warning: using serial compilation of 2 LTRANS jobs
+=== CPU like-for-like, ISA=AVX-512, feed N=30000, 7 runs x 4 sweeps, one binary (-flto) ===
+  batch == scalar: routed mismatches=0  whole-book mismatches=0  [both must be 0]
+  ns/quote:  tile    |      LBR |  PDE scl  PDE iv1 |   RT scl RT batch |   WB scl WB batch |  LBR/WBb PDE/WBb
+[1] full feed
+  feed         30000 |   189.45 |    81.83    78.51 |   266.51    43.46 |   117.78    28.55 |   6.64  2.87
+  64-chunks    30000 |          |                   |             73.08 |             30.44 |
+[2] branch-wise, region-filtered tiles of 30000 (subset cycled)
+  Near         27574 |   182.26 |    80.69    75.36 |   260.89    24.64 |   115.06    25.01 |   7.29  3.23
+  Far           2084 |   242.28 |    72.23    64.79 |   164.39   212.56 |   133.96    36.28 |   6.68  1.99
+  Wing           342 |   245.63 |    72.41    65.60 |  1218.95   253.09 |   172.02    38.73 |   6.34  1.87
+################ timing 256
+=== CPU like-for-like, ISA=AVX2, feed N=30000, 7 runs x 4 sweeps, one binary ===
+  batch == scalar: routed mismatches=0  whole-book mismatches=0  [both must be 0]
+  ns/quote:  tile    |      LBR |  PDE scl  PDE iv1 |   RT scl RT batch |   WB scl WB batch |  LBR/WBb PDE/WBb
+[1] full feed
+  feed         30000 |   193.45 |    86.18    92.84 |   297.79    88.67 |   142.27    50.68 |   3.82  1.70
+  64-chunks    30000 |          |                   |            151.32 |             43.01 |
+[2] branch-wise, region-filtered tiles of 30000 (subset cycled)
+  Near         27574 |   201.42 |   119.70    80.57 |   312.48    68.06 |   120.68    37.42 |   5.38  3.20
+  Far           2084 |   260.28 |    68.14    73.97 |   178.05   232.10 |   163.99    70.23 |   3.71  0.97
+  Wing           342 |   262.49 |    70.90    70.89 |  1741.95   367.00 |   172.96    55.19 |   4.76  1.28
+################ timing 256, -flto on every side
+lto-wrapper: warning: using serial compilation of 2 LTRANS jobs
+=== CPU like-for-like, ISA=AVX2, feed N=30000, 7 runs x 4 sweeps, one binary (-flto) ===
+  batch == scalar: routed mismatches=0  whole-book mismatches=0  [both must be 0]
+  ns/quote:  tile    |      LBR |  PDE scl  PDE iv1 |   RT scl RT batch |   WB scl WB batch |  LBR/WBb PDE/WBb
+[1] full feed
+  feed         30000 |   187.88 |    85.02    79.44 |   268.50    83.01 |   118.75    41.65 |   4.51  2.04
+  64-chunks    30000 |          |                   |            107.19 |             41.45 |
+[2] branch-wise, region-filtered tiles of 30000 (subset cycled)
+  Near         27574 |   181.88 |    81.71    75.92 |   263.22    62.56 |   116.89    36.56 |   4.98  2.24
+  Far           2084 |   243.51 |    73.90    66.64 |   166.50   206.18 |   135.20    56.39 |   4.32  1.31
+  Wing           342 |   245.20 |    73.68    66.52 |  1230.65   355.98 |   172.77    55.05 |   4.45  1.34
+################ timing scl
+=== CPU like-for-like, ISA=scalar, feed N=30000, 7 runs x 4 sweeps, one binary ===
+  batch == scalar: routed mismatches=0  whole-book mismatches=0  [both must be 0]
+  ns/quote:  tile    |      LBR |  PDE scl  PDE iv1 |   RT scl RT batch |   WB scl WB batch |  LBR/WBb PDE/WBb
+[1] full feed
+  feed         30000 |   220.31 |    88.95    87.68 |   556.82   578.34 |   342.47   351.83 |   0.63  0.25
+  64-chunks    30000 |          |                   |            599.49 |            350.01 |
+[2] branch-wise, region-filtered tiles of 30000 (subset cycled)
+  Near         27574 |   214.41 |    84.79    84.68 |   539.21   541.29 |   337.28   345.16 |   0.62  0.25
+  Far           2084 |   276.30 |    75.35    73.39 |   438.74   552.18 |   382.59   396.49 |   0.70  0.19
+  Wing           342 |   279.36 |    75.64    73.46 |  3444.82  3468.09 |   455.45   470.89 |   0.59  0.16
+################ timing scl, -flto on every side
+lto-wrapper: warning: using serial compilation of 2 LTRANS jobs
+=== CPU like-for-like, ISA=scalar, feed N=30000, 7 runs x 4 sweeps, one binary (-flto) ===
+  batch == scalar: routed mismatches=0  whole-book mismatches=0  [both must be 0]
+  ns/quote:  tile    |      LBR |  PDE scl  PDE iv1 |   RT scl RT batch |   WB scl WB batch |  LBR/WBb PDE/WBb
+[1] full feed
+  feed         30000 |   217.55 |    82.69    84.56 |   570.36   582.18 |   342.65   353.32 |   0.62  0.23
+  64-chunks    30000 |          |                   |            589.69 |            354.34 |
+[2] branch-wise, region-filtered tiles of 30000 (subset cycled)
+  Near         27574 |   210.68 |    79.37    81.49 |   539.75   546.10 |   338.08   347.25 |   0.61  0.23
+  Far           2084 |   272.73 |    68.81    70.84 |   434.34   549.40 |   383.72   392.45 |   0.69  0.18
+  Wing           342 |   275.89 |    68.41    70.90 |  3379.35  3439.77 |   450.07   464.19 |   0.59  0.15
+   load@end 0.92 0.74 0.75
+== done Mon Sep 14 19:00:45 CEST 2026 ==  report: results/cpu_all_20260914_185859.txt

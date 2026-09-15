@@ -1,0 +1,243 @@
+== volfi v0.3.0-test CPU benchmark ==  Mon Sep 14 18:48:09 CEST 2026
+   cpu     11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz
+   cores   8   g++ 11.4.0
+   flags   -std=c++17 -O3 -ffp-contract=off -fno-fast-math -funroll-loops -w -Iinclude/volfi
+   pin     taskset -c 2 nice -n -5
+   load@0  0.39 0.76 0.67
+   clean   1-minute load 0.39 at start
+
+
+################ wb_vec_gate  512  (whole-book chart vs shipped batch, FULL feed)
+WHOLE-BOOK chart SIMD twin gate: AVX-512
+
+[1] BIT-IDENTITY batch == scalar over 393806 quotes (A 34808, B 326364, shipped fallback 32634) : mismatches = 0
+[2] CODE agreement batch == scalar                : mismatches = 0
+[3] ACCURACY batch path, whole-book truth set (n=1200): max rel 5.310e-16 (2.39 ULP)  pts>1e-15 = 0
+
+[4] THROUGHPUT, FULL feed (all routes), best of 5
+       batch   whole-book     shipped     shp/wb
+          64     25.48 ns    73.04 ns       2.87
+         256     27.58 ns    63.95 ns       2.32
+        1024     27.29 ns    44.96 ns       1.65
+        4096     27.98 ns    45.37 ns       1.62
+       30000     28.50 ns    43.32 ns       1.52
+
+################ wb_vec_gate  256  (whole-book chart vs shipped batch, FULL feed)
+WHOLE-BOOK chart SIMD twin gate: AVX2
+
+[1] BIT-IDENTITY batch == scalar over 393806 quotes (A 34808, B 326364, shipped fallback 32634) : mismatches = 0
+[2] CODE agreement batch == scalar                : mismatches = 0
+[3] ACCURACY batch path, whole-book truth set (n=1200): max rel 5.310e-16 (2.39 ULP)  pts>1e-15 = 0
+
+[4] THROUGHPUT, FULL feed (all routes), best of 5
+       batch   whole-book     shipped     shp/wb
+          64     36.37 ns   108.65 ns       2.99
+         256     38.99 ns    87.14 ns       2.23
+        1024     39.09 ns    83.80 ns       2.14
+        4096     39.36 ns    83.60 ns       2.12
+       30000     40.73 ns    82.82 ns       2.03
+
+################ wb_vec_gate  scl  (whole-book chart vs shipped batch, FULL feed)
+WHOLE-BOOK chart SIMD twin gate: scalar
+
+[1] BIT-IDENTITY batch == scalar over 393806 quotes (A 34808, B 326364, shipped fallback 32634) : mismatches = 0
+[2] CODE agreement batch == scalar                : mismatches = 0
+[3] ACCURACY batch path, whole-book truth set (n=1200): max rel 5.310e-16 (2.39 ULP)  pts>1e-15 = 0
+
+[4] THROUGHPUT, FULL feed (all routes), best of 5
+       batch   whole-book     shipped     shp/wb
+          64    344.37 ns   600.86 ns       1.74
+         256    348.02 ns   592.67 ns       1.70
+        1024    348.18 ns   570.53 ns       1.64
+        4096    348.55 ns   572.60 ns       1.64
+       30000    350.35 ns   573.48 ns       1.64
+
+################ wb_gate  (coverage [2], scalar latency [5]: whole-book vs shipped, full feed)
+WHOLE-BOOK chart gate: G 23 + 40 terms, region A 17 rows (theta <= 0.35), region B 18 rows (h <= min(4.0, 0.16 a + 0.85))
+[2] MARKET FEED, 30000 quotes: region A 27337 (91.12%), region B 2660 (8.87%), shipped fallback 3 (0.01%)
+    fallback quotes: 0 above theta_A below 2pi (UPPER-like), 3 beyond the h-limit above 2pi (extreme wing)
+[5] SCALAR LATENCY, full feed, 100 reps: whole-book 117.76 ns/quote   shipped 262.84   ratio 2.23
+
+################ rec_vec_gate  512
+RECURRENCE chart SIMD twin gate: AVX-512, 25 G terms, 11 rows, log1p mode 3
+
+[1] BIT-IDENTITY batch == scalar over 344178 NEAR quotes (25039 above the series range) : mismatches = 0
+[2] ROUTING batch == scalar over 849822 quotes            : mismatches = 0
+[3] ACCURACY batch path, 40-digit truth set (n=2600): max rel 7.235e-16 (3.26 ULP)  pts>1e-15 = 0
+
+[4] THROUGHPUT, feed NEAR subset, best of 5
+       batch   recurrence        book     shipped   book/rec   shp/rec
+          64     16.63 ns    17.65 ns    24.82 ns       1.06      1.49
+         256     16.61 ns    17.44 ns    23.89 ns       1.05      1.44
+        1024     16.55 ns    17.15 ns    23.67 ns       1.04      1.43
+        4096     16.75 ns    17.21 ns    23.34 ns       1.03      1.39
+       27573     16.74 ns    17.24 ns    23.83 ns       1.03      1.42
+
+################ rec_vec_gate  256
+RECURRENCE chart SIMD twin gate: AVX2, 25 G terms, 11 rows, log1p mode 3
+
+[1] BIT-IDENTITY batch == scalar over 344178 NEAR quotes (25039 above the series range) : mismatches = 0
+[2] ROUTING batch == scalar over 849822 quotes            : mismatches = 0
+[3] ACCURACY batch path, 40-digit truth set (n=2600): max rel 7.235e-16 (3.26 ULP)  pts>1e-15 = 0
+
+[4] THROUGHPUT, feed NEAR subset, best of 5
+       batch   recurrence        book     shipped   book/rec   shp/rec
+          64     24.30 ns    25.97 ns    62.52 ns       1.07      2.57
+         256     23.96 ns    25.61 ns    62.31 ns       1.07      2.60
+        1024     23.89 ns    25.65 ns    62.32 ns       1.07      2.61
+        4096     23.94 ns    25.40 ns    62.37 ns       1.06      2.60
+       27573     23.90 ns    25.54 ns    62.37 ns       1.07      2.61
+
+################ rec_vec_gate  scl
+RECURRENCE chart SIMD twin gate: scalar, 25 G terms, 11 rows, log1p mode 3
+
+[1] BIT-IDENTITY batch == scalar over 344178 NEAR quotes (25039 above the series range) : mismatches = 0
+[2] ROUTING batch == scalar over 849822 quotes            : mismatches = 0
+[3] ACCURACY batch path, 40-digit truth set (n=2600): max rel 7.235e-16 (3.26 ULP)  pts>1e-15 = 0
+
+[4] THROUGHPUT, feed NEAR subset, best of 5
+       batch   recurrence        book     shipped   book/rec   shp/rec
+          64    213.30 ns   309.31 ns   547.43 ns       1.45      2.57
+         256    215.66 ns   310.79 ns   539.16 ns       1.44      2.50
+        1024    214.38 ns   311.86 ns   542.72 ns       1.45      2.53
+        4096    214.76 ns   313.04 ns   543.79 ns       1.46      2.53
+       27573    214.83 ns   311.72 ns   540.56 ns       1.45      2.52
+
+################ rec_gate  (scalar latency of the three charts)
+[3] SCALAR LATENCY, feed NEAR subset, 200 reps
+    recurrence 80.49 ns/quote   12-cell 84.14   book 93.07   (12-cell/recurrence 1.05)
+
+################ book_vec_gate  512
+BOOK chart SIMD twin gate: AVX-512, layout L1, 127 coefficients, log1p mode 3
+
+[1] BIT-IDENTITY batch == scalar over 344178 NEAR quotes (25039 above the book) : mismatches = 0
+[2] ROUTING batch == scalar over 849822 quotes            : mismatches = 0
+[3] ACCURACY batch path, 40-digit truth set (n=2600): max rel 7.235e-16 (3.26 ULP)  pts>1e-15 = 0
+
+[4] THROUGHPUT, feed NEAR subset, best of 5 (machine not quiesced)
+       batch        book     12-cell     shipped   book/12c  shp/book
+          64    17.67 ns    42.43 ns    25.97 ns       2.40      1.47
+         256    18.09 ns    27.40 ns    25.18 ns       1.51      1.39
+        1024    17.39 ns    21.45 ns    23.42 ns       1.23      1.35
+        4096    17.66 ns    19.81 ns    23.65 ns       1.12      1.34
+       27573    18.08 ns    19.96 ns    24.20 ns       1.10      1.34
+
+################ book_vec_gate  256
+BOOK chart SIMD twin gate: AVX2, layout L1, 127 coefficients, log1p mode 3
+
+[1] BIT-IDENTITY batch == scalar over 344178 NEAR quotes (25039 above the book) : mismatches = 0
+[2] ROUTING batch == scalar over 849822 quotes            : mismatches = 0
+[3] ACCURACY batch path, 40-digit truth set (n=2600): max rel 7.235e-16 (3.26 ULP)  pts>1e-15 = 0
+
+[4] THROUGHPUT, feed NEAR subset, best of 5 (machine not quiesced)
+       batch        book     12-cell     shipped   book/12c  shp/book
+          64    25.93 ns    33.79 ns    62.62 ns       1.30      2.41
+         256    25.55 ns    25.14 ns    62.33 ns       0.98      2.44
+        1024    25.58 ns    22.45 ns    62.25 ns       0.88      2.43
+        4096    25.41 ns    22.41 ns    62.30 ns       0.88      2.45
+       27573    25.46 ns    22.53 ns    62.48 ns       0.88      2.45
+
+################ book_vec_gate  scl
+BOOK chart SIMD twin gate: scalar, layout L1, 127 coefficients, log1p mode 3
+
+[1] BIT-IDENTITY batch == scalar over 344178 NEAR quotes (25039 above the book) : mismatches = 0
+[2] ROUTING batch == scalar over 849822 quotes            : mismatches = 0
+[3] ACCURACY batch path, 40-digit truth set (n=2600): max rel 7.235e-16 (3.26 ULP)  pts>1e-15 = 0
+
+[4] THROUGHPUT, feed NEAR subset, best of 5 (machine not quiesced)
+       batch        book     12-cell     shipped   book/12c  shp/book
+          64   307.35 ns   210.97 ns   548.50 ns       0.69      1.78
+         256   308.24 ns   212.91 ns   538.52 ns       0.69      1.75
+        1024   307.96 ns   216.94 ns   535.20 ns       0.70      1.74
+        4096   308.58 ns   219.16 ns   536.56 ns       0.71      1.74
+       27573   307.47 ns   219.99 ns   534.53 ns       0.72      1.74
+
+################ vec_gate  512
+=====================================================================================
+ volfi v0.3.0-test  NEAR chart SIMD twins
+   isa           : AVX-512 (8 lanes)
+   log1p mode    : 3  (nc_log1p)
+   table         : 12 cells, 706 coefficients
+=====================================================================================
+
+probe population: 849818 quotes (feed 30000, truth 2600, grid + seams 817218)
+
+[1] BIT-IDENTITY batch == scalar over 343885 NEAR quotes : mismatches = 0
+[2] ROUTING batch == scalar over 849818 quotes            : mismatches = 0
+
+[3] ACCURACY, batch path, 40-digit truth set (n=2600 used)
+    max rel 7.235e-16 (3.26 ULP)   rms 1.899e-16   pts>1e-15 = 0
+      worst at h=1.7189098989105979e-05 c=0.55705499892398325
+
+[4] THROUGHPUT, feed NEAR subset (n=27573, 400 reps, best of 5)
+    batch    20.19 ns/quote     scalar   89.03 ns/quote     speedup 4.41
+
+[4b] HEAD TO HEAD on the same NEAR subset (n=27573, 400 reps, best of 5)
+     certified batch   20.78 ns/quote     shipped grid batch   25.09 ns/quote     ratio 1.21
+     max relative difference in sigma between the two: 1.196e-15 (at h=0.126177 c=0.00102461)
+
+
+################ vec_gate  256
+=====================================================================================
+ volfi v0.3.0-test  NEAR chart SIMD twins
+   isa           : AVX2 (4 lanes)
+   log1p mode    : 3  (nc_log1p)
+   table         : 12 cells, 706 coefficients
+=====================================================================================
+
+probe population: 849818 quotes (feed 30000, truth 2600, grid + seams 817218)
+
+[1] BIT-IDENTITY batch == scalar over 343885 NEAR quotes : mismatches = 0
+[2] ROUTING batch == scalar over 849818 quotes            : mismatches = 0
+
+[3] ACCURACY, batch path, 40-digit truth set (n=2600 used)
+    max rel 7.235e-16 (3.26 ULP)   rms 1.899e-16   pts>1e-15 = 0
+      worst at h=1.7189098989105979e-05 c=0.55705499892398325
+
+[4] THROUGHPUT, feed NEAR subset (n=27573, 400 reps, best of 5)
+    batch    23.11 ns/quote     scalar   89.39 ns/quote     speedup 3.87
+
+[4b] HEAD TO HEAD on the same NEAR subset (n=27573, 400 reps, best of 5)
+     certified batch   23.28 ns/quote     shipped grid batch   62.65 ns/quote     ratio 2.69
+     max relative difference in sigma between the two: 1.196e-15 (at h=0.126177 c=0.00102461)
+
+
+################ vec_gate  scl
+=====================================================================================
+ volfi v0.3.0-test  NEAR chart SIMD twins
+   isa           : scalar
+   log1p mode    : 3  (nc_log1p)
+   table         : 12 cells, 706 coefficients
+=====================================================================================
+
+probe population: 849818 quotes (feed 30000, truth 2600, grid + seams 817218)
+
+[1] BIT-IDENTITY batch == scalar over 343885 NEAR quotes : mismatches = 0
+[2] ROUTING batch == scalar over 849818 quotes            : mismatches = 0
+
+[3] ACCURACY, batch path, 40-digit truth set (n=2600 used)
+    max rel 7.235e-16 (3.26 ULP)   rms 1.899e-16   pts>1e-15 = 0
+      worst at h=1.7189098989105979e-05 c=0.55705499892398325
+
+[4] THROUGHPUT, feed NEAR subset (n=27573, 400 reps, best of 5)
+    batch   219.81 ns/quote     scalar  211.80 ns/quote     speedup 0.96
+
+[4b] HEAD TO HEAD on the same NEAR subset (n=27573, 400 reps, best of 5)
+     certified batch  219.74 ns/quote     shipped grid batch  536.71 ns/quote     ratio 2.44
+     max relative difference in sigma between the two: 1.196e-15 (at h=0.126177 c=0.00102461)
+
+
+################ gate_near  (scalar latency, section [4])
+[4] LATENCY, scalar, market-feed NEAR subset (n=27573 of 30000, 400 reps)
+    chart  certified    84.85 ns/quote   shipped   151.04 ns/quote   ratio 1.78
+    router certified    24.38 ns/quote   shipped    97.58 ns/quote   ratio 4.00
+    NOTE the certified router SHARES its work with the chart; the shipped one
+         does not, so the honest comparison is (router+chart) vs (router+chart).
+    total  certified   109.23 ns/quote   shipped   248.62 ns/quote   ratio 2.28
+
+################ end2end  (route + invert, full feed, scalar)
+fused route+invert, FULL feed (n=30000), scalar, best of 5
+  certified   83.94 ns/quote   shipped  227.61 ns/quote   ratio 2.71
+
+   load@end 1.03 1.00 0.84
+== done Mon Sep 14 18:56:17 CEST 2026 ==  report: results/bench_v030_20260914_184809_run3.txt

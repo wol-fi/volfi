@@ -1,7 +1,10 @@
-# Reproduce — verification and benchmarks for volfi v0.2.4
+# Reproduce — verification and benchmarks for the routed inverter (v0.2.4 suite)
 
 A self-contained bundle that certifies the two invariants of the routed inverter and
-reproduces the paper's timing table. The library headers live in `../include/volfi`; the
+reproduces the v0.2 timing table. The v0.3.0 campaign of the book kernel lives in
+[`book/`](book/README.md); the routed charts and this suite are unchanged in v0.3.0.
+Note: `oracle_real.bin` (1,150 real-quote points) is no longer redistributed because it derives
+from the licensed OptionMetrics feed; `verify_vec` and the other checks do not use it. The library headers live in `../include/volfi`; the
 harness sources here include them by name, so every command below adds `-I../include/volfi`.
 
 Build environment: Linux (or WSL2), GCC ≥ 11 or Clang ≥ 14. `-ffp-contract=off` is
