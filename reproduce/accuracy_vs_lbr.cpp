@@ -29,7 +29,8 @@ static double ulps(double a,double b){
 }
 // LBR normalised implied vol, exactly as benchmark_vec's B path.
 static double lbr_sigma(const volfi::otm_context& q,double c){
-    double beta=c/q.eh2; return NormalisedImpliedBlackVolatility(beta,-q.h,1.0);
+    double beta=c*std::exp(-0.5*q.h);   // the same beta as wb_accuracy / cpu_all_bench (one rounding, not a division)
+    return NormalisedImpliedBlackVolatility(beta,-q.h,1.0);
 }
 // route a quote to its chart tag, mirroring the scalar router (WING has precedence).
 static char region_of(double h,double c){
