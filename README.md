@@ -97,6 +97,8 @@ authors' sources at its compile script's flags. Nanoseconds per quote, medians:
 | AVX2, full feed           | 193               | 86                  | 298 / 89              | 142 / **51**                   |
 | no SIMD, no hardware fma  | 220               | 89                  | 557 / 578             | 342 / 352                      |
 
+![All methods in one binary on the market feed, per instruction set](docs/figures/cpu_one_binary.png)
+
 The book kernel's batch path is **6.7× (AVX-512) and 3.8× (AVX2) the reference's rate** and
 2.6× the PDE method's scalar evaluation; its scalar entry is 1.6× the reference on the
 vector-capable builds. Branch by branch on region-filtered tiles (`NEAR` / `FAR` / `WING`) the
@@ -130,11 +132,14 @@ to about five million quotes:
 | book kernel, with uploads and readback on every pass  | 1.12         |
 | PDE method (OpenCL, authors' code), with transfers    | 7.68         |
 
+![GPU throughput, kernel-resident and with host transfers](docs/figures/gpu_book_kernel.png)
+
 The book kernel is kernel-resident fp64 throughput on datacenter hardware; consumer GPUs run
 double precision at 1/32 to 1/64 rate and will not reproduce it. The PDE method is six times
 slower under its own transfer-inclusive convention and ten orders of magnitude less accurate on
 the traded feed (`1.2e-5` worst against `4.9e-16`).
 
+Both figures are regenerated from the checked-in results by `reproduce/book/gen/make_readme_figures.py`.
 Sources in [`gpu/`](gpu). The device tables are generated from the CPU headers by
 `gpu/make_near_cuda.py` (book kernel) and `gpu/make_device_*.py` (routed charts); regenerate
 them before building, they are deliberately not checked in.

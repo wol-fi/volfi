@@ -28,6 +28,7 @@ INC="-I../../include/volfi"
 | `dump_feed_ref.cpp`, `fastvollib_feed.py` | feed | writes `h c sigma region` for scoring third-party Python libraries; fast-vollib's Jäckel and Halley paths scored and timed on it |
 | `gen/rows_exact.py` | mpmath, sympy | the exact rational rows `P_m` of Proposition 1 by the recursion of its proof (`rows_P.json`) |
 | `gen/certified_wb.py` | mpmath | the two-cell table `G` / `V0/sqrt(a)` and the conformal rows, oracle-gated, emitted as `volfi_wb_tables.hpp` |
+| `gen/make_readme_figures.py` | matplotlib | the two README figures (`docs/figures/cpu_one_binary.png`, `gpu_book_kernel.png`) from the numbers in `results/` |
 | `gen/make_truth.py`, `gen/make_truth_wb_boundary.py` | mpmath | the 40-digit truth sets; `--recheck FILE` re-inverts a `.worst` file at 60 digits |
 | `near_truth.bin`, `wb_truth.bin`, `wb_truth_boundary.bin` | | truth sets (`int64 n`, then `h c v` doubles) |
 | `results/` | | raw outputs: `bench_v030_*` (three pinned runs), `cpu_all_*_clean.txt` (the CPU table), `gpu_near_run_*`, `pde_gpu_run_*`, `pde_regions_*`, `pde_branch_cpu_*`, `persistence_*`, `wb_boundary_score_*`, `wb_boundary_recheck60_*`, `fastvollib_cpu_*` |
