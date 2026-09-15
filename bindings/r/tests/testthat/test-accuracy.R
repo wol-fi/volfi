@@ -12,7 +12,19 @@ test_that("Annulus reference values match", {
   expect_equal(volfi_iv(ctx, cp, tt), sqrt(ww / tt), tolerance = 1e-14)
   expect_equal(volfi_w_otm(h, cp), ww, tolerance = 1e-14)
   expect_equal(volfi_iv_otm(h, cp, tt), sqrt(ww / tt), tolerance = 1e-14)
-  expect_equal(volfi_version(), "0.2.4")
+  expect_equal(volfi_version(), "0.3.0")
+})
+
+test_that("the book kernel agrees with the routed charts and reports its region", {
+  h <- c(0.01, 0.1, 0.5, 1, 4)
+  cp <- c(0.01, 0.001, 0.05, 0.2, 1e-8)
+  book <- volfi_w_book(h, cp)
+  expect_equal(book$variance, volfi_w_otm(h, cp), tolerance = 4e-15)
+  expect_true(all(book$region %in% c(0L, 1L, 2L)))
+  expect_equal(book$region[1], 1L)
+  expect_equal(volfi_iv_book(h, cp, 2), sqrt(book$variance / 2), tolerance = 1e-15)
+  one <- vapply(seq_along(h), function(i) volfi_w_book(h[i], cp[i])$variance, numeric(1))
+  expect_identical(one, book$variance)
 })
 
 test_that("scalar contexts use the native batch engine", {

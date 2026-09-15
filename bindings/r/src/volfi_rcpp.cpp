@@ -1,6 +1,7 @@
 #include <Rcpp.h>
 #include <R_ext/Rdynload.h>
 #include "volfi_annulus/volfi_annulus_all.hpp"
+#include "volfi_annulus/volfi_wb_vec.hpp"
 using namespace Rcpp;
 
 struct vctx {
@@ -116,6 +117,42 @@ extern "C" SEXP _volfiR_volfi_iv(SEXP ctxSEXP, SEXP cSEXP, SEXP tSEXP) {
     check_c(ci); check_t(ti);
     out[i] = volfi_annulus::implied_volatility_otm(p->q[m == 1 ? 0 : i], ci, ti);
   }
+  return out;
+  END_RCPP
+}
+
+// ---- the book kernel (v0.3): w and the region code (1 raw rows, 2 conformal rows, 0 routed)
+extern "C" SEXP _volfiR_volfi_w_book(SEXP hSEXP, SEXP cSEXP) {
+  BEGIN_RCPP
+  NumericVector h(hSEXP), c(cSEXP);
+  R_xlen_t n = nout(h.size(), c.size());
+  std::vector<double> hb(n), cb(n); std::vector<int> code(n);
+  for (R_xlen_t i = 0; i < n; ++i) {
+    double hi = h[h.size() == 1 ? 0 : i], ci = c[c.size() == 1 ? 0 : i];
+    check_h(hi); check_c(ci);
+    hb[i] = hi; cb[i] = ci;
+  }
+  NumericVector w(n);
+  volfi_wb::implied_variance_wb_batch(hb.data(), cb.data(), REAL(w), code.data(), static_cast<int>(n));
+  IntegerVector region(n);
+  for (R_xlen_t i = 0; i < n; ++i) region[i] = code[i];
+  return List::create(Named("variance") = w, Named("region") = region);
+  END_RCPP
+}
+
+extern "C" SEXP _volfiR_volfi_iv_book(SEXP hSEXP, SEXP cSEXP, SEXP tSEXP) {
+  BEGIN_RCPP
+  NumericVector h(hSEXP), c(cSEXP), t(tSEXP);
+  R_xlen_t n = nout3(h.size(), c.size(), t.size());
+  std::vector<double> hb(n), cb(n); std::vector<int> code(n);
+  for (R_xlen_t i = 0; i < n; ++i) {
+    double hi = h[h.size() == 1 ? 0 : i], ci = c[c.size() == 1 ? 0 : i], ti = t[t.size() == 1 ? 0 : i];
+    check_h(hi); check_c(ci); check_t(ti);
+    hb[i] = hi; cb[i] = ci;
+  }
+  NumericVector out(n);
+  volfi_wb::implied_variance_wb_batch(hb.data(), cb.data(), REAL(out), code.data(), static_cast<int>(n));
+  for (R_xlen_t i = 0; i < n; ++i) out[i] = std::sqrt(out[i] / t[t.size() == 1 ? 0 : i]);
   return out;
   END_RCPP
 }
@@ -263,6 +300,8 @@ static const R_CallMethodDef call_entries[] = {
   {"_volfiR_volfi_ctx_size", (DL_FUNC) &_volfiR_volfi_ctx_size, 1},
   {"_volfiR_volfi_w", (DL_FUNC) &_volfiR_volfi_w, 2},
   {"_volfiR_volfi_iv", (DL_FUNC) &_volfiR_volfi_iv, 3},
+  {"_volfiR_volfi_w_book", (DL_FUNC) &_volfiR_volfi_w_book, 2},
+  {"_volfiR_volfi_iv_book", (DL_FUNC) &_volfiR_volfi_iv_book, 3},
   {"_volfiR_volfi_w_otm", (DL_FUNC) &_volfiR_volfi_w_otm, 2},
   {"_volfiR_volfi_iv_otm", (DL_FUNC) &_volfiR_volfi_iv_otm, 3},
   {"_volfiR_volfi_w_call_norm", (DL_FUNC) &_volfiR_volfi_w_call_norm, 2},

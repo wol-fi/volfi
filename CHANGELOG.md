@@ -45,9 +45,11 @@ rewritten around it (`docs/volfi_v0.3.0_paper.pdf`).
   832,287 covered probes; device runs: 0 mismatches).
 
 ### Changed
-- Version strings, CMake project version and binding versions to 0.3.0. The Python and R
-  bindings expose the routed v0.2.4 API unchanged; a binding of the book kernel is not part of
-  this release.
+- Version strings, CMake project version and binding versions to 0.3.0. The Python binding
+  gains `implied_variance_book` / `implied_volatility_book` and the R binding `volfi_w_book` /
+  `volfi_iv_book` (the book kernel through its SIMD twin, with the region code per quote); the
+  routed v0.2.4 API is unchanged. Both bindings build and pass their tests (pybind11 3.0 under
+  WSL; R 4.4.0 with Rtools 4.4 on Windows).
 - The reference is now timed at its author's release flags (`-O3 -DNDEBUG -ffp-contract=fast`),
   where it is 17% faster than the v0.2 campaign's build (contraction off, assertions on). Every
   ratio in the v0.3.0 paper uses the release build; the v0.2.4 tables keep their own build and

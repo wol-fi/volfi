@@ -1,6 +1,7 @@
 # volfiR
 
-R (Rcpp) binding for the volfi v0.3.0 routed, machine-precision Black-Scholes
+R (Rcpp) binding for volfi v0.3.0: the book kernel (one straight line, exact rational rows) and
+the routed, machine-precision Black-Scholes
 implied-volatility inverter. It wraps the same C++17 engine as the rest of the repository,
 built with `-ffp-contract=off` so results are bit-identical to the scalar reference and
 accurate to the last few ULP.
@@ -31,7 +32,11 @@ function is vectorized (a length-1 argument broadcasts against a length-n one).
 ```r
 library(volfiR)
 
-# normalized OTM inversion
+# the book kernel (v0.3): $variance and $region (1 raw rows, 2 conformal rows, 0 handed to the charts)
+volfi_w_book(h = 1.0, c = 0.02)
+volfi_iv_book(h = 1.0, c = 0.02, t = 1.0)      # volatility sigma
+
+# the routed charts (v0.2 API, unchanged)
 volfi_w_otm(h = 1.0, c = 0.02)                 # total variance w
 volfi_iv_otm(h = 1.0, c = 0.02, t = 1.0)       # volatility sigma
 

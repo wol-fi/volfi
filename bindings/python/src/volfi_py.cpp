@@ -1,6 +1,7 @@
-// Python binding for the volfi v0.3.0 routed implied-volatility inverter.
+// Python binding for volfi v0.3.0: the book kernel (one straight line, exact rational rows)
+// and the routed four-chart inverter behind it.
 //
-// Array inputs are inverted through the vectorized grid-batch driver, so a NumPy call gets
+// Array inputs are inverted through the vectorized batch drivers, so a NumPy call gets
 // the SIMD path; both scalar and array paths return bit-identical results (the module must
 // be built with -ffp-contract=off, which setup.py does). Conventions match the C++ library:
 // h = |log(K/F)| >= 0, c = undiscounted OTM-call price / F in (0,1), and the returned
@@ -9,6 +10,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 #include <volfi/volfi_annulus_all.hpp>
+#include <volfi/volfi_wb_vec.hpp>
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
@@ -57,7 +59,38 @@ static inline void need_pos(double x, const char* nm) {
     throw std::runtime_error(std::string(nm) + " must be finite and positive");
 }
 
-// ---- total implied variance w, via the vectorized grid-batch driver ---------------------
+// ---- the book kernel: w and the region code (1 raw rows, 2 conformal rows, 0 routed) -----
+static py::tuple implied_variance_book(py::object h0, py::object c0) {
+  dvec h(h0), c(c0);
+  py::ssize_t n = bcast({h.n, c.n});
+  std::vector<double> hb(n), cb(n);
+  for (py::ssize_t i = 0; i < n; ++i) {
+    need_h(h(i)); need_c(c(i));
+    hb[i] = h(i); cb[i] = c(i);
+  }
+  py::array_t<double> w(n);
+  py::array_t<int> code(n);
+  volfi_wb::implied_variance_wb_batch(hb.data(), cb.data(), w.mutable_data(),
+                                      code.mutable_data(), static_cast<int>(n));
+  return py::make_tuple(w, code);
+}
+
+static py::array_t<double> implied_volatility_book(py::object h0, py::object c0, py::object t0) {
+  dvec h(h0), c(c0), t(t0);
+  py::ssize_t n = bcast({h.n, c.n, t.n});
+  std::vector<double> hb(n), cb(n); std::vector<int> code(n);
+  for (py::ssize_t i = 0; i < n; ++i) {
+    need_h(h(i)); need_c(c(i)); need_pos(t(i), "t");
+    hb[i] = h(i); cb[i] = c(i);
+  }
+  py::array_t<double> out(n);
+  double* w = out.mutable_data();
+  volfi_wb::implied_variance_wb_batch(hb.data(), cb.data(), w, code.data(), static_cast<int>(n));
+  for (py::ssize_t i = 0; i < n; ++i) w[i] = std::sqrt(w[i] / t(i));
+  return out;
+}
+
+// ---- total implied variance w, via the routed charts' vectorized grid-batch driver ---------
 static py::array_t<double> implied_variance(py::object h0, py::object c0) {
   dvec h(h0), c(c0);
   py::ssize_t n = bcast({h.n, c.n});
@@ -141,7 +174,7 @@ static py::array_t<double> implied_variance_warm(py::object h0, py::object c0, p
 }
 
 PYBIND11_MODULE(_volfi, m) {
-  m.doc() = "volfi v0.3.0: routed, vectorizable Black-Scholes implied-volatility inverter";
+  m.doc() = "volfi v0.3.0: the book kernel and the routed Black-Scholes implied-volatility inverter";
 
   py::enum_<va::iv_status>(m, "iv_status", "Input-classification status of a checked inversion")
       .value("ok", va::iv_status::ok)
@@ -151,8 +184,12 @@ PYBIND11_MODULE(_volfi, m) {
       .value("out_of_domain", va::iv_status::out_of_domain)
       .value("near_saturation", va::iv_status::near_saturation);
 
+  m.def("implied_variance_book", &implied_variance_book, py::arg("h"), py::arg("c"),
+        "Book kernel: (w, code) arrays; code 1 = raw rows, 2 = conformal rows, 0 = routed charts.");
+  m.def("implied_volatility_book", &implied_volatility_book, py::arg("h"), py::arg("c"), py::arg("t"),
+        "Book kernel: sigma = sqrt(w/T) from (h, c, T).");
   m.def("implied_variance", &implied_variance, py::arg("h"), py::arg("c"),
-        "Total implied variance w = v^2 from (h, c); vectorized over arrays.");
+        "Routed charts: total implied variance w = v^2 from (h, c); vectorized over arrays.");
   m.def("implied_volatility", &implied_volatility, py::arg("h"), py::arg("c"), py::arg("t"),
         "Total volatility sigma = sqrt(w/T) from (h, c, T).");
   m.def("implied_variance_checked", &implied_variance_checked, py::arg("h"), py::arg("c"),

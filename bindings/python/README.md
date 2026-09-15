@@ -1,6 +1,7 @@
 # volfi Python binding (v0.3.0)
 
-NumPy binding for the volfi v0.3.0 routed, machine-precision Black-Scholes implied-volatility
+NumPy binding for volfi v0.3.0: the book kernel (one straight line, exact rational rows) and the
+routed machine-precision Black-Scholes implied-volatility
 inverter. Array inputs are inverted through the vectorized batch driver; the result is
 bit-identical to per-quote inversion and accurate to the last few ULP.
 
@@ -34,7 +35,13 @@ Every function takes scalars or NumPy arrays. Scalars return a `float`, arrays a
 import numpy as np
 import volfi
 
-# total implied variance and volatility
+# the book kernel (v0.3): one straight line, answers all but a few quotes in ten thousand of a
+# traded book itself and hands the rest to the routed charts; code 1 = raw rows, 2 = conformal
+# rows, 0 = routed
+w, code = volfi.implied_variance_book(h, c)       # w = v²
+sigma   = volfi.implied_volatility_book(h, c, T)  # σ = sqrt(w / T)
+
+# the routed charts (v0.2 API, unchanged)
 w     = volfi.implied_variance(h, c)              # w = v²
 sigma = volfi.implied_volatility(h, c, T)         # σ = sqrt(w / T)
 

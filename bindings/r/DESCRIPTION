@@ -1,9 +1,9 @@
 Package: volfiR
 Type: Package
-Title: Rcpp Wrapper for volfi Annulus
+Title: Rcpp Wrapper for volfi
 Version: 0.3.0
 Authors@R: c(person("Wolfgang", "Schadner", email = "wolfgang.schadner@uni.li", role = c("aut", "cre")))
-Description: R binding for the volfi Annulus research reference implementation, including OTM, normalized-call, and forward-price option interfaces.
+Description: R binding for the volfi implied-volatility inverter: the v0.3 book kernel and the routed charts, with OTM, normalized-call, and forward-price option interfaces.
 License: BSD_3_clause + file LICENSE
 Encoding: UTF-8
 SystemRequirements: C++17

@@ -29,6 +29,25 @@ def _otm_call_c(h, v):
     return _phi(v / 2 - h / v) - math.exp(h) * _phi(-v / 2 - h / v)
 
 
+def test_book_kernel():
+    """The book kernel agrees with the routed charts to machine precision, reports its region, and
+    its batch path is bit-identical to one quote at a time."""
+    h = np.array([r[0] for r in REFERENCE])
+    c = np.array([r[1] for r in REFERENCE])
+    w_book, code = volfi.implied_variance_book(h, c)
+    w_routed = volfi.implied_variance(h, c)
+    assert np.all(np.abs(w_book / w_routed - 1) < 4e-15), np.abs(w_book / w_routed - 1).max()
+    assert set(int(k) for k in code) <= {0, 1, 2}
+    assert int(code[1]) == 1            # h = 0.05, c = 0.0586: the raw rows
+    assert int(code[3]) == 0            # h = 8 is beyond the kernel's reach: routed
+    single = np.array([volfi.implied_variance_book(float(hh), float(cc))[0] for hh, cc in zip(h, c)])
+    assert w_book.tobytes() == single.tobytes(), "book batch != scalar (bit level)"
+    w1, k1 = volfi.implied_variance_book(0.05, 0.058592868120983829202)
+    assert isinstance(w1, float) and isinstance(k1, int) and k1 == 1
+    s = volfi.implied_volatility_book(0.05, 0.058592868120983829202, 1.0)
+    assert abs(s - math.sqrt(w1)) < 1e-15
+
+
 def test_reference_values():
     h = np.array([r[0] for r in REFERENCE])
     c = np.array([r[1] for r in REFERENCE])

@@ -4,6 +4,8 @@
 \alias{volfi_ctx_size}
 \alias{volfi_w}
 \alias{volfi_iv}
+\alias{volfi_w_book}
+\alias{volfi_iv_book}
 \alias{volfi_w_otm}
 \alias{volfi_iv_otm}
 \alias{volfi_w_call_norm}
@@ -19,6 +21,8 @@ volfi_ctx(h)
 volfi_ctx_size(ctx)
 volfi_w(ctx, c)
 volfi_iv(ctx, c, t)
+volfi_w_book(h, c)
+volfi_iv_book(h, c, t)
 volfi_w_otm(h, c)
 volfi_iv_otm(h, c, t)
 volfi_w_call_norm(k, c)
@@ -43,15 +47,17 @@ volfi_version()
 \item{is_call}{Logical flag selecting a call or put for \code{volfi_iv_option}.}
 }
 \description{
-Rcpp wrapper around volfi Annulus v0.2.4.  The engine covers the OTM path, normalized calls, and raw undiscounted forward-price call or put quotes.
+Rcpp wrapper around volfi v0.3.0. \code{volfi_w_book} and \code{volfi_iv_book} are the book kernel: one straight-line evaluation with exact rational rows that answers all but a few quotes in ten thousand of a traded book itself and hands the rest to the routed charts (\code{region} 1 = raw rows, 2 = conformal rows, 0 = routed). The remaining functions are the routed four-chart inverter: the OTM path, normalized calls, and raw undiscounted forward-price call or put quotes.
 }
 \value{
-\code{volfi_ctx} returns an external pointer. Variance functions return total variance. Volatility functions return implied volatility. \code{volfi_w_otm_checked} returns a list containing variance and a status string for each quote.
+\code{volfi_w_book} returns a list with \code{variance} and the integer \code{region} per quote. \code{volfi_ctx} returns an external pointer. Variance functions return total variance. Volatility functions return implied volatility. \code{volfi_w_otm_checked} returns a list containing variance and a status string for each quote.
 }
 \examples{
 h <- c(0.1, 0.2)
 cp <- c(0.01, 0.02)
 tt <- c(1, 1)
+volfi_w_book(h, cp)
+volfi_iv_book(h, cp, tt)
 ctx <- volfi_ctx(h)
 volfi_w(ctx, cp)
 volfi_iv(ctx, cp, tt)

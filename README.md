@@ -223,8 +223,10 @@ every accuracy table run without them; the comparison harnesses take their paths
 
 ## Bindings
 
-The Python (`bindings/python`) and R (`bindings/r`) bindings expose the routed v0.2.4 API
-unchanged and report version 0.3.0; a binding of the book kernel is not part of this release.
+The Python (`bindings/python`) and R (`bindings/r`) bindings expose the book kernel
+(`volfi.implied_variance_book(h, c)` returning `(w, code)` and `implied_volatility_book`;
+`volfi_w_book(h, c)` returning `$variance` and `$region`, and `volfi_iv_book` in R) alongside the
+routed v0.2 API, which is unchanged. Both report version 0.3.0, and both test suites pass.
 
 ## Citation
 
