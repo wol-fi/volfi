@@ -34,6 +34,7 @@ INC="-I../include/volfi"
 | `build_all.sh`           | partly    | builds every harness above in one command                   |
 | `fingerprint.cpp`        | no        | bitwise dump of every driver; proves a refactor changed nothing |
 | `oracle_*.bin`           | —         | 40-digit `mpmath` golden vectors (loaded by the above)      |
+| `make_oracle_sets.py`    | mpmath    | the oracle itself: `heat` regenerates `oracle_heat.bin` from its grid; `recheck FILE` re-inverts any shipped set at 60 digits |
 | `results/run*.txt`       | —         | reference outputs from the paper's quiet-host run           |
 | `results/batchsweep.txt` | —         | batch-size sweep output (the latency figure's data)         |
 | `results/gpu_run_*.txt`  | —         | raw output of the H100 campaign, both passes                |
