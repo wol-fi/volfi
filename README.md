@@ -99,6 +99,8 @@ authors' sources at its compile script's flags. Nanoseconds per quote, medians:
 
 ![All methods in one binary on the market feed, per instruction set](docs/figures/cpu_one_binary.png)
 
+In this figure and the GPU one below, the blue shades mark the methods that hold machine precision on the feed (Let's Be Rational, the routed charts, the book kernel) and red marks the PDE table method, whose worst error on the same feed is 1.2e-5.
+
 The book kernel's batch path is **6.7× (AVX-512) and 3.8× (AVX2) the reference's rate** and
 2.6× the PDE method's scalar evaluation; its scalar entry is 1.6× the reference on the
 vector-capable builds. Branch by branch on region-filtered tiles (`NEAR` / `FAR` / `WING`) the
