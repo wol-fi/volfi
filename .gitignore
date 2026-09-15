@@ -58,3 +58,8 @@ reproduce/book/market_feed_ref.txt
 reproduce/book/spx2024_otmcall_tradeable.csv
 reproduce/book/*.worst
 reproduce/book/loadPartition.txt
+
+# R package build outputs
+bindings/r/src/*.dll
+bindings/r/src/*.so
+bindings/r/src/*.o
