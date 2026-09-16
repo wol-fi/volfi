@@ -18,7 +18,9 @@ sets, compilers and the device.
 
 The accompanying paper (`docs/volfi_v0.3.0_paper.pdf`, *Implied Volatility in One Straight
 Line: Machine Precision at Vector-Hardware Throughput*) documents the method, the accuracy
-campaigns and the timing methodology in full.
+campaigns and the timing methodology in full. The PDF holds the five-section article followed
+by its online appendix, which carries the proof of Proposition 1, the four routed charts, the
+complete hot path, the offline construction and the extended benchmark tables.
 
 ## What it does
 
@@ -209,7 +211,9 @@ every accuracy table run without them; the comparison harnesses take their paths
 ## Documentation
 
 - [`docs/volfi_v0.3.0_paper.pdf`](docs/volfi_v0.3.0_paper.pdf) — the paper (method,
-  Proposition 1 and its proof, accuracy campaigns, like-for-like timing on CPU and H100).
+  Proposition 1 with its deck-involution derivation, accuracy campaigns, like-for-like timing
+  on CPU and H100) followed by the online appendix (proof, routed charts, hot path, offline
+  construction, extended benchmarks, reproducibility).
 - [`docs/README.md`](docs/README.md) — documentation index.
 - [`CHANGELOG.md`](CHANGELOG.md) — what changed in v0.3.0.
 
