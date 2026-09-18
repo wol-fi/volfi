@@ -1,4 +1,4 @@
-"""Tests for the volfi v0.3.0 Python binding.
+"""Tests for the volfi v0.3.1 Python binding.
 
 Runnable with pytest, or directly: ``python3 test_volfi.py`` (prints PASS/FAIL, exit code).
 Reference (h, c) -> w triples were generated independently at 50 digits with mpmath.
@@ -130,8 +130,8 @@ def test_warm_restart():
 
 
 def test_version():
-    assert volfi.version() == "0.3.0"
-    assert volfi.__version__ == "0.3.0"
+    assert volfi.version() == "0.3.1"
+    assert volfi.__version__ == "0.3.1"
 
 
 if __name__ == "__main__":

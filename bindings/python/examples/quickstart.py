@@ -1,4 +1,4 @@
-"""volfi v0.3.0 quickstart: invert a small option book to implied volatility."""
+"""volfi v0.3.1 quickstart: invert a small option book to implied volatility."""
 import numpy as np
 
 import volfi

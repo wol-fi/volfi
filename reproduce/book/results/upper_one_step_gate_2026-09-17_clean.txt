@@ -1,0 +1,52 @@
+cpu  11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz   load 0.40 0.15 0.05   pin: taskset -c 2 nice -n -5   Thu Sep 17 22:53:59 CEST 2026
+=== ONE-STEP UPPER gate, ISA=AVX-512, 2465 oracle points routed to UPPER
+[1] worst relative error in v, in ULP (points above 1e-15 in brackets)
+  subset          n | shipped 3 steps | 6-dbl seed, 2 steps | 13-dbl seed, 1 STEP | 13-dbl seed, 2 steps
+  fill          597 |    1.84 [0]    |      1.39 [0]      |      1.39 [0]      |      1.39 [0]
+  WING seam     562 |    2.14 [0]    |      0.86 [0]      |      0.98 [0]      |      0.95 [0]
+  v=1.85        379 |    2.15 [0]    |      1.61 [0]      |      1.62 [0]      |      1.08 [0]
+  h cap         176 |    1.27 [0]    |      0.62 [0]      |      0.65 [0]      |      0.62 [0]
+  h->0          199 |    0.96 [0]    |      1.18 [0]      |      1.24 [0]      |      1.08 [0]
+  v->8          267 |    1.05 [0]    |      1.06 [0]      |      1.06 [0]      |      1.06 [0]
+  c=1/2         285 |    1.08 [0]    |      1.08 [0]      |      1.08 [0]      |      1.18 [0]
+  ALL          2465 |    2.15 [0]    |      1.61 [0]      |      1.62 [0]      |      1.39 [0]
+  rms: shipped 1.16e-16 | two-step 7.83e-17 | one-step 7.97e-17
+[2] one-step twin: batch == scalar over 402465 quotes, mismatches = 0 | batch-path accuracy 1.62 ULP, pts>1e-15 = 0 | max rel diff one-step vs two-step on all 402465 quotes: 6.01e-16
+[3] ns per quote on the synthetic mixed-moneyness UPPER tile (30000 quotes): shipped | two-step | one-step
+  round 1  scalar  486.5 |  201.2 |  121.8 (x0.25 of shipped)    batch   71.7 |   34.9 |   20.6 (x0.29 of shipped, x0.59 of two-step)
+           LBR scalar, same quotes, same loop:  177.6   (LBR / one-step scalar x1.46, LBR / one-step batch x8.61)
+  round 2  scalar  485.1 |  200.8 |  121.9 (x0.25 of shipped)    batch   71.9 |   34.9 |   20.6 (x0.29 of shipped, x0.59 of two-step)
+           LBR scalar, same quotes, same loop:  177.1   (LBR / one-step scalar x1.45, LBR / one-step batch x8.59)
+  round 3  scalar  485.6 |  201.0 |  121.5 (x0.25 of shipped)    batch   71.9 |   34.8 |   20.7 (x0.29 of shipped, x0.59 of two-step)
+           LBR scalar, same quotes, same loop:  177.1   (LBR / one-step scalar x1.46, LBR / one-step batch x8.55)
+  round 4  scalar  485.1 |  200.2 |  122.1 (x0.25 of shipped)    batch   71.9 |   35.1 |   20.8 (x0.29 of shipped, x0.59 of two-step)
+           LBR scalar, same quotes, same loop:  176.7   (LBR / one-step scalar x1.45, LBR / one-step batch x8.50)
+  round 5  scalar  485.0 |  200.8 |  122.9 (x0.25 of shipped)    batch   71.0 |   34.4 |   20.6 (x0.29 of shipped, x0.60 of two-step)
+           LBR scalar, same quotes, same loop:  176.9   (LBR / one-step scalar x1.44, LBR / one-step batch x8.59)
+exit 0
+=== ONE-STEP UPPER gate, ISA=AVX2, 2465 oracle points routed to UPPER
+[1] worst relative error in v, in ULP (points above 1e-15 in brackets)
+  subset          n | shipped 3 steps | 6-dbl seed, 2 steps | 13-dbl seed, 1 STEP | 13-dbl seed, 2 steps
+  fill          597 |    1.84 [0]    |      1.39 [0]      |      1.39 [0]      |      1.39 [0]
+  WING seam     562 |    2.14 [0]    |      0.86 [0]      |      0.98 [0]      |      0.95 [0]
+  v=1.85        379 |    2.15 [0]    |      1.61 [0]      |      1.62 [0]      |      1.08 [0]
+  h cap         176 |    1.27 [0]    |      0.62 [0]      |      0.65 [0]      |      0.62 [0]
+  h->0          199 |    0.96 [0]    |      1.18 [0]      |      1.24 [0]      |      1.08 [0]
+  v->8          267 |    1.05 [0]    |      1.06 [0]      |      1.06 [0]      |      1.06 [0]
+  c=1/2         285 |    1.08 [0]    |      1.08 [0]      |      1.08 [0]      |      1.18 [0]
+  ALL          2465 |    2.15 [0]    |      1.61 [0]      |      1.62 [0]      |      1.39 [0]
+  rms: shipped 1.16e-16 | two-step 7.83e-17 | one-step 7.97e-17
+[2] one-step twin: batch == scalar over 402465 quotes, mismatches = 0 | batch-path accuracy 1.62 ULP, pts>1e-15 = 0 | max rel diff one-step vs two-step on all 402465 quotes: 6.01e-16
+[3] ns per quote on the synthetic mixed-moneyness UPPER tile (30000 quotes): shipped | two-step | one-step
+  round 1  scalar  479.1 |  201.0 |  122.0 (x0.25 of shipped)    batch  151.5 |   70.9 |   44.1 (x0.29 of shipped, x0.62 of two-step)
+           LBR scalar, same quotes, same loop:  176.8   (LBR / one-step scalar x1.45, LBR / one-step batch x4.01)
+  round 2  scalar  480.3 |  200.3 |  122.5 (x0.25 of shipped)    batch  151.8 |   71.6 |   43.3 (x0.29 of shipped, x0.60 of two-step)
+           LBR scalar, same quotes, same loop:  176.8   (LBR / one-step scalar x1.44, LBR / one-step batch x4.08)
+  round 3  scalar  478.1 |  200.4 |  122.1 (x0.26 of shipped)    batch  151.6 |   70.8 |   43.2 (x0.29 of shipped, x0.61 of two-step)
+           LBR scalar, same quotes, same loop:  177.1   (LBR / one-step scalar x1.45, LBR / one-step batch x4.10)
+  round 4  scalar  478.0 |  200.0 |  121.7 (x0.25 of shipped)    batch  151.9 |   70.8 |   43.6 (x0.29 of shipped, x0.62 of two-step)
+           LBR scalar, same quotes, same loop:  176.5   (LBR / one-step scalar x1.45, LBR / one-step batch x4.05)
+  round 5  scalar  478.3 |  200.7 |  122.4 (x0.26 of shipped)    batch  151.8 |   71.6 |   43.5 (x0.29 of shipped, x0.61 of two-step)
+           LBR scalar, same quotes, same loop:  177.2   (LBR / one-step scalar x1.45, LBR / one-step batch x4.07)
+exit 0
+load@end 0.49 0.18 0.06

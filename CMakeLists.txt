@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(volfi VERSION 0.3.0 LANGUAGES CXX)
+project(volfi VERSION 0.3.1 LANGUAGES CXX)
 
 # Header-only interface library. Consumers: target_link_libraries(mytarget PRIVATE volfi)
 # then #include <volfi/volfi_annulus_all.hpp>.

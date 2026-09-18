@@ -1,0 +1,31 @@
+== NEW version (v0.3.1): feed + tiles ==  Fri Sep 18 17:16:45 CEST 2026
+   cpu  11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz   load 0.83 0.44 0.28   pin: taskset -c 2 nice -n -5   wb_only=0
+   headers: <include/volfi>  (WB columns = new version; bit-identity batch==scalar is re-checked by the harness)
+################ 512
+=== CPU like-for-like, ISA=AVX-512, feed N=30000, 31 runs x 8 sweeps, one binary ===
+  batch == scalar: routed mismatches=0  whole-book mismatches=0  [both must be 0]
+  ns/quote:  tile    |      LBR |  PDE scl  PDE iv1 |   RT scl RT batch |   WB scl WB batch |  LBR/WBb PDE/WBb
+[1] full feed
+  feed         30000 |   192.98 |    77.97    82.16 |   262.04    45.96 |   115.33    16.59 |  11.63  4.70
+  64-chunks    30000 |          |                   |             74.85 |             18.86 |
+[2] branch-wise, region-filtered tiles of 30000 (subset cycled)
+  Near         27574 |   186.36 |    74.37    78.96 |   257.27    24.81 |   112.55    15.59 |  11.95  4.77
+  Far           2084 |   245.18 |    66.16    67.89 |   156.19   223.84 |   128.86    16.44 |  14.92  4.02
+  Wing           342 |   249.27 |    66.06    68.27 |  1205.13   263.78 |   163.06    20.68 |  12.05  3.19
+  Upper*       30000 |   187.04 |   109.38   119.41 |   138.13    55.29 |   161.06    33.86 |   5.52  3.23
+  (* synthetic: feed h, v ~ U[1.9, 6.0], 30000 of 30000 candidates routed Upper; the whole-book columns are its fallback cost)
+################ 256
+=== CPU like-for-like, ISA=AVX2, feed N=30000, 31 runs x 8 sweeps, one binary ===
+  batch == scalar: routed mismatches=0  whole-book mismatches=0  [both must be 0]
+  ns/quote:  tile    |      LBR |  PDE scl  PDE iv1 |   RT scl RT batch |   WB scl WB batch |  LBR/WBb PDE/WBb
+[1] full feed
+  feed         30000 |   191.90 |    74.89    81.71 |   262.53    85.01 |   115.64    23.17 |   8.28  3.23
+  64-chunks    30000 |          |                   |            108.51 |             25.08 |
+[2] branch-wise, region-filtered tiles of 30000 (subset cycled)
+  Near         27574 |   185.27 |    73.35    77.92 |   258.16    62.95 |   112.87    22.22 |   8.34  3.30
+  Far           2084 |   246.19 |    64.06    66.52 |   156.20   227.65 |   129.18    22.92 |  10.74  2.79
+  Wing           342 |   250.20 |    64.46    67.58 |  1219.33   373.53 |   163.62    27.04 |   9.25  2.38
+  Upper*       30000 |   185.80 |   107.22   121.84 |   138.09   118.28 |   162.29    61.93 |   3.00  1.73
+  (* synthetic: feed h, v ~ U[1.9, 6.0], 30000 of 30000 candidates routed Upper; the whole-book columns are its fallback cost)
+   load@end 1.05 0.63 0.37
+== done Fri Sep 18 17:18:26 CEST 2026 ==  report: bench_v0.3.1_20260918_171645.txt

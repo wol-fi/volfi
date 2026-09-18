@@ -1,0 +1,2 @@
+frozen one-step seed, 5233151 points: max |seed/x - 1| = 4.8775e-05 at (x, W) = (0.9250, 0.1115)
+quartic predictor max K4 delta^4 = 5.563e-17 at (x, W) = (0.9250, 3.8000)   [one-step cliff for 1e-15 is delta = 9.5e-5]

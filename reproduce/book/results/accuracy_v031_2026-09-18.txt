@@ -1,0 +1,55 @@
+== paper accuracy on v0.3.1  Fri Sep 18 19:23:59 CEST 2026
+######## wb_accuracy oracle_heat.bin
+=== oracle_heat.bin  n=16039 ===
+  region      n | WHOLE-BOOK  max_rel  rms  ulp  >1e-15 | ROUTED      max_rel  rms  ulp  >1e-15 | LBR         max_rel  rms  ulp  >1e-15 | whole-book coverage
+  Near       73 | 3.91e-16 1.61e-16     3    0           | 6.67e-16 2.19e-16     4    0           | 8.34e-16 2.33e-16     5    0           | A 36  B 1  fallback 36
+  Far       512 | 4.25e-16 1.23e-16     2    0           | 4.25e-16 1.17e-16     2    0           | 4.04e-16 1.25e-16     3    0           | A 96  B 23  fallback 393
+  Wing     5525 | 5.25e-16 8.59e-17     3    0           | 5.25e-16 8.16e-17     3    0           | 1.00e+00 1.90e-02 4600626167524467712   10           | A 0  B 269  fallback 5256
+  Upper    9929 | 3.76e-16 7.30e-17     2    0           | 3.76e-16 7.30e-17     2    0           | 5.10e-14 2.62e-15   426 1032           | A 0  B 0  fallback 9929
+  All     16039 | 5.25e-16 8.02e-17     3    0           | 6.67e-16 7.90e-17     4    0           | 1.00e+00 1.12e-02 4600626167524467712 1042           |
+
+######## wb_accuracy oracle_stressed.bin
+=== oracle_stressed.bin  n=95 ===
+  region      n | WHOLE-BOOK  max_rel  rms  ulp  >1e-15 | ROUTED      max_rel  rms  ulp  >1e-15 | LBR         max_rel  rms  ulp  >1e-15 | whole-book coverage
+  Near       24 | 3.47e-16 1.48e-16     2    0           | 6.94e-16 2.29e-16     5    0           | 4.16e-16 1.44e-16     3    0           | A 18  B 1  fallback 5
+  Far         3 | 1.48e-16 1.17e-16     1    0           | 1.48e-16 8.55e-17     1    0           | 2.96e-16 1.89e-16     2    0           | A 0  B 1  fallback 2
+  Wing       34 | 1.73e-16 7.13e-17     1    0           | 1.73e-16 6.72e-17     1    0           | 1.73e-16 9.25e-17     1    0           | A 0  B 11  fallback 23
+  Upper      34 | 2.96e-16 9.42e-17     2    0           | 2.96e-16 9.42e-17     2    0           | 3.44e-14 7.34e-15   306   12           | A 0  B 0  fallback 34
+  All        95 | 3.47e-16 1.05e-16     2    0           | 6.94e-16 1.35e-16     5    0           | 3.44e-14 4.39e-15   306   12           |
+
+######## wb_accuracy oracle_edge.bin
+=== oracle_edge.bin  n=9 ===
+  region      n | WHOLE-BOOK  max_rel  rms  ulp  >1e-15 | ROUTED      max_rel  rms  ulp  >1e-15 | LBR         max_rel  rms  ulp  >1e-15 | whole-book coverage
+  Near        1 | 2.22e-16 2.22e-16     1    0           | 2.22e-16 2.22e-16     1    0           | 0.00e+00 0.00e+00     0    0           | A 0  B 0  fallback 1
+  Wing        4 | 0.00e+00 0.00e+00     0    0           | 0.00e+00 0.00e+00     0    0           | 1.37e-04 6.87e-05 955232792138    2           | A 0  B 1  fallback 3
+  Upper       3 | 1.18e-16 1.14e-16     1    0           | 1.18e-16 1.14e-16     1    0           | 1.25e-14 7.25e-15   112    1           | A 0  B 0  fallback 3
+  Edge        1 | 5.55e-16 5.55e-16     4    0           | 5.55e-16 5.55e-16     4    0           | 1.39e-16 1.39e-16     1    0           | A 0  B 0  fallback 1
+  All         9 | 5.55e-16 2.10e-16     4    0           | 5.55e-16 2.10e-16     4    0           | 1.37e-04 4.58e-05 955232792138    3           |
+
+######## wb_accuracy oracle_real.bin
+=== oracle_real.bin  n=1150 ===
+  region      n | WHOLE-BOOK  max_rel  rms  ulp  >1e-15 | ROUTED      max_rel  rms  ulp  >1e-15 | LBR         max_rel  rms  ulp  >1e-15 | whole-book coverage
+  Near     1011 | 6.21e-16 1.44e-16     3    0           | 8.54e-16 2.97e-16     6    0           | 5.16e-16 1.44e-16     3    0           | A 813  B 198  fallback 0
+  Far        58 | 4.88e-16 1.46e-16     4    0           | 2.64e-16 1.18e-16     2    0           | 2.54e-16 1.06e-16     2    0           | A 32  B 26  fallback 0
+  Wing       81 | 3.96e-16 1.63e-16     3    0           | 3.11e-16 1.11e-16     2    0           | 3.31e-16 1.22e-16     2    0           | A 0  B 81  fallback 0
+  All      1150 | 6.21e-16 1.46e-16     4    0           | 8.54e-16 2.81e-16     6    0           | 5.16e-16 1.41e-16     3    0           |
+
+######## wb_truth_score boundary campaign (20,000)
+=== wb_truth_boundary.bin  n=20000 ===
+  class           n | WB max    rms        ULP >1e-15 | RT max    rms        ULP >1e-15 | coverage A/B/fallback
+  a->0         2500 | 4.965e-16 1.440e-16    4     0 | 7.938e-16 2.201e-16    6     0 | 2500/0/0
+  a->700       2500 | 4.837e-16 1.340e-16    4     0 | 2.719e-16 8.922e-17    2     0 | 0/2500/0
+  a=2pi        2500 | 5.067e-16 1.531e-16    4     0 | 7.882e-16 1.252e-16    5     0 | 1216/1284/0
+  fill         2500 | 4.771e-16 1.432e-16    3     0 | 8.470e-16 1.483e-16    5     0 | 1221/1279/0
+  h->0         2500 | 5.174e-16 1.398e-16    3     0 | 9.203e-16 2.346e-16    6     0 | 1766/734/0
+  h=4          2500 | 4.642e-16 1.417e-16    3     0 | 2.972e-16 8.650e-17    2     0 | 0/2500/0
+  reach        2500 | 5.254e-16 1.498e-16    4     0 | 2.782e-16 9.167e-17    2     0 | 0/2500/0
+  theta=0.35   2500 | 4.933e-16 1.469e-16    4     0 | 6.274e-16 1.597e-16    5     0 | 2499/0/1
+  ALL         20000 | 5.254e-16 1.442e-16    4     0 | 9.203e-16 1.543e-16    6     0 |  worst WB at h=1.85575 c=9.845600e-03
+  worst 40 written to wb_truth_boundary.bin.worst
+######## wb_truth_score wb_truth.bin (1,200)
+=== wb_truth.bin  n=1200 ===
+  class           n | WB max    rms        ULP >1e-15 | RT max    rms        ULP >1e-15 | coverage A/B/fallback
+  all          1200 | 4.430e-16 1.396e-16    3     0 | 6.136e-16 1.472e-16    5     0 | 600/600/0
+  ALL          1200 | 4.430e-16 1.396e-16    3     0 | 6.136e-16 1.472e-16    5     0 |  worst WB at h=2.57443 c=9.803816e-96
+  worst 40 written to wb_truth.bin.worst

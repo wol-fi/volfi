@@ -113,6 +113,14 @@ namespace g  = volfi_near_certified_gpu;
 namespace nc = volfi_near_certified;
 namespace nb = volfi_near_book;
 namespace nr = volfi_near_rec;
+#if NCG_HOST_CHECK
+static inline long long __double_as_longlong(double x) { long long u; std::memcpy(&u, &x, 8); return u; }
+static inline double __longlong_as_double(long long u) { double x; std::memcpy(&x, &u, 8); return x; }
+#endif
+#include "volfi_annulus_tables_cuda.cuh"
+#include "volfi_constants_cuda.cuh"
+#include "volfi_upper1_cuda.cuh"
+#include "volfi_device_mirrors.cuh"
 namespace nw = volfi_wb;
 
 // =============================================================================
@@ -314,7 +322,31 @@ __device__ inline double d_wb_variance(double h, double c) {
     return r ? nw::nw_variance(h, a, r) : -1.0;
 }
 
+// v0.3.1: the book with its UPPER fallback in the same thread.  Valid on quotes the router sends to UPPER whenever the book
+// declines (the Upper* tile is built that way on the host); elsewhere the sentinel -1 must stay.
+__device__ inline double d_wb_upper(double h, double c) { const double w = d_wb_variance(h, c); return (w < 0.0) ? vgb::d_upper1_variance(h, c) : w; }
+// the synthetic Upper* tile of the CPU harness (gate/cpu_all_bench.cpp): feed moneyness, v ~ U[1.9, 6.0], exact price, router-checked
+static void make_upper_tile(const std::vector<double>& H, size_t n_feed, std::vector<double>& uh, std::vector<double>& uc) {
+    auto Phi = [](double x) { return 0.5 * std::erfc(-x / std::sqrt(2.0)); };
+    unsigned long long gq = 0x9E3779B97F4A7C15ULL;
+    for (size_t i = 0; i < n_feed; ++i) {
+        gq = gq * 6364136223846793005ULL + 1442695040888963407ULL;
+        const double u = (double)(gq >> 11) * (1.0 / 9007199254740992.0);
+        const double h = H[i], v = 1.9 + 4.1 * u;
+        const double c = Phi(0.5 * v - h / v) - std::exp(h) * Phi(-0.5 * v - h / v);
+        if (c > 0.0 && c < 1.0 && 1.0 - c > 1e-16 && h > 0.0 && volfi_annulus::detail::grid_endpoint_route(h, c) == 2) { uh.push_back(h); uc.push_back(c); }
+    }
+}
 #if !NCG_HOST_CHECK
+__global__ void wbu_kernel(const double* h, const double* c, double* w, int n) {
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x) w[i] = d_wb_upper(h[i], c[i]);
+}
+__global__ void upper1_kernel(const double* h, const double* c, double* w, int n) {
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x) w[i] = vgb::d_upper1_variance(h[i], c[i]);
+}
+__global__ void upper030_kernel(const double* h, const double* c, const double* eh, const double* ehp, double* w, int n) {
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x) w[i] = vgb::d_upper_variance(h[i], c[i], eh[i], ehp[i]);
+}
 // The whole-book chart: NEAR, FAR and WING in one straight-line kernel with one
 // branch at a = 2 pi.  w = -1 outside its domain.
 __global__ void wb_kernel(const double* h, const double* c, double* w, int n) {
@@ -487,7 +519,11 @@ int main(int argc, char** argv) {
     }
     std::printf("[4] whole-book chart == CPU reference on the %ld covered of %zu probes : mismatches = %ld, domain disagreements = %ld\n\n",
                 cov, N, mism4, codem);
-    return (mism == 0 && mism2 == 0 && mism3 == 0 && mism4 == 0 && codem == 0) ? 0 : 1;
+    long mism5 = 0; size_t nup = 0;
+    {   std::vector<double> uh, uc; make_upper_tile(H, N, uh, uc); nup = uh.size();
+        for (size_t i = 0; i < nup; ++i) { const double ref = nw::implied_variance_wb(uh[i], uc[i], nullptr), got = d_wb_upper(uh[i], uc[i]); if (!same_bits(got, ref)) ++mism5; } }
+    std::printf("[4b] book + UPPER fallback == CPU entry on the %zu quotes of the Upper* tile : mismatches = %ld\n\n", nup, mism5);
+    return (mism == 0 && mism2 == 0 && mism3 == 0 && mism4 == 0 && codem == 0 && mism5 == 0) ? 0 : 1;
 #else
     // ---- device ------------------------------------------------------------
     int dev = 0; cudaDeviceProp prop;
@@ -762,6 +798,38 @@ int main(int argc, char** argv) {
                 t1 = now_s();
                 std::printf("[6] whole-book kernel, %-5s tile (%zu feed quotes cycled to %d): kernel-resident %.4f ns/quote, with transfers %.4f\n",
                             RN[r], rh.size(), TU, kr, 1e9 * (t1 - t0) / ((double)TU * iters));
+            }
+        }
+        // [6b] the Upper* tile of the CPU harness: book + UPPER fallback in one kernel, and the UPPER chart alone, v0.3.1 against v0.3.0
+        {
+            std::vector<double> rh, rc; make_upper_tile(H, n_feed, rh, rc);
+            if (!rh.empty()) {
+                std::vector<double> th(TU), tc(TU), te(TU), tp(TU);
+                for (int e = 0; e < TU; ++e) { th[e] = rh[e % rh.size()]; tc[e] = rc[e % rc.size()]; te[e] = std::exp(-0.5 * th[e]); tp[e] = std::exp(th[e]); }
+                double *de = nullptr, *dp = nullptr;
+                CUDA_CHECK(cudaMalloc(&de, TU * sizeof(double))); CUDA_CHECK(cudaMalloc(&dp, TU * sizeof(double)));
+                CUDA_CHECK(cudaMemcpy(eh, th.data(), TU * sizeof(double), cudaMemcpyHostToDevice));
+                CUDA_CHECK(cudaMemcpy(ec, tc.data(), TU * sizeof(double), cudaMemcpyHostToDevice));
+                CUDA_CHECK(cudaMemcpy(de, te.data(), TU * sizeof(double), cudaMemcpyHostToDevice));
+                CUDA_CHECK(cudaMemcpy(dp, tp.data(), TU * sizeof(double), cudaMemcpyHostToDevice));
+                wbu_kernel<<<blocks_for(TU), 256>>>(eh, ec, ew, TU);
+                CUDA_CHECK(cudaMemcpy(back3.data(), ew, TU * sizeof(double), cudaMemcpyDeviceToHost));
+                long mmu = 0; for (int e = 0; e < TU; ++e) { const double ref = nw::implied_variance_wb(th[e], tc[e], nullptr); if (!same_bits(back3[e], ref)) ++mmu; }
+                std::printf("[6b] Upper* tile (%zu synthetic quotes cycled to %d): BIT-IDENTITY device (book + UPPER fallback) == CPU entry : mismatches = %ld\n", rh.size(), TU, mmu);
+                auto timek = [&](auto&& launch) { CUDA_CHECK(cudaDeviceSynchronize()); const double t0 = now_s(); for (int it = 0; it < iters; ++it) launch(); CUDA_CHECK(cudaDeviceSynchronize()); return 1e9 * (now_s() - t0) / ((double)TU * iters); };
+                const double kb = timek([&] { wbu_kernel<<<blocks_for(TU), 256>>>(eh, ec, ew, TU); });
+                const double k1 = timek([&] { upper1_kernel<<<blocks_for(TU), 256>>>(eh, ec, ew, TU); });
+                const double k0 = timek([&] { upper030_kernel<<<blocks_for(TU), 256>>>(eh, ec, de, dp, ew, TU); });
+                const double t0 = now_s();
+                for (int it = 0; it < iters; ++it) {
+                    CUDA_CHECK(cudaMemcpy(eh, th.data(), TU * sizeof(double), cudaMemcpyHostToDevice));
+                    CUDA_CHECK(cudaMemcpy(ec, tc.data(), TU * sizeof(double), cudaMemcpyHostToDevice));
+                    wbu_kernel<<<blocks_for(TU), 256>>>(eh, ec, ew, TU);
+                    CUDA_CHECK(cudaMemcpy(back3.data(), ew, TU * sizeof(double), cudaMemcpyDeviceToHost));
+                }
+                const double kt = 1e9 * (now_s() - t0) / ((double)TU * iters);
+                std::printf("[6b] Upper* tile, kernel-resident ns/quote: book + UPPER fallback %.4f | one-step UPPER chart alone %.4f | v0.3.0 UPPER chart alone (3 steps) %.4f | book + fallback with transfers %.4f\n", kb, k1, k0, kt);
+                CUDA_CHECK(cudaFree(de)); CUDA_CHECK(cudaFree(dp));
             }
         }
         CUDA_CHECK(cudaFree(eh)); CUDA_CHECK(cudaFree(ec)); CUDA_CHECK(cudaFree(ew));

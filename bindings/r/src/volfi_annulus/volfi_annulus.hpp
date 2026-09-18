@@ -43,8 +43,9 @@
 //        c->1 ATM edge (k>KHI) and the deep seam (k<KLO -> wing/refined).
 //   * NEAR (h<H_ATM_HI, cw<=c<=ct2):  br::near_variance -- rho=c/expm1(h);
 //        A=binv(rho); s=h/A; v=V0(s)+h^2 V2+h^4 V4 + h^6*clenshaw2 finisher; w=v*v.
-//   * UPPER (c>ct2 or h>H_BOX):  br::upper_variance -- erf-free 3-term seed
-//        (Mills ratio exact) + fixed-cap exact-equation Newton; w=v*v.
+//   * UPPER (c>ct2 or h>H_BOX):  br::upper_variance -- v0.3.1: a_U = h - 2 log(1-c), x0 = Cheb(sqrt a_U),
+//        13-coefficient endpoint seed, then exactly ONE Householder-3 step on the exact equation; w=v*v.
+//        (The three-step chart of v0.3.0 is kept as br::upper_variance_v030 for comparison.)
 //   * WING (c<cw):  volfi_annulus::wing_variance (resurgent GL-40, UNCHANGED).
 //   The old SMALL-h residual table (region 1) and OUT-OF-BOX clamp (region 2) are
 //   SUPERSEDED by NEAR and UPPER; the SMH_* tables remain but are off the routed path.
@@ -110,6 +111,8 @@
 #  define VA_SIMD256 1
 #endif
 
+#include "volfi_annulus_upper1_tables.hpp"
+#include "volfi_annulus_fastroute_tables.hpp"
 namespace volfi_annulus {
 
 // c-exponent field mask (11 bits).  (Tables define C_EXP_BIAS = 1023.)
@@ -439,8 +442,51 @@ inline double qnorm0_seed(double p) {
     double tail = numt / dent;
     return (p < K::QN_P_LOW) ? tail : mid;
 }
-// UPPER endpoint chart -> w = sigma^2.  v>2 (c>c2(h)) or h>H_BOX.
+// UPPER endpoint chart, ONE-STEP form -> w = sigma^2.
+//   a_U = h - 2 log(1-c), x0 = Cheb(sqrt a_U) (the quantile is one-variable on this manifold), sigma = x0^2/a_U,
+//   zeta = Green coordinate of h/a_U, x = x0 (1 + zeta R(sigma, zeta)) with 13 fitted doubles (seed error < 4.9e-5),
+//   then exactly ONE Householder-3 step on the exact equation with the one-exponential residual.
+inline double upper1_seed(double h, double onec) {
+    namespace U = volfi_annulus::upper1;
+    const double aU = h - 2.0 * full_log(onec);
+    const double ia = 1.0 / aU;
+    double s = std::sqrt(aU);
+    s = (s < U::S_LO) ? U::S_LO : ((s > U::S_HI) ? U::S_HI : s);
+    const double x0 = clenshaw1(U::X0C, U::NX0, U::S_LO, U::S_HI, s);
+    const double q  = h * ia;
+    const double om = 1.0 - q * q;
+    const double t  = q / (1.0 + std::sqrt(om > 0.0 ? om : 0.0));
+    const double zeta = t * t;
+    const double S = std::fma(2.0 / (U::SGMAX - U::SGMIN), x0 * x0 * ia - U::SGMIN, -1.0);
+    const double Z = std::fma(2.0 / U::ZMAX, zeta, -1.0);
+    double r0 = U::R0[5]; for (int j = 4; j >= 0; --j) r0 = std::fma(r0, Z, U::R0[j]);
+    double r1 = U::R1[3]; for (int j = 2; j >= 0; --j) r1 = std::fma(r1, Z, U::R1[j]);
+    const double r2 = std::fma(U::R2[1], Z, U::R2[0]);
+    const double R  = std::fma(std::fma(std::fma(U::R3[0], S, r2), S, r1), S, r0);
+    return std::fma(x0 * zeta, R, x0);
+}
 inline double upper_variance(double h, double c) {
+    namespace U = volfi_annulus::upper1;
+    const double onec = 1.0 - c, h2 = h * h; const bool lo = (c < 0.5);
+    double x = upper1_seed(h, onec);
+    const double ix = 1.0 / x, d = 0.5 * h * ix, y = x - d, r = x + d;
+    const double ty = y * U::IS2, ay = std::fabs(ty);
+    const double sy = ay * ay, scy = std::fma(ay, ay, -sy);               // exact low part of ty^2
+    const double p  = exp_neg(-sy) * (1.0 - scy);                         // = exp(-y^2/2)
+    const double er = erfcx_poly(r * U::IS2);
+    const double z  = lo ? -ty : ty;
+    const double ey = (z >= 0.0) ? erfcx_poly(z) : clenshaw1(U::ENEG_C, U::NENEG, U::ENEG_A, U::ENEG_B, z);
+    const double resid = lo ? (c - 0.5 * p * (ey - er)) : (0.5 * p * (ey + er) - onec);   // = c - C in both forms
+    const double u  = -resid / (U::TWO_K * p);
+    const double ix2 = ix * ix;
+    const double a  = std::fma(0.25 * h2, ix2 * ix, -x);
+    const double b  = std::fma(a, a, std::fma(-0.75 * h2, ix2 * ix2, -1.0));
+    const double au = a * u;
+    x = x - u * std::fma(-0.5, au, 1.0) / std::fma(b * u, u * (1.0 / 6.0), 1.0 - au);
+    const double v = 2.0 * x; return v * v;
+}
+// the v0.3.0 UPPER chart (three steps), kept for A/B comparison only
+inline double upper_variance_v030(double h, double c) {
     double eh   = std::exp(-0.5 * h);       // per-h libm scalar (hoisted to the index pass in batch)
     double ehp  = std::exp(h);              // per-h libm scalar
     double gbar = 0.5 * (1.0 - c) * eh;
@@ -831,8 +877,6 @@ struct context {
     {
         cw  = br::cwstar_price(x);     // v0.2.3: one iso-W ray (W*=3.9) for every band
         ct2 = br::ctop_price(x);       // v0.2.3: ONE ceiling C(h,1.85), both bands
-        eh     = std::exp(-0.5 * x);
-        ehp    = std::exp(x);
         expm1h = br::expm1_small(x);   // frozen poly (NEAR band only); matches near_variance / SIMD
         xt_near = std::fma(2.0 * (x * x), 1.0 / volfi_annulus_broadrange::NEAR_T_MAX, -1.0);
         if (x < H_ATM_HI) {                                     // NEAR band
@@ -901,6 +945,36 @@ inline double far_variance(const context& q, double c) {
 //    else                             -> UPPER           (v>2 / h>H_BOX)
 //  cw=cwing(h), ct2=c2(h) are precomputed once in the context (h-only).
 // ============================================================================
+// ---- Fast scalar route.  The routed decision "c > ctop(h)" is "a < a_top(h)" in the book coordinate a = log1p(expm1(h)/c),
+// and "c < cw(h)" is "a > a_w(h)"; a_top and a_w are smooth one-variable functions of h, fitted per band with a margin of
+// four times the worst fit error.  Outside the margin the decision is certain and equals the exact seam comparison; inside it
+// the caller takes the exact route.  No exponential, no seam polynomial of degree 32.
+namespace fastroute {
+// 1 = certainly UPPER under the routed decision, 0 = certainly not, -1 = undecided (take the exact route)
+inline int upper_certain(double h, double a) {
+    if (!(h > BAND[0]) || !(h <= BAND[3]) || !(a > 0.0)) return -1;
+    const int b = (h < BAND[1]) ? 0 : ((h <= BAND[2]) ? 1 : 2);
+    if (b != 2) {                                                   // bands 0 and 1: the ceiling decides first
+        const double t = br::clenshaw1(ATOP_C[b], ATOP_N[b], BAND[b], BAND[b + 1], h);
+        if (a > t + ATOP_M[b]) return 0;                            // below the ceiling: NEAR / FAR / WING / edge
+        if (!(a < t - ATOP_M[b])) return -1;
+        if (b == 0) return 1;                                       // band 0: a_w - a_top >= 7.59, the wing seam cannot bite
+    }
+    const double w = br::clenshaw1(AW_C[b], AW_N[b], BAND[b], BAND[b + 1], h);
+    if (a < w - AW_M[b]) return 1;
+    if (a > w + AW_M[b]) return 0;
+    return -1;
+}
+// band 0 in the price itself: 1 = certainly c > ctop(h) (UPPER, since the wing seam cannot bite there), 0 = certainly not, -1 undecided
+inline int upper_certain_band0(double h, double c) {
+    if (!(h > BAND[0]) || !(h < BAND[1]) || !(c > 0.0) || !(c < 1.0)) return -1;
+    const double t = br::clenshaw1(CT0_C, CT0_N, BAND[0], BAND[1], h);
+    if (c > t + CT0_M) return 1;
+    if (c < t - CT0_M) return 0;
+    return -1;
+}
+} // namespace fastroute
+
 inline double implied_variance_otm(const context& q, double c) {
     // Total input contract: any (h, c) outside the feasible open box returns
     // quiet NaN -- never a plausible-looking number.  c >= 1 has no finite
@@ -920,6 +994,7 @@ inline double implied_variance_otm(const context& q, double c) {
 }
 
 inline double implied_variance_otm(double h, double c) {
+    if (c > 0.3 && fastroute::upper_certain_band0(h, c) == 1) return br::upper_variance(h, c);   // no context needed
     context q(h);
     return implied_variance_otm(q, c);
 }
@@ -2087,6 +2162,92 @@ inline __m256d wing_variance_avx2(__m256d vh, __m256d vc, int regime) {
 } // namespace detail
 #endif // VA_SIMD256
 
+// ---- ONE-STEP UPPER chart, SIMD twin.  One templated body over a lane-width trait, every operation in the order of
+// br::upper_variance (explicit fma, no contraction), so batch == scalar bit for bit.
+namespace detail {
+namespace U = volfi_annulus::upper1;
+#if defined(VA_SIMD512)
+struct U1L8 { using T = __m512d; using M = __mmask8; static constexpr int W = 8;
+    static T set(double v) { return _mm512_set1_pd(v); }  static T load(const double* p) { return _mm512_loadu_pd(p); }  static void store(double* p, T v) { _mm512_storeu_pd(p, v); }
+    static T add(T a, T b) { return _mm512_add_pd(a, b); } static T sub(T a, T b) { return _mm512_sub_pd(a, b); } static T mul(T a, T b) { return _mm512_mul_pd(a, b); } static T div(T a, T b) { return _mm512_div_pd(a, b); }
+    static T fma(T a, T b, T c) { return _mm512_fmadd_pd(a, b, c); } static T sqrt(T a) { return _mm512_sqrt_pd(a); } static T abs(T a) { return _mm512_abs_pd(a); }
+    static T min(T a, T b) { return _mm512_min_pd(a, b); } static T max(T a, T b) { return _mm512_max_pd(a, b); }
+    static M lt(T a, T b) { return _mm512_cmp_pd_mask(a, b, _CMP_LT_OQ); } static M ge(T a, T b) { return _mm512_cmp_pd_mask(a, b, _CMP_GE_OQ); }
+    static T sel(M m, T if_true, T if_false) { return _mm512_mask_blend_pd(m, if_false, if_true); }
+    static T log(T x) { return full_log_avx512(x); } static T clen(const double* C, int n, double a, double b, T x) { return clenshaw1_avx512(C, n, a, b, x); }
+    static T erfcx(T z) { return erfcx_poly_avx512(z); } static T expn(T a) { return exp_neg_avx512(a); } };
+#endif
+#if defined(VA_SIMD256) || defined(VA_SIMD512)
+#if defined(VA_SIMD256)
+struct U1L4 { using T = __m256d; using M = __m256d; static constexpr int W = 4;
+    static T set(double v) { return _mm256_set1_pd(v); }  static T load(const double* p) { return _mm256_loadu_pd(p); }  static void store(double* p, T v) { _mm256_storeu_pd(p, v); }
+    static T add(T a, T b) { return _mm256_add_pd(a, b); } static T sub(T a, T b) { return _mm256_sub_pd(a, b); } static T mul(T a, T b) { return _mm256_mul_pd(a, b); } static T div(T a, T b) { return _mm256_div_pd(a, b); }
+    static T fma(T a, T b, T c) { return _mm256_fmadd_pd(a, b, c); } static T sqrt(T a) { return _mm256_sqrt_pd(a); } static T abs(T a) { return _mm256_andnot_pd(_mm256_set1_pd(-0.0), a); }
+    static T min(T a, T b) { return _mm256_min_pd(a, b); } static T max(T a, T b) { return _mm256_max_pd(a, b); }
+    static M lt(T a, T b) { return _mm256_cmp_pd(a, b, _CMP_LT_OQ); } static M ge(T a, T b) { return _mm256_cmp_pd(a, b, _CMP_GE_OQ); }
+    static T sel(M m, T if_true, T if_false) { return _mm256_blendv_pd(if_false, if_true, m); }
+    static T log(T x) { return full_log_avx2(x); } static T clen(const double* C, int n, double a, double b, T x) { return clenshaw1_avx2(C, n, a, b, x); }
+    static T erfcx(T z) { return erfcx_poly_avx2(z); } static T expn(T a) { return exp_neg_avx2(a); } };
+#endif
+template<class L, int STEPS>
+inline typename L::T upper1_refine_vec(typename L::T h, typename L::T c, typename L::T onec, typename L::T x) {
+    using T = typename L::T; using M = typename L::M;
+    const T one = L::set(1.0), zero = L::set(0.0);
+    // ---- fixed Householder-3 steps, one-exponential residual
+    const T h2 = L::mul(h, h); const M lo = L::lt(c, L::set(0.5));
+    for (int it = 0; it < STEPS; ++it) {
+        const T ix = L::div(one, x), d = L::mul(L::mul(L::set(0.5), h), ix), y = L::sub(x, d), r = L::add(x, d);
+        const T ty = L::mul(y, L::set(U::IS2)), ay = L::abs(ty);
+        const T sy = L::mul(ay, ay), scy = L::fma(ay, ay, L::sub(zero, sy));
+        const T p  = L::mul(L::expn(L::sub(zero, sy)), L::sub(one, scy));
+        const T er = L::erfcx(L::mul(r, L::set(U::IS2)));
+        const T z  = L::sel(lo, L::sub(zero, ty), ty);
+        const T ey = L::sel(L::ge(z, zero), L::erfcx(z), L::clen(U::ENEG_C, U::NENEG, U::ENEG_A, U::ENEG_B, z));
+        const T hp = L::mul(L::set(0.5), p);
+        const T resid = L::sel(lo, L::sub(c, L::mul(hp, L::sub(ey, er))), L::sub(L::mul(hp, L::add(ey, er)), onec));
+        const T u  = L::div(L::sub(zero, resid), L::mul(L::set(U::TWO_K), p));
+        const T ix2 = L::mul(ix, ix);
+        const T a  = L::fma(L::mul(L::set(0.25), h2), L::mul(ix2, ix), L::sub(zero, x));
+        const T b  = L::fma(a, a, L::fma(L::mul(L::set(-0.75), h2), L::mul(ix2, ix2), L::set(-1.0)));
+        const T au = L::mul(a, u);
+        const T num = L::fma(L::set(-0.5), au, one);
+        const T den = L::fma(L::mul(b, u), L::mul(u, L::set(1.0 / 6.0)), L::sub(one, au));
+        x = L::sub(x, L::div(L::mul(u, num), den));
+    }
+    const T v = L::mul(L::set(2.0), x); return L::mul(v, v);
+}
+template<class L>
+inline typename L::T upper1_seed_vec(typename L::T h, typename L::T onec) {
+    using T = typename L::T;
+    const T one_ = L::set(1.0), zero = L::set(0.0);
+    const T aU = L::sub(h, L::mul(L::set(2.0), L::log(onec)));
+    const T ia = L::div(one_, aU);
+    const T s  = L::min(L::max(L::sqrt(aU), L::set(U::S_LO)), L::set(U::S_HI));
+    const T x0 = L::clen(U::X0C, U::NX0, U::S_LO, U::S_HI, s);
+    const T q  = L::mul(h, ia);
+    const T om = L::sub(one_, L::mul(q, q));
+    const T t  = L::div(q, L::add(one_, L::sqrt(L::max(om, zero))));
+    const T zeta = L::mul(t, t);
+    const T S = L::fma(L::set(2.0 / (U::SGMAX - U::SGMIN)), L::sub(L::mul(L::mul(x0, x0), ia), L::set(U::SGMIN)), L::set(-1.0));
+    const T Z = L::fma(L::set(2.0 / U::ZMAX), zeta, L::set(-1.0));
+    T r0 = L::set(U::R0[5]); for (int j = 4; j >= 0; --j) r0 = L::fma(r0, Z, L::set(U::R0[j]));
+    T r1 = L::set(U::R1[3]); for (int j = 2; j >= 0; --j) r1 = L::fma(r1, Z, L::set(U::R1[j]));
+    const T r2 = L::fma(L::set(U::R2[1]), Z, L::set(U::R2[0]));
+    const T R  = L::fma(L::fma(L::fma(L::set(U::R3[0]), S, r2), S, r1), S, r0);
+    return L::fma(L::mul(x0, zeta), R, x0);
+}
+template<class L>
+inline typename L::T upper1_vec(typename L::T c, typename L::T h) {
+    const typename L::T onec = L::sub(L::set(1.0), c); return upper1_refine_vec<L, 1>(h, c, onec, upper1_seed_vec<L>(h, onec)); }
+#if defined(VA_SIMD512)
+inline __m512d upper1_avx512(__m512d vc, __m512d vh) { return upper1_vec<U1L8>(vc, vh); }
+#endif
+#if defined(VA_SIMD256)
+inline __m256d upper1_avx2(__m256d vc, __m256d vh) { return upper1_vec<U1L4>(vc, vh); }
+#endif
+#endif
+} // namespace detail
+
 namespace detail {
 // Fill log2m[0..n) = log2approx(mantissa(c[i])) using the widest available SIMD.
 // This is the B1 win: the once-scalar std::log2 of the index pass now vectorizes.
@@ -2238,22 +2399,20 @@ __attribute__((noinline)) inline void upper_pass_fixed(
         const context& q, const double* c, double* w_out, const int* idx, int nb) {
     int e = 0;
 #if defined(VA_SIMD512)
-    const __m512d veh = _mm512_set1_pd(q.eh), vehp = _mm512_set1_pd(q.ehp),
-                  vh = _mm512_set1_pd(q.h), vh2 = _mm512_set1_pd(q.h2);
+    const __m512d vh = _mm512_set1_pd(q.h);
     double cb[8], wb[8];
     for (; e + 8 <= nb; e += 8) {
         for (int l = 0; l < 8; ++l) cb[l] = c[idx[e + l]];
-        __m512d w = upper_variance_avx512(_mm512_loadu_pd(cb), veh, vehp, vh, vh2);
+        __m512d w = upper1_avx512(_mm512_loadu_pd(cb), vh);
         _mm512_storeu_pd(wb, w);
         for (int l = 0; l < 8; ++l) w_out[idx[e + l]] = wb[l];
     }
 #elif defined(VA_SIMD256)
-    const __m256d veh = _mm256_set1_pd(q.eh), vehp = _mm256_set1_pd(q.ehp),
-                  vh = _mm256_set1_pd(q.h), vh2 = _mm256_set1_pd(q.h2);
+    const __m256d vh = _mm256_set1_pd(q.h);
     double cb[4], wb[4];
     for (; e + 4 <= nb; e += 4) {
         for (int l = 0; l < 4; ++l) cb[l] = c[idx[e + l]];
-        __m256d w = upper_variance_avx2(_mm256_loadu_pd(cb), veh, vehp, vh, vh2);
+        __m256d w = upper1_avx2(_mm256_loadu_pd(cb), vh);
         _mm256_storeu_pd(wb, w);
         for (int l = 0; l < 4; ++l) w_out[idx[e + l]] = wb[l];
     }
@@ -2544,7 +2703,7 @@ __attribute__((noinline)) inline void grid_fallback_pass(
                 lxt_[lc] = std::fma(2.0 * h2, invTmax, -1.0);
                 lo_[lc] = base + i; ++lc;
             } else if (rt == 2) {                                              // UPPER
-                rc_[rc] = cc; reh_[rc] = std::exp(-0.5 * hh); rehp_[rc] = std::exp(hh);
+                rc_[rc] = cc;
                 rh_[rc] = hh; rh2_[rc] = hh * hh;
                 ro_[rc] = base + i; ++rc;
             } else if (rt == 3) {                                              // WING
@@ -2583,15 +2742,13 @@ __attribute__((noinline)) inline void grid_fallback_pass(
         e = 0;
 #if defined(VA_SIMD512)
         for (; e + 8 <= rc; e += 8) {
-            __m512d w = upper_variance_avx512(_mm512_loadu_pd(rc_ + e), _mm512_loadu_pd(reh_ + e),
-                        _mm512_loadu_pd(rehp_ + e), _mm512_loadu_pd(rh_ + e), _mm512_loadu_pd(rh2_ + e));
+            __m512d w = upper1_avx512(_mm512_loadu_pd(rc_ + e), _mm512_loadu_pd(rh_ + e));
             double wb[8]; _mm512_storeu_pd(wb, w);
             for (int l = 0; l < 8; ++l) w_out[ro_[e + l]] = wb[l];
         }
 #elif defined(VA_SIMD256)
         for (; e + 4 <= rc; e += 4) {
-            __m256d w = upper_variance_avx2(_mm256_loadu_pd(rc_ + e), _mm256_loadu_pd(reh_ + e),
-                        _mm256_loadu_pd(rehp_ + e), _mm256_loadu_pd(rh_ + e), _mm256_loadu_pd(rh2_ + e));
+            __m256d w = upper1_avx2(_mm256_loadu_pd(rc_ + e), _mm256_loadu_pd(rh_ + e));
             double wb[4]; _mm256_storeu_pd(wb, w);
             for (int l = 0; l < 4; ++l) w_out[ro_[e + l]] = wb[l];
         }
@@ -2833,6 +2990,71 @@ inline void binv_pfx(const __m512d* rho, __m512d* out) {
 // break bit-identity (a max(1e-300,.) floor did exactly that; removed 2026-07-13).
 // Discarded lanes may go inf/NaN; the kernel is purely lane-wise so masked store
 // and the deferred scatter ignore them safely.
+// UPPER-FIRST driver.  The scalar route of an UPPER quote costs two seam polynomials and two exponentials; here the
+// seam twins (op for op the scalar cwstar_price / ctop_price) classify whole registers, UPPER lanes are compacted into a
+// pending register and run through the one-step chart, every other lane goes to the table + fallback passes unchanged.
+// mask == (grid_far_cell < 0 && grid_endpoint_route == 2) per quote, so results stay bit-identical to the scalar entry.
+#if defined(VA_SIMD512) || defined(VA_SIMD256)
+template<class L>
+inline void upper1_eval_list(double* uh, double* uc, double* ux, const int* ui, int cnt, double* w_out) {
+    const int pad = (cnt + L::W - 1) / L::W * L::W;
+    for (int k = cnt; k < pad; ++k) { uh[k] = 1.0; uc[k] = 0.9; }                          // finite padding lanes, results discarded
+    for (int k = 0; k < pad; k += L::W) { const typename L::T vh = L::load(uh + k), onec = L::sub(L::set(1.0), L::load(uc + k));
+        L::store(ux + k, upper1_seed_vec<L>(vh, onec)); }                                  // pass U1: the 13-double seed
+    for (int k = 0; k < pad; k += L::W) { const typename L::T vh = L::load(uh + k), vc = L::load(uc + k), onec = L::sub(L::set(1.0), vc);
+        L::store(uh + k, upper1_refine_vec<L, 1>(vh, vc, onec, L::load(ux + k))); }        // pass U2: the one Householder step
+    for (int k = 0; k < cnt; ++k) w_out[ui[k]] = uh[k];
+}
+#endif
+__attribute__((noinline)) inline void grid_upper_first(const double* h, const double* c, double* w_out, int n) {
+    constexpr int TILE = VOLFI_GRID_TILE;
+    static thread_local double rh_[TILE], rc_[TILE], rw_[TILE];
+    static thread_local int    ri_[TILE];
+    static thread_local double uh_[TILE + 8], uc_[TILE + 8], ux_[TILE + 8];
+    static thread_local int    ui_[TILE + 8];
+    for (int base = 0; base < n; base += TILE) {
+        const int m = (n - base < TILE) ? (n - base) : TILE;
+        int nr = 0, nu = 0, i = 0;
+#if defined(VA_SIMD512)
+        {
+        const __m512d z = _mm512_setzero_pd(), one = _mm512_set1_pd(1.0), hbox = _mm512_set1_pd(H_BOX);
+        const __m256i iota = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
+        for (; i + 8 <= m; i += 8) {                                                       // pass 1: classify only
+            const __m512d vh = _mm512_loadu_pd(h + base + i), vc = _mm512_loadu_pd(c + base + i);
+            const __m512d vcw = cwstar_price_avx512(vh), vct = ctop_price_avx512(vh);
+            const __mmask8 mv = _mm512_cmp_pd_mask(vc, z, _CMP_GT_OQ) & _mm512_cmp_pd_mask(vc, one, _CMP_LT_OQ) & _mm512_cmp_pd_mask(vh, z, _CMP_GT_OQ);
+            const __mmask8 mu = mv & _mm512_cmp_pd_mask(vc, vcw, _CMP_NLT_UQ)
+                              & (_mm512_cmp_pd_mask(vc, vct, _CMP_GT_OQ) | _mm512_cmp_pd_mask(vh, hbox, _CMP_GT_OQ));
+            if (mu) { _mm512_mask_compressstoreu_pd(uh_ + nu, mu, vh); _mm512_mask_compressstoreu_pd(uc_ + nu, mu, vc);
+                      _mm256_mask_compressstoreu_epi32(ui_ + nu, mu, _mm256_add_epi32(_mm256_set1_epi32(base + i), iota)); nu += __builtin_popcount((unsigned)mu); }
+            unsigned dm = (unsigned)(uint8_t)(~mu);
+            while (dm) { const int l = __builtin_ctz(dm); dm &= dm - 1; rh_[nr] = h[base + i + l]; rc_[nr] = c[base + i + l]; ri_[nr] = base + i + l; ++nr; }
+        }
+        }
+        if (nu) upper1_eval_list<U1L8>(uh_, uc_, ux_, ui_, nu, w_out);
+#elif defined(VA_SIMD256)
+        {
+        const __m256d z = _mm256_setzero_pd(), one = _mm256_set1_pd(1.0), hbox = _mm256_set1_pd(H_BOX);
+        for (; i + 4 <= m; i += 4) {                                                       // pass 1: classify only
+            const __m256d vh = _mm256_loadu_pd(h + base + i), vc = _mm256_loadu_pd(c + base + i);
+            const __m256d vcw = cwstar_price_avx2(vh), vct = ctop_price_avx2(vh);
+            const __m256d mv = _mm256_and_pd(_mm256_and_pd(_mm256_cmp_pd(vc, z, _CMP_GT_OQ), _mm256_cmp_pd(vc, one, _CMP_LT_OQ)), _mm256_cmp_pd(vh, z, _CMP_GT_OQ));
+            const __m256d mm = _mm256_and_pd(_mm256_and_pd(mv, _mm256_cmp_pd(vc, vcw, _CMP_NLT_UQ)),
+                                             _mm256_or_pd(_mm256_cmp_pd(vc, vct, _CMP_GT_OQ), _mm256_cmp_pd(vh, hbox, _CMP_GT_OQ)));
+            const unsigned mu = (unsigned)_mm256_movemask_pd(mm);
+            for (int l = 0; l < 4; ++l) {
+                if (mu & (1u << l)) { uh_[nu] = h[base + i + l]; uc_[nu] = c[base + i + l]; ui_[nu] = base + i + l; ++nu; }
+                else                { rh_[nr] = h[base + i + l]; rc_[nr] = c[base + i + l]; ri_[nr] = base + i + l; ++nr; }
+            }
+        }
+        }
+        if (nu) upper1_eval_list<U1L4>(uh_, uc_, ux_, ui_, nu, w_out);
+#endif
+        for (; i < m; ++i) { rh_[nr] = h[base + i]; rc_[nr] = c[base + i]; ri_[nr] = base + i; ++nr; }
+        if (nr) { grid_table_pass(rh_, rc_, rw_, nr); grid_fallback_pass(rh_, rc_, rw_, nr);
+            for (int j = 0; j < nr; ++j) w_out[ri_[j]] = rw_[j]; }
+    }
+}
 __attribute__((noinline)) inline void speculative_grid_batch(
         const double* h, const double* c, double* w_out, int n) {
     constexpr int TILE = VOLFI_GRID_TILE;
@@ -2950,7 +3172,7 @@ __attribute__((noinline)) inline void speculative_grid_batch(
             if (grid_endpoint_route(hh,cc)==1) w_out[base+i]=br::near_variance(hh,cc);
             else { dh_[ndef]=hh; dc_[ndef]=cc; didx_[ndef]=base+i; ++ndef; }
         }
-        if (ndef){ grid_table_pass(dh_,dc_,dw_,ndef); grid_fallback_pass(dh_,dc_,dw_,ndef);
+        if (ndef){ grid_upper_first(dh_,dc_,dw_,ndef);
             for (int j=0;j<ndef;++j) w_out[didx_[j]]=dw_[j]; }
     }
 }
@@ -2983,8 +3205,7 @@ inline void implied_variance_grid_batch(const double* h, const double* c,
         }
     }
 #endif
-    detail::grid_table_pass(h, c, w_out, n);                  // classic two-pass
-    detail::grid_fallback_pass(h, c, w_out, n);
+    detail::grid_upper_first(h, c, w_out, n);                 // UPPER lanes direct, the rest classic two-pass
 }
 
 // ---- Optional PERMUTED-OUTPUT fast path (item 5) -------------------------
@@ -3073,7 +3294,7 @@ inline int implied_variance_grid_batch_permuted(const double* h, const double* c
                 lh4_[lc] = h2 * h2; lxt_[lc] = std::fma(2.0 * h2, invTmax, -1.0);
                 lo_[lc] = base + i; ++lc;
             } else if (rt == 2) {
-                rc_[rc] = cc; reh_[rc] = std::exp(-0.5 * hh); rehp_[rc] = std::exp(hh);
+                rc_[rc] = cc;
                 rh_[rc] = hh; rh2_[rc] = hh * hh; ro_[rc] = base + i; ++rc;
             } else {
                 w_perm[cur] = detail::scalar_fallback(hh, cc); perm[cur] = base + i; ++cur;
@@ -3103,16 +3324,14 @@ inline int implied_variance_grid_batch_permuted(const double* h, const double* c
         e = 0;
 #if defined(VA_SIMD512)
         for (; e + 8 <= rc; e += 8) {
-            __m512d w = detail::upper_variance_avx512(_mm512_loadu_pd(rc_ + e), _mm512_loadu_pd(reh_ + e),
-                        _mm512_loadu_pd(rehp_ + e), _mm512_loadu_pd(rh_ + e), _mm512_loadu_pd(rh2_ + e));
+            __m512d w = detail::upper1_avx512(_mm512_loadu_pd(rc_ + e), _mm512_loadu_pd(rh_ + e));
             _mm512_storeu_pd(w_perm + cur, w);
             for (int l = 0; l < 8; ++l) perm[cur + l] = ro_[e + l];
             cur += 8;
         }
 #elif defined(VA_SIMD256)
         for (; e + 4 <= rc; e += 4) {
-            __m256d w = detail::upper_variance_avx2(_mm256_loadu_pd(rc_ + e), _mm256_loadu_pd(reh_ + e),
-                        _mm256_loadu_pd(rehp_ + e), _mm256_loadu_pd(rh_ + e), _mm256_loadu_pd(rh2_ + e));
+            __m256d w = detail::upper1_avx2(_mm256_loadu_pd(rc_ + e), _mm256_loadu_pd(rh_ + e));
             _mm256_storeu_pd(w_perm + cur, w);
             for (int l = 0; l < 4; ++l) perm[cur + l] = ro_[e + l];
             cur += 4;

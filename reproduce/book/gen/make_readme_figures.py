@@ -30,13 +30,14 @@ def style(ax):
     ax.yaxis.label.set_color(INK2); ax.xaxis.label.set_color(INK2)
 
 # ---------------------------------------------------------------- CPU, one binary
-# cpu_all_20260914_185859_clean.txt, full feed, no LTO: LBR | PDE scalar | routed batch | book batch
-builds = ["AVX-512", "AVX2", "no SIMD"]
+# results/cpu_all_v031_20260918_171645_clean.txt, full feed, no LTO: LBR | PDE scalar | routed batch | book batch
+# (the no-SIMD build was not re-measured for v0.3.1; its v0.3.0 row is in cpu_all_20260914_185859_clean.txt)
+builds = ["AVX-512", "AVX2"]
 series = [
-    ("Let's Be Rational (scalar, release flags)", C_LBR,    [194, 193, 220]),
-    ("PDE table method (scalar)",                 C_PDE,    [76,  86,  89]),
-    ("routed charts, batch (v0.2)",               C_ROUTED, [45,  89,  578]),
-    ("book kernel, batch (v0.3)",                 C_BOOK,   [29,  51,  352]),
+    ("Let's Be Rational (scalar, release flags)", C_LBR,    [193, 192]),
+    ("PDE table method (scalar)",                 C_PDE,    [78,  75]),
+    ("routed charts, batch (v0.2)",               C_ROUTED, [46,  85]),
+    ("book kernel, batch (v0.3.1)",               C_BOOK,   [16.6, 23.2]),
 ]
 fig, ax = plt.subplots(figsize=(8.4, 3.9), dpi=200)
 n, k = len(builds), len(series); w = 0.19; gap = 0.02
@@ -47,7 +48,7 @@ for j, (name, col, vals) in enumerate(series):
         ax.text(x, v + 8, str(v), ha="center", va="bottom", fontsize=8, color=INK)
 ax.set_xticks(range(n)); ax.set_xticklabels(builds, fontsize=10, color=INK)
 ax.set_ylabel("ns per quote (lower is better)")
-ax.set_ylim(0, 640)
+ax.set_ylim(0, 250)
 ax.yaxis.grid(True, color=GRID, zorder=0); ax.set_axisbelow(True)
 style(ax)
 ax.set_title("Market feed, 30,000 quotes, all methods in one binary, quiet host (medians)",
@@ -61,9 +62,9 @@ rows = [  # label, ns/quote, color
     ("PDE, OpenCL,\nwith transfers\n(its convention)", 7.68, C_PDE),
     ("PDE, OpenCL,\nkernels +\nreadback",           4.93, C_PDE),
     ("book kernel,\nwith uploads\nand readback",                    1.12, C_BOOK),
-    ("routed charts (v0.2),\nfull book,\nbucket-ordered",           0.078, C_ROUTED),
-    ("book kernel,\nfull feed,\nfile order",                        0.072, C_BOOK),
-    ("book kernel,\nfull feed,\nsorted by a",                       0.032, C_BOOK),
+    ("routed charts (v0.2),\nfull book,\nbucket-ordered",           0.079, C_ROUTED),
+    ("book kernel,\nfull feed,\nfile order",                        0.061, C_BOOK),
+    ("book kernel,\nfull feed,\nsorted by a",                       0.031, C_BOOK),
     ("recurrence kernel,\nNEAR tile",                               0.021, C_BOOK),
 ]
 fig, ax = plt.subplots(figsize=(9.0, 4.2), dpi=200)

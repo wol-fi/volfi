@@ -291,7 +291,7 @@ extern "C" SEXP _volfiR_volfi_iv_call(SEXP fSEXP, SEXP kSEXP, SEXP dSEXP, SEXP t
 
 extern "C" SEXP _volfiR_volfi_version() {
   BEGIN_RCPP
-  return wrap("0.3.0");
+  return wrap("0.3.1");
   END_RCPP
 }
 

@@ -8,7 +8,7 @@ from setuptools.command.build_ext import build_ext
 
 root = Path(__file__).resolve().parents[2]
 
-# The v0.3.0 engine is header-only C++17. -ffp-contract=off is what makes the scalar and SIMD
+# The v0.3.1 engine is header-only C++17. -ffp-contract=off is what makes the scalar and SIMD
 # paths return bit-identical results (see the paper); -march selects the SIMD width. The
 # default tunes to the build machine, which is right for a from-source install; set
 # VOLFI_MARCH="" for a portable scalar build, or e.g. VOLFI_MARCH=x86-64-v3 for an AVX2 wheel.
@@ -32,8 +32,8 @@ ext_modules = [
 
 setup(
     name="volfi",
-    version="0.3.0",
-    description="Python bindings for volfi v0.3.0 (routed machine-precision Black-Scholes IV inverter)",
+    version="0.3.1",
+    description="Python bindings for volfi v0.3.1 (routed machine-precision Black-Scholes IV inverter)",
     packages=["volfi"],
     package_dir={"": "src_py"},
     ext_modules=ext_modules,

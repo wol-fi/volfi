@@ -6,7 +6,12 @@
 //   WB    the whole-book chart, scalar entry and batch
 // Section [1]: the full 30,000-quote feed, all methods, plus the two batch drivers in 64-quote chunks.
 // Section [2]: BRANCH-WISE on region-filtered tiles (shipped router's Near / Far / Wing), each tile the
-//              feed's own size (30,000, the subset cycled), all methods.
+//              feed's own size (30,000, the subset cycled), all methods.  The feed has no Upper quotes, so
+//              the Upper tile is SYNTHETIC: the feed's own moneyness values with v = sigma*sqrt(T) drawn
+//              uniformly in [1.9, 6.0] (above the v = 1.85 seam, inside the v <= 8 service domain) from a
+//              fixed LCG, priced by the exact normalized call, kept only if the shipped router sends it to
+//              Upper.  BENCH_TILES_ONLY=1 skips section [1].  BENCH_WB_ONLY=1 times the whole-book chart alone
+//              (the other columns print 0), for re-measuring a new kernel version without the references.
 // Every method starts from the raw (h, c) pair inside the timed loop.  Median over BENCH_RUNS (7)
 // timing passes of REPEATS (4) sweeps: a few seconds per method, enough on a quiet machine, and
 // the reference and the PDE method are several times slower per quote than the batch paths.
@@ -48,13 +53,16 @@ static Row time_all(const std::vector<double>& H, const std::vector<double>& C, 
     std::vector<double> W(N), FF(N, 1.0), KK(N), RR(N, 0.0), TT(N, 1.0); std::vector<long> PC(N, 1); std::vector<int> code(N);
     for (int i = 0; i < N; ++i) KK[i] = std::exp(H[i]);
     auto bench = [&](auto&& fn) { std::vector<double> t; for (int r = 0; r < runs; ++r) { double a = now_s(); for (int k = 0; k < rep; ++k) fn(); double b = now_s(); t.push_back(1e9 * (b - a) / ((double)rep * N)); } return median(t); };
-    Row o;
+    Row o{};
+    const bool wb_only = env_int("BENCH_WB_ONLY", 0) == 1;
+    if (!wb_only) {
     o.lbr  = bench([&]() { double s = 0; for (int i = 0; i < N; ++i) { double v = NormalisedImpliedBlackVolatility(C[i] * std::exp(-0.5 * H[i]), -H[i], 1.0); s += v * v; } g_sink += s; });
     o.pdeS = bench([&]() { double s = 0; for (int i = 0; i < N; ++i) s += pde.evaluate(H[i], C[i]); g_sink += s; });
     omp_set_num_threads(1);
     o.pdeV = bench([&]() { std::vector<double> v = pde.iv(FF, C, KK, RR, TT, PC, 0); g_sink += v[0]; });
     o.rtS  = bench([&]() { double s = 0; for (int i = 0; i < N; ++i) s += volfi_annulus::implied_variance_otm(H[i], C[i]); g_sink += s; });
     o.rtB  = bench([&]() { volfi_annulus::implied_variance_grid_batch(H.data(), C.data(), W.data(), N); g_sink += W[0]; });
+    }
     o.wbS  = bench([&]() { double s = 0; for (int i = 0; i < N; ++i) { int cd; s += nw::implied_variance_wb(H[i], C[i], &cd); } g_sink += s; });
     o.wbB  = bench([&]() { nw::implied_variance_wb_batch(H.data(), C.data(), W.data(), code.data(), N); g_sink += W[0]; });
     return o;
@@ -94,9 +102,12 @@ int main() {
         if (std::memcmp(&sr, &wd[i], 8)) ++mD; if (std::memcmp(&sw, &wf[i], 8)) ++mF; }
     std::printf("  batch == scalar: routed mismatches=%ld  whole-book mismatches=%ld  [both must be 0]\n", mD, mF);
     std::printf("  ns/quote:  %-7s | %8s | %8s %8s | %8s %8s | %8s %8s |  %s\n", "tile", "LBR", "PDE scl", "PDE iv1", "RT scl", "RT batch", "WB scl", "WB batch", "LBR/WBb PDE/WBb");
+    const bool tiles_only = env_int("BENCH_TILES_ONLY", 0) == 1;
+    if (!tiles_only) {
     std::printf("[1] full feed\n");
     print_row("feed", N, time_all(H, C, pde, runs, rep));
-    {   // the two batch drivers in 64-quote chunks (small-batch regime)
+    }
+    if (!tiles_only) {   // the two batch drivers in 64-quote chunks (small-batch regime)
         std::vector<double> W(N); std::vector<int> cd(N);
         auto bench = [&](auto&& fn) { std::vector<double> t; for (int r = 0; r < runs; ++r) { double a = now_s(); for (int k = 0; k < rep; ++k) fn(); double b = now_s(); t.push_back(1e9 * (b - a) / ((double)rep * (N / 64 * 64))); } return median(t); };
         const double rb = bench([&]() { for (int b = 0; b + 64 <= N; b += 64) volfi_annulus::implied_variance_grid_batch(H.data() + b, C.data() + b, W.data() + b, 64); g_sink += W[0]; });
@@ -110,6 +121,23 @@ int main() {
         const long n0 = (long)sh.size();
         std::vector<double> th(N), tc(N); for (int i = 0; i < N; ++i) { th[i] = sh[i % n0]; tc[i] = sc[i % n0]; }
         print_row(RN[r], n0, time_all(th, tc, pde, runs, rep));
+    }
+    {   // synthetic Upper tile (see header): feed moneyness, v ~ U[1.9, 6.0], exact price, router-checked
+        auto Phi = [](double x) { return 0.5 * std::erfc(-x / std::sqrt(2.0)); };
+        std::vector<double> uh, uc; unsigned long long g = 0x9E3779B97F4A7C15ULL;
+        for (int i = 0; i < N; ++i) {
+            g = g * 6364136223846793005ULL + 1442695040888963407ULL;
+            const double u = (double)(g >> 11) * (1.0 / 9007199254740992.0);
+            const double h = H[i], v = 1.9 + 4.1 * u;
+            const double c = Phi(0.5 * v - h / v) - std::exp(h) * Phi(-0.5 * v - h / v);
+            if (c > 0.0 && c < 1.0 && 1.0 - c > 1e-16 && route(h, c) == R_UPPER) { uh.push_back(h); uc.push_back(c); }
+        }
+        if (!uh.empty()) {
+            const long n0 = (long)uh.size();
+            std::vector<double> th(N), tc(N); for (int i = 0; i < N; ++i) { th[i] = uh[i % n0]; tc[i] = uc[i % n0]; }
+            print_row("Upper*", n0, time_all(th, tc, pde, runs, rep));
+            std::printf("  (* synthetic: feed h, v ~ U[1.9, 6.0], %ld of %d candidates routed Upper; the whole-book columns are its fallback cost)\n", n0, N);
+        }
     }
     return (mD == 0 && mF == 0) ? 0 : 1;
 }

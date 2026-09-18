@@ -47,7 +47,7 @@ volfi_version()
 \item{is_call}{Logical flag selecting a call or put for \code{volfi_iv_option}.}
 }
 \description{
-Rcpp wrapper around volfi v0.3.0. \code{volfi_w_book} and \code{volfi_iv_book} are the book kernel: one straight-line evaluation with exact rational rows that answers all but a few quotes in ten thousand of a traded book itself and hands the rest to the routed charts (\code{region} 1 = raw rows, 2 = conformal rows, 0 = routed). The remaining functions are the routed four-chart inverter: the OTM path, normalized calls, and raw undiscounted forward-price call or put quotes.
+Rcpp wrapper around volfi v0.3.1. \code{volfi_w_book} and \code{volfi_iv_book} are the book kernel: one straight-line evaluation with exact rational rows that answers all but a few quotes in ten thousand of a traded book itself and hands the rest to the routed charts (\code{region} 1 = raw rows, 2 = conformal rows, 0 = routed). The remaining functions are the routed four-chart inverter: the OTM path, normalized calls, and raw undiscounted forward-price call or put quotes.
 }
 \value{
 \code{volfi_w_book} returns a list with \code{variance} and the integer \code{region} per quote. \code{volfi_ctx} returns an external pointer. Variance functions return total variance. Volatility functions return implied volatility. \code{volfi_w_otm_checked} returns a list containing variance and a status string for each quote.

@@ -139,7 +139,7 @@ NW_HD inline double nw_PA(double y) {
 }
 template<int M>
 NW_HD inline double nw_SA(double x, double y, double s) {
-    if constexpr (M < 0) { (void)x; (void)y; return s; }
+    if constexpr (M < 1) { (void)x; (void)y; return s; }      // S1: rows M..1, S = 1 + x S1
     else return nw_SA<M - 1>(x, y, NW_FMA(s, x, nw_PA<M>(y)));
 }
 
@@ -158,7 +158,7 @@ NW_HD inline double nw_dB(double w) {
 }
 template<int N>
 NW_HD inline double nw_SB(double q, double w, double s) {
-    if constexpr (N < 1) { (void)q; (void)w; return NW_FMA(s, q, 1.0); }
+    if constexpr (N < 1) { (void)q; (void)w; return s; }       // S1: S = 1 + q S1
     else return nw_SB<N - 1>(q, w, NW_FMA(s, q, nw_dB<N>(w)));
 }
 
@@ -179,7 +179,7 @@ NW_HD inline double nw_variance_A(double h, double a) {
     const double t  = h / A0;
     const double x  = t * t;
     const double y  = A0 * A0;
-    const double v  = t * nw_SA<NW_MA>(x, y, 0.0);
+    const double v  = NW_FMA(t * x, nw_SA<NW_MA>(x, y, 0.0), t);
     return v * v;
 }
 // w = v*v in region B (a >= 2 pi).  The cell tabulates F1 = V_0/sqrt(a), flat and O(1)
@@ -195,7 +195,7 @@ NW_HD inline double nw_variance_B(double h, double a) {
     const double z  = h * h * NW_INV_4PI2;
     const double sp = NW_SQRT(1.0 + z) + 1.0;
     const double q  = z / (sp * sp);
-    const double v  = t * nw_SB<NW_NB>(q, w, 0.0);
+    const double v  = NW_FMA(t * q, nw_SB<NW_NB>(q, w, 0.0), t);
     return v * v;
 }
 NW_HD inline double nw_variance(double h, double a, int region) {
@@ -232,7 +232,8 @@ inline double implied_variance_wb(double h, double c, int* code) {
     const double a = nc::log1p_pos(E / c);
     const int r = nw_region(h, a);
     if (code) *code = r;
-    if (r == NW_OUT) return volfi_annulus::implied_variance_otm(h, c);
+    if (r == NW_OUT) return (volfi_annulus::fastroute::upper_certain(h, a) == 1) ? volfi_annulus::br::upper_variance(h, c)
+                                                                                : volfi_annulus::implied_variance_otm(h, c);
     return nw_variance(h, a, r);
 }
 

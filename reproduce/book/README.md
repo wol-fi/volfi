@@ -90,3 +90,22 @@ g++ -std=c++17 -O3 -ffp-contract=off -fno-fast-math -march=native -DNCG_HOST_CHE
 
 Expected: `mismatches = 0` in all four sections (344,178 `NEAR` quotes; 832,287 covered probes
 of the 849,818-point price box for the whole-book kernel).
+
+## v0.3.1
+
+The v0.3.1 campaign reuses the harnesses above. What is new:
+
+- `seam_gate.cpp`: 806,000 quotes on both routing seams and on the band edges at -2..+2 ulp. Grid
+  batch == scalar entry, book batch == book scalar, and the fast scalar route never contradicts
+  the exact route. Build it like `wb_gate.cpp`, on all three instruction sets.
+- `cpu_all_bench.cpp`: a synthetic `Upper*` tile (feed moneyness, `v ~ U[1.9, 6]`), and the
+  switches `BENCH_TILES_ONLY=1`, `BENCH_WB_ONLY=1`, `BENCH_RUNS`, `REPEATS`. The v0.3.1 tables use
+  `BENCH_RUNS=31 REPEATS=8`: a batch cell of 7 x 4 lasts 13 ms at 16 ns per quote and its median
+  is bimodal.
+- `run_cpu_tiles.sh`: the tile rows alone.
+- `results/cpu_all_v031_20260918_171645_clean.txt` (CPU table), `gates_v031_*.txt`,
+  `accuracy_v031_2026-09-18.txt` (every oracle set, the 20,000-point campaign, the 1,200-point
+  truth set), `wb_boundary_recheck60_v031_2026-09-18.txt`, `gpu_v031_run_2026-09-18.txt`.
+- `../upper/`: generators and truth file of the one-step `UPPER` chart and of the fast route.
+
+The no-SIMD and link-time-optimized builds were not re-measured for v0.3.1.

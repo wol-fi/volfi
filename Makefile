@@ -1,4 +1,4 @@
-# volfi v0.3.0 is header-only. The verification and benchmark harness lives in reproduce/;
+# volfi v0.3.1 is header-only. The verification and benchmark harness lives in reproduce/;
 # this top-level Makefile delegates to it.
 #
 #   make check   build and run the host-independent checks (accuracy + scalar==batch)

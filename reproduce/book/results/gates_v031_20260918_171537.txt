@@ -1,0 +1,137 @@
+== v0.3.1 gates ==  Fri Sep 18 17:15:37 CEST 2026
+-- book scalar gate
+[1] 40-DIGIT TRUTH SET, whole book: A 600 pts max 3.760e-16 (1.69 ULP), B 600 pts max 4.430e-16 (1.99 ULP), outside 0, pts>1e-15 = 0
+[2] MARKET FEED, 30000 quotes: region A 27337 (91.12%), region B 2660 (8.87%), shipped fallback 3 (0.01%)
+[4] nw_expm1 vs glibc expm1 on (0, 16.5]: worst 1.000 ULP at h=0.026401
+exit 0
+-- book twin 512
+[1] BIT-IDENTITY batch == scalar over 393806 quotes (A 34808, B 326364, shipped fallback 32634) : mismatches = 0
+[2] CODE agreement batch == scalar                : mismatches = 0
+[3] ACCURACY batch path, whole-book truth set (n=1200): max rel 4.430e-16 (1.99 ULP)  pts>1e-15 = 0
+-- book twin 256
+[1] BIT-IDENTITY batch == scalar over 393806 quotes (A 34808, B 326364, shipped fallback 32634) : mismatches = 0
+[2] CODE agreement batch == scalar                : mismatches = 0
+[3] ACCURACY batch path, whole-book truth set (n=1200): max rel 4.430e-16 (1.99 ULP)  pts>1e-15 = 0
+-- seam gate 512
+seam gate, 806000 quotes (283781 route UPPER): grid batch != scalar: 0 | book batch != book scalar: 0
+fast route: contradictions 0 (undecided 327033) | band-0 price form: contradictions 0 (undecided 198570)
+exit 0
+-- seam gate 256
+seam gate, 806000 quotes (283781 route UPPER): grid batch != scalar: 0 | book batch != book scalar: 0
+fast route: contradictions 0 (undecided 327033) | band-0 price form: contradictions 0 (undecided 198570)
+exit 0
+-- seam gate scl
+seam gate, 806000 quotes (283781 route UPPER): grid batch != scalar: 0 | book batch != book scalar: 0
+fast route: contradictions 0 (undecided 327033) | band-0 price form: contradictions 0 (undecided 198570)
+exit 0
+-- verify_vec ref 512
+exit 0
+BIT-IDENTITY scalar==batch:  grid=0  permuted=0  fixed-h=0
+   [A] n=30  max=8.2907e-16  median=0.0000e+00  pts>1e-15=0
+   [F] n=349  max=4.4857e-16  median=1.1108e-16  pts>1e-15=0
+   [N] n=1425  max=8.4473e-16  median=1.7080e-16  pts>1e-15=0
+   [U] n=965  max=4.3969e-16  median=0.0000e+00  pts>1e-15=0
+   [W] n=742  max=4.1633e-16  median=0.0000e+00  pts>1e-15=0
+WORST-30 (rel, h, c, tag):
+ROUTE census (grid): FAR=289 NEAR=1416 UPPER=1251 scalar/WING=555
+   (NEAR/UPPER SIMD-eligible 8-blocks per TILE depend on per-tile bucket fill;
+    total NEAR=1416 UPPER=1251 >> 8 so vector lanes are exercised on AVX-512)
+BIT-IDENTITY: PASS
+-- verify_vec new 512
+exit 0
+BIT-IDENTITY scalar==batch:  grid=0  permuted=0  fixed-h=0
+   [A] n=30  max=8.2907e-16  median=0.0000e+00  pts>1e-15=0
+   [F] n=349  max=4.1361e-16  median=1.1102e-16  pts>1e-15=0
+   [N] n=1425  max=8.4473e-16  median=1.7080e-16  pts>1e-15=0
+   [U] n=965  max=2.7636e-16  median=0.0000e+00  pts>1e-15=0
+   [W] n=742  max=4.1633e-16  median=0.0000e+00  pts>1e-15=0
+WORST-30 (rel, h, c, tag):
+ROUTE census (grid): FAR=289 NEAR=1416 UPPER=1251 scalar/WING=555
+   (NEAR/UPPER SIMD-eligible 8-blocks per TILE depend on per-tile bucket fill;
+    total NEAR=1416 UPPER=1251 >> 8 so vector lanes are exercised on AVX-512)
+BIT-IDENTITY: PASS
+-- verify_vec ref 256
+exit 0
+BIT-IDENTITY scalar==batch:  grid=0  permuted=0  fixed-h=0
+   [A] n=30  max=8.2907e-16  median=0.0000e+00  pts>1e-15=0
+   [F] n=349  max=4.4857e-16  median=1.1108e-16  pts>1e-15=0
+   [N] n=1425  max=8.4473e-16  median=1.7080e-16  pts>1e-15=0
+   [U] n=965  max=4.3969e-16  median=0.0000e+00  pts>1e-15=0
+   [W] n=742  max=4.1633e-16  median=0.0000e+00  pts>1e-15=0
+WORST-30 (rel, h, c, tag):
+ROUTE census (grid): FAR=289 NEAR=1416 UPPER=1251 scalar/WING=555
+   (NEAR/UPPER SIMD-eligible 8-blocks per TILE depend on per-tile bucket fill;
+    total NEAR=1416 UPPER=1251 >> 8 so vector lanes are exercised on AVX-512)
+BIT-IDENTITY: PASS
+-- verify_vec new 256
+exit 0
+BIT-IDENTITY scalar==batch:  grid=0  permuted=0  fixed-h=0
+   [A] n=30  max=8.2907e-16  median=0.0000e+00  pts>1e-15=0
+   [F] n=349  max=4.1361e-16  median=1.1102e-16  pts>1e-15=0
+   [N] n=1425  max=8.4473e-16  median=1.7080e-16  pts>1e-15=0
+   [U] n=965  max=2.7636e-16  median=0.0000e+00  pts>1e-15=0
+   [W] n=742  max=4.1633e-16  median=0.0000e+00  pts>1e-15=0
+WORST-30 (rel, h, c, tag):
+ROUTE census (grid): FAR=289 NEAR=1416 UPPER=1251 scalar/WING=555
+   (NEAR/UPPER SIMD-eligible 8-blocks per TILE depend on per-tile bucket fill;
+    total NEAR=1416 UPPER=1251 >> 8 so vector lanes are exercised on AVX-512)
+BIT-IDENTITY: PASS
+-- verify_vec ref scl
+exit 0
+BIT-IDENTITY scalar==batch:  grid=0  permuted=0  fixed-h=0
+   [A] n=30  max=8.2907e-16  median=0.0000e+00  pts>1e-15=0
+   [F] n=349  max=4.4857e-16  median=1.1108e-16  pts>1e-15=0
+   [N] n=1425  max=8.4473e-16  median=1.7080e-16  pts>1e-15=0
+   [U] n=965  max=4.3969e-16  median=0.0000e+00  pts>1e-15=0
+   [W] n=742  max=4.1633e-16  median=0.0000e+00  pts>1e-15=0
+WORST-30 (rel, h, c, tag):
+ROUTE census (grid): FAR=289 NEAR=1416 UPPER=1251 scalar/WING=555
+   (NEAR/UPPER SIMD-eligible 8-blocks per TILE depend on per-tile bucket fill;
+    total NEAR=1416 UPPER=1251 >> 8 so vector lanes are exercised on AVX-512)
+BIT-IDENTITY: PASS
+-- verify_vec new scl
+exit 0
+BIT-IDENTITY scalar==batch:  grid=0  permuted=0  fixed-h=0
+   [A] n=30  max=8.2907e-16  median=0.0000e+00  pts>1e-15=0
+   [F] n=349  max=4.1361e-16  median=1.1102e-16  pts>1e-15=0
+   [N] n=1425  max=8.4473e-16  median=1.7080e-16  pts>1e-15=0
+   [U] n=965  max=2.7636e-16  median=0.0000e+00  pts>1e-15=0
+   [W] n=742  max=4.1633e-16  median=0.0000e+00  pts>1e-15=0
+WORST-30 (rel, h, c, tag):
+ROUTE census (grid): FAR=289 NEAR=1416 UPPER=1251 scalar/WING=555
+   (NEAR/UPPER SIMD-eligible 8-blocks per TILE depend on per-tile bucket fill;
+    total NEAR=1416 UPPER=1251 >> 8 so vector lanes are exercised on AVX-512)
+BIT-IDENTITY: PASS
+-- accuracy_vs_lbr ref oracle_vec
+exit 0
+  ALL n=1103  |        inf        nan 9221190536343343104.00      |        inf        nan 9223343261651816448.00
+  worst ANNULUS: rel=inf at h=0.103281 c=0.2596148429267415 v_or=3.211426697968103e-322 region=L
+-- accuracy_vs_lbr new oracle_vec
+exit 0
+  ALL n=1103  |        inf        nan 9221120237041074176.00      |        inf        nan 9223343261651816448.00
+  worst ANNULUS: rel=inf at h=0.103281 c=0.2596148429267415 v_or=3.211426697968103e-322 region=L
+-- accuracy_vs_lbr ref oracle_stressed
+exit 0
+  ALL n=95    |  6.939e-16  1.351e-16    5.00      |  3.440e-14  4.394e-15  306.00
+  worst ANNULUS: rel=6.939e-16 at h=0.1 c=0.008751768145809595 v_or=0.1 region=L
+-- accuracy_vs_lbr new oracle_stressed
+exit 0
+  ALL n=95    |  6.939e-16  1.351e-16    5.00      |  3.440e-14  4.394e-15  306.00
+  worst ANNULUS: rel=6.939e-16 at h=0.1 c=0.008751768145809595 v_or=0.1 region=L
+-- accuracy_vs_lbr ref oracle_edge
+exit 0
+  ALL n=9     |  5.551e-16  2.099e-16    4.00      |  1.374e-04  4.581e-05 955232792138.00
+  worst ANNULUS: rel=5.551e-16 at h=0 c=0.9986257241241683 v_or=6.39999999999999 region=A
+-- accuracy_vs_lbr new oracle_edge
+exit 0
+  ALL n=9     |  5.551e-16  2.099e-16    4.00      |  1.374e-04  4.581e-05 955232792138.00
+  worst ANNULUS: rel=5.551e-16 at h=0 c=0.9986257241241683 v_or=6.39999999999999 region=A
+-- accuracy_vs_lbr ref oracle_heat
+exit 0
+  ALL n=16039 |  6.671e-16  9.724e-17    4.00      |  1.000e+00  1.117e-02 4600626167524467712.00
+  worst ANNULUS: rel=6.671e-16 at h=0.234497 c=0.006709432110749702 v_or=0.1664220183486239 region=L
+-- accuracy_vs_lbr new oracle_heat
+exit 0
+  ALL n=16039 |  6.671e-16  7.904e-17    4.00      |  1.000e+00  1.117e-02 4600626167524467712.00
+  worst ANNULUS: rel=6.671e-16 at h=0.234497 c=0.006709432110749702 v_or=0.1664220183486239 region=L
+== done Fri Sep 18 17:16:45 CEST 2026

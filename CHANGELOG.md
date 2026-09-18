@@ -15,6 +15,62 @@
 - Python and R bindings expose the book kernel (`implied_variance_book`, `volfi_w_book`).
 - `reproduce/make_oracle_sets.py` — the 40-digit oracle generator behind the accuracy sets.
 
+## v0.3.1
+
+Faster everywhere, same accuracy contract. On one core the book kernel's batch path takes 16.6 ns
+per quote on AVX-512 and 23.2 on AVX2 on the market feed (v0.3.0: 29 and 51), which is 11.6 and
+8.3 times the rate of Let's Be Rational. Every entry, scalar and batch, is now faster than the
+reference on every tile, including `UPPER`. Results are NOT bit-identical to v0.3.0 (rows trimmed,
+reconstruction fused, `UPPER` rebuilt); scalar, AVX2, AVX-512 and CUDA remain bit-identical to
+one another.
+
+### Changed
+- **Book kernel.** Region A evaluates 16 exact rows (was 17) and region B 16 (was 18); the dropped
+  rows contributed nothing at double precision. The reconstruction is `v = fma(t x, S1, t)` with
+  the rows summed from `m = 1`, so the leading term is not rounded twice. Truth-set errors fall
+  from 2.13 / 2.39 to 1.69 / 1.99 ULP; the 20,000-point boundary campaign from `5.7e-16` to
+  `5.3e-16` (40 worst rechecked at 60 digits).
+- **Book batch driver.** Each tile is processed in passes with short loop bodies: the coordinate
+  `a` for every register, then the kernels, with pure region-A registers evaluated in place and
+  all other lanes collected into per-tile lists; region B runs as a table pass and a row pass.
+  Lanes the kernel will decline are no longer evaluated by it (the reach test is repeated in
+  vector form, operation for operation). Per lane the arithmetic is unchanged.
+- **`UPPER` chart.** `a_U = h - 2 log(1 - c)`, `x0 = -Phi^{-1}(exp(-a_U/2)/2)` as a 12-term Chebyshev
+  series in `sqrt(a_U)`, a 13-coefficient seed in two bounded coordinates (worst seed error
+  `4.9e-5` over 5.2 million points), and exactly ONE Householder-3 step. The step's error
+  constant is bounded by 217/18 on the chart, so a seed within `9.5e-5` reaches `1e-15`. The
+  residual needs one exponential and two `erfcx`. No quantile kernel, no Mills ratio. Oracle gate
+  1.62 ULP (v0.3.0: 2.15); scalar 122 ns against 485. The old chart is kept as
+  `br::upper_variance_v030`.
+- **Routing.** A vector pre-filter (`detail::grid_upper_first`) classifies `UPPER` lanes with the
+  seam twins and evaluates them directly; it serves the grid batch, the speculative driver's
+  drain and the book batch's declined lanes. Single-quote calls test the seams in the book
+  coordinate (`volfi_annulus_fastroute_tables.hpp`): outside a margin of four fit errors the
+  decision is certain and equals the exact seam comparison, inside it the exact seams are used.
+  The context constructor no longer computes `exp(-h/2)` and `exp(h)`.
+- **GPU.** Device tables regenerated; one-step `UPPER` mirror; the book driver gained the
+  synthetic `UPPER` tile and a host-check mode exists for the routed driver
+  (`-DVGB_HOST_CHECK=1`). H100 PCIe: book kernel 0.061 ns per quote in file order and 0.031
+  sorted by `a` (0.072 / 0.032); `UPPER` chart alone 0.045 against 0.173.
+- **Timing protocol.** 31 passes of eight sweeps per cell (`BENCH_RUNS=31 REPEATS=8`). With seven
+  passes of four sweeps a batch cell lasts 13 ms at 16 ns per quote and its median is bimodal.
+
+### Added
+- `include/volfi/volfi_annulus_upper1_tables.hpp`, `volfi_annulus_fastroute_tables.hpp`.
+- `reproduce/book/seam_gate.cpp` (806,000 quotes on the seams and band edges at -2..+2 ulp: batch
+  == scalar, fast route never contradicts the exact route), `run_cpu_tiles.sh`, and the synthetic
+  `Upper*` tile plus `BENCH_TILES_ONLY` / `BENCH_WB_ONLY` in `cpu_all_bench.cpp`.
+- `reproduce/upper/`: the generators of the `UPPER` tables and of the fast-route tables, and the
+  2,465-point 40-digit truth file.
+- `gpu/make_upper1_cuda.py`.
+- `reproduce/book/results/*v031*`: the clean CPU campaign, the gates, the accuracy recomputation
+  on every oracle set, the 60-digit recheck, the `UPPER` gate and seed scan, the H100 session.
+
+### Not re-measured
+- The no-SIMD build and the link-time-optimized builds. Their v0.3.0 rows stand in
+  `cpu_all_20260914_185859_clean.txt`.
+- `docs/volfi_v0.3.0_paper.pdf` still describes v0.3.0.
+
 ## v0.3.0
 
 The book kernel. One straight-line evaluation with a single branch and a 63-term table that

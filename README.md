@@ -1,4 +1,4 @@
-# volfi v0.3.0: Fast Implied Volatility
+# volfi v0.3.1: Fast Implied Volatility
 
 `volfi` is a header-only C++17 reference implementation for inverting the Black–Scholes
 price-to-implied-volatility map at machine precision, at vector-hardware throughput.
@@ -16,7 +16,7 @@ Everything is a fixed sequence of fused multiply-adds shared by the scalar entry
 and AVX2 twins and the CUDA port, so batched results are **bit-identical** across instruction
 sets, compilers and the device.
 
-The accompanying paper (`docs/volfi_v0.3.0_paper.pdf`, *Implied Volatility in One Straight
+The accompanying paper (`docs/volfi_v0.3.0_paper.pdf`, which still describes v0.3.0 and will be replaced when the v0.3.1 manuscript is final; *Implied Volatility in One Straight
 Line: Machine Precision at Vector-Hardware Throughput*) documents the method, the accuracy
 campaigns and the timing methodology in full. The PDF holds the five-section article followed
 by its online appendix, which carries the proof of Proposition 1, the four routed charts, the
@@ -36,12 +36,12 @@ c = Phi(-h/v + v/2) - exp(h) * Phi(-h/v - v/2),   v = sigma*sqrt(T),
 **The book kernel** (`volfi_wb.hpp`). Form `a = log(1 + expm1(h)/c)`, the analyticity radius
 of the fixed-price branch, and `A0 = a G(a)` from a one-variable table (23 terms on
 `[0, 2 pi]`, 40 terms in `u = 1/sqrt(a)` on `[2 pi, 700]`). Below `a = 2 pi`, with
-`theta = h/a <= 0.35`, the variance is `v = t S(t^2, A0^2)`, `t = h/A0`, where `S` is a
-polynomial with exact rational coefficients (17 rows). Above `2 pi` the same rows, re-expanded
+`theta = h/a <= 0.35`, the total volatility is `v = t S(t^2, A0^2)`, `t = h/A0`, where `S` is a
+polynomial with exact rational coefficients (16 rows). Above `2 pi` the same rows, re-expanded
 in the conformal variable `q = z/(sqrt(1+z)+1)^2`, `z = h^2/(4 pi^2)`, reach `h <= min(4,
-0.16 a + 0.85)` (18 rows). A quote outside both regions falls through to the routed charts.
+0.16 a + 0.85)` (16 rows). A quote outside both regions falls through to the routed charts.
 
-**The routed charts** (`volfi_annulus_all.hpp`, v0.2.4 unchanged). A branchless predicate routes
+**The routed charts** (`volfi_annulus_all.hpp`; `UPPER` rebuilt in v0.3.1, the other three unchanged since v0.2.4). A branchless predicate routes
 each `(h, c)` to one of four charts by two frozen seam polynomials and integer tests on the
 IEEE-754 bit fields:
 
@@ -50,7 +50,7 @@ IEEE-754 bit fields:
 | `NEAR`  | `h < 0.3`, below the ceiling                        | matched small-moneyness expansion                              |
 | `FAR`   | `0.3 <= h <= 6.65`, between the two seams           | bivariate Chebyshev table in `W = h^2/(2w)`                    |
 | `WING`  | `c < c_w(h) = C(h, h/sqrt(7.6))`, i.e. `W >= 3.8`   | resurgent deep-OTM evaluator (erf-free), prices to `1e-320`    |
-| `UPPER` | `c > c_top(h) = C(h, 1.85)`, i.e. `v > 1.85`        | erf-free seed + fixed 3-step Householder on the exact equation |
+| `UPPER` | `c > c_top(h) = C(h, 1.85)`, i.e. `v > 1.85`        | 13-coefficient endpoint seed + exactly one Householder step    |
 
 ![Routing of the price domain into four charts, with a 2024 S&P 500 book overlaid](docs/figures/routing_map.png)
 
@@ -63,7 +63,7 @@ first three in one straight line.*
 ## Properties
 
 - **Machine precision, uniformly.** Against a 40-digit `mpmath` oracle the entry point's worst
-  relative error in `sigma` is `5.7e-16` (4 ULP) on a 20,000-point campaign concentrated on
+  relative error in `sigma` is `5.3e-16` (4 ULP) on a 20,000-point campaign concentrated on
   every switch of the book kernel, `5.3e-16` (3 ULP) on the 16,039-point regular grid, and
   `9.2e-16` for the routed charts alone; no validation set has a point above `1e-15`. The
   reference (Let's Be Rational) degrades to `5.1e-14` (426 ULP) near the intrinsic edge and in
@@ -94,21 +94,33 @@ authors' sources at its compile script's flags. Nanoseconds per quote, medians:
 
 | build                     | Let's Be Rational | PDE method (scalar) | routed scalar / batch | **book kernel** scalar / batch |
 |---------------------------|------------------:|--------------------:|----------------------:|-------------------------------:|
-| AVX-512, full feed        | 194               | 76                  | 289 / 45              | 118 / **29**                   |
-| AVX-512, batches of 64    |                   |                     | 75                    | **30**                         |
-| AVX2, full feed           | 193               | 86                  | 298 / 89              | 142 / **51**                   |
-| no SIMD, no hardware fma  | 220               | 89                  | 557 / 578             | 342 / 352                      |
+| AVX-512, full feed        | 193               | 78                  | 262 / 46              | 115 / **16.6**                 |
+| AVX-512, batches of 64    |                   |                     | 75                    | **18.9**                       |
+| AVX2, full feed           | 192               | 75                  | 263 / 85              | 116 / **23.2**                 |
+| AVX2, batches of 64       |                   |                     | 109                   | **25.1**                       |
+
+Medians of 31 passes of eight sweeps (`reproduce/book/results/cpu_all_v031_20260918_171645_clean.txt`).
+The build without SIMD and without hardware fma was not re-measured for v0.3.1; its v0.3.0 row
+(reference 220, book kernel 342 / 352) is in `cpu_all_20260914_185859_clean.txt`.
 
 ![All methods in one binary on the market feed, per instruction set](docs/figures/cpu_one_binary.png)
 
 In this figure and the GPU one below, the blue shades mark the methods that hold machine precision on the feed (Let's Be Rational, the routed charts, the book kernel) and red marks the PDE table method, whose worst error on the same feed is 1.2e-5.
 
-The book kernel's batch path is **6.7× (AVX-512) and 3.8× (AVX2) the reference's rate** and
-2.6× the PDE method's scalar evaluation; its scalar entry is 1.6× the reference on the
+The book kernel's batch path is **11.6× (AVX-512) and 8.3× (AVX2) the reference's rate** and
+4.7× the PDE method's scalar evaluation; its scalar entry is 1.7× the reference on the
 vector-capable builds. Branch by branch on region-filtered tiles (`NEAR` / `FAR` / `WING`) the
-batch path takes 25 / 38 / 39 ns against the reference's 188 / 248 / 249. Link-time
-optimization on every side moves the reference's row by three percent, so the translation-unit
-boundary is not what the table measures.
+batch path takes 15.6 / 16.4 / 20.7 ns against the reference's 186 / 245 / 249, and on a
+synthetic `UPPER` tile (the feed has no such quotes) 33.9 ns against 187, with the scalar entry
+at 161. In v0.3.0 link-time optimization on every side moved the reference's row by three
+percent, so the translation-unit boundary is not what the table measures.
+
+What changed against v0.3.0 (29 / 51 ns) is mostly the batch driver and not the arithmetic. One
+loop over expm1, division, log1p, table and rows is a dependency chain longer than the core's
+reorder window, so consecutive registers cannot overlap. v0.3.1 works through each tile in
+passes with short bodies (the coordinate `a` first, then the kernels, region B as a table pass
+and a row pass). Every lane executes the same operations as before, and batch == scalar holds
+bit for bit.
 
 Two limits, stated the same way in the paper. On the build without SIMD and without hardware
 fused multiply-add every explicit `fma` becomes a library call, and the reference is the faster
@@ -129,24 +141,31 @@ to about five million quotes:
 
 | workload                                              | ns per quote |
 |-------------------------------------------------------|-------------:|
-| routed charts, full book, bucket-ordered              | 0.078        |
+| routed charts, full book, bucket-ordered              | 0.079        |
 | recurrence kernel, `NEAR` feed tile                   | 0.021        |
-| **book kernel, full feed, sorted by `a`**             | **0.032**    |
-| book kernel, full feed, file order                    | 0.072        |
-| book kernel, with uploads and readback on every pass  | 1.12         |
-| PDE method (OpenCL, authors' code), with transfers    | 7.68         |
+| **book kernel, full feed, sorted by `a`**             | **0.031**    |
+| book kernel, full feed, file order                    | 0.061        |
+| book kernel with `UPPER` fallback, synthetic `UPPER` tile | 0.054    |
+| `UPPER` chart alone, one step (v0.3.0, three steps: 0.173) | 0.045   |
+| book kernel, with uploads and readback on every pass† | 1.12         |
+| PDE method (OpenCL, authors' code), with transfers†   | 7.68         |
+
+† Bound by the host link and not by the kernel. Both rows are from the v0.3.0 session, in which
+both methods ran on the same card. The other rows are the v0.3.1 session
+(`reproduce/book/results/gpu_v031_run_2026-09-18.txt`).
 
 ![GPU throughput, kernel-resident and with host transfers](docs/figures/gpu_book_kernel.png)
 
 The book kernel is kernel-resident fp64 throughput on datacenter hardware; consumer GPUs run
 double precision at 1/32 to 1/64 rate and will not reproduce it. The PDE method is six times
 slower under its own transfer-inclusive convention and ten orders of magnitude less accurate on
-the traded feed (`1.2e-5` worst against `4.9e-16`).
+the traded feed (`1.2e-5` worst against `6.2e-16`).
 
 Both figures are regenerated from the checked-in results by `reproduce/book/gen/make_readme_figures.py`.
 Sources in [`gpu/`](gpu). The device tables are generated from the CPU headers by
-`gpu/make_near_cuda.py` (book kernel) and `gpu/make_device_*.py` (routed charts); regenerate
-them before building, they are deliberately not checked in.
+`gpu/make_near_cuda.py` (book kernel), `gpu/make_device_*.py` (routed charts) and
+`gpu/make_upper1_cuda.py` (one-step `UPPER` constants and the device mirrors the book driver
+includes); regenerate them before building, they are deliberately not checked in.
 
 ## Build and use
 
@@ -189,7 +208,7 @@ g++ -std=c++17 -O3 -march=native -ffp-contract=off -fno-fast-math  your_code.cpp
 ## Verification and benchmarks
 
 `reproduce/` holds the v0.2.4 suite (accuracy, bit-identity, timing, golden oracle vectors,
-the exact build protocol and the reference run outputs), and `reproduce/book/` the v0.3.0
+the exact build protocol and the reference run outputs), and `reproduce/book/` the v0.3.0 and v0.3.1
 campaign: the book kernel's gates, the 40-digit truth sets including the 20,000-point
 boundary campaign and its scorer, the one-binary CPU harness with the reference and the PDE
 method, the branch-wise harnesses, the node-persistence measurement, the exact-row generator,
@@ -215,7 +234,7 @@ every accuracy table run without them; the comparison harnesses take their paths
   on CPU and H100) followed by the online appendix (proof, routed charts, hot path, offline
   construction, extended benchmarks, reproducibility).
 - [`docs/README.md`](docs/README.md) — documentation index.
-- [`CHANGELOG.md`](CHANGELOG.md) — what changed in v0.3.0.
+- [`CHANGELOG.md`](CHANGELOG.md) — what changed in v0.3.1 and v0.3.0.
 
 ## Domain conventions
 
@@ -232,7 +251,7 @@ every accuracy table run without them; the comparison harnesses take their paths
 The Python (`bindings/python`) and R (`bindings/r`) bindings expose the book kernel
 (`volfi.implied_variance_book(h, c)` returning `(w, code)` and `implied_volatility_book`;
 `volfi_w_book(h, c)` returning `$variance` and `$region`, and `volfi_iv_book` in R) alongside the
-routed v0.2 API, which is unchanged. Both report version 0.3.0, and both test suites pass.
+routed v0.2 API, which is unchanged. Both report version 0.3.1, and both test suites pass.
 
 ## Citation
 

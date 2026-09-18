@@ -33,7 +33,20 @@
 // SPX market feed these are ~0 quotes.
 // =============================================================================
 
+#ifndef VGB_HOST_CHECK
+#define VGB_HOST_CHECK 0
+#endif
+#if !VGB_HOST_CHECK
 #include <cuda_runtime.h>
+#else            // host-only build: strip the qualifiers, so the device mirrors run on the CPU against the reference
+#define __device__
+#define __constant__
+#define __host__
+#define __global__
+#include <cstring>
+static inline long long __double_as_longlong(double x) { long long u; std::memcpy(&u, &x, 8); return u; }
+static inline double __longlong_as_double(long long u) { double x; std::memcpy(&x, &u, 8); return x; }
+#endif
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -50,9 +63,10 @@
 // ---- device tables + constants (namespace volfi_annulus_gpu, mechanical copies)
 #include "volfi_annulus_tables_cuda.cuh"
 #include "volfi_constants_cuda.cuh"
+#include "volfi_upper1_cuda.cuh"
 
 // ---- host reference: the real library (namespace volfi_annulus) -------------
-#include "../volfi_annulus_all.hpp"
+#include "volfi_annulus_all.hpp"          // build with -I../include/volfi
 
 #define CUDA_CHECK(x) do { cudaError_t e_ = (x); if (e_ != cudaSuccess) { \
     std::printf("CUDA error %s at %s:%d\n", cudaGetErrorString(e_), __FILE__, __LINE__); \
@@ -423,6 +437,56 @@ __device__ inline double d_far_variance(double h2, double xh, int band, double c
 // =============================================================================
 //  Per-chart kernels over CONTIGUOUS bucket slices (grid-stride).
 // =============================================================================
+// ONE-STEP UPPER chart (== br::upper1_seed + br::upper_variance of v0.3.1, op for op).  No per-h host scalars.
+__device__ inline double d_upper1_variance(double h, double c) {
+    namespace U = volfi_annulus_gpu::upper1;
+    const double onec = 1.0 - c, h2 = h * h; const bool lo = (c < 0.5);
+    const double aU = h - 2.0 * d_full_log(onec);
+    const double ia = 1.0 / aU;
+    double s = sqrt(aU);
+    s = (s < U::S_LO) ? U::S_LO : ((s > U::S_HI) ? U::S_HI : s);
+    const double x0 = d_clenshaw1(U::X0C, U::NX0, U::S_LO, U::S_HI, s);
+    const double q  = h * ia;
+    const double om = 1.0 - q * q;
+    const double t  = q / (1.0 + sqrt(om > 0.0 ? om : 0.0));
+    const double zeta = t * t;
+    const double S = fma(2.0 / (U::SGMAX - U::SGMIN), x0 * x0 * ia - U::SGMIN, -1.0);
+    const double Z = fma(2.0 / U::ZMAX, zeta, -1.0);
+    double r0 = U::R0[5]; for (int j = 4; j >= 0; --j) r0 = fma(r0, Z, U::R0[j]);
+    double r1 = U::R1[3]; for (int j = 2; j >= 0; --j) r1 = fma(r1, Z, U::R1[j]);
+    const double r2 = fma(U::R2[1], Z, U::R2[0]);
+    const double R  = fma(fma(fma(U::R3[0], S, r2), S, r1), S, r0);
+    double x = fma(x0 * zeta, R, x0);
+    const double ix = 1.0 / x, d = 0.5 * h * ix, y = x - d, r = x + d;
+    const double ty = y * U::IS2, ay = fabs(ty);
+    const double sy = ay * ay, scy = fma(ay, ay, -sy);
+    const double p  = d_exp_neg(-sy) * (1.0 - scy);
+    const double er = d_erfcx_poly(r * U::IS2);
+    const double z  = lo ? -ty : ty;
+    const double ey = (z >= 0.0) ? d_erfcx_poly(z) : d_clenshaw1(U::ENEG_C, U::NENEG, U::ENEG_A, U::ENEG_B, z);
+    const double resid = lo ? (c - 0.5 * p * (ey - er)) : (0.5 * p * (ey + er) - onec);
+    const double u  = -resid / (U::TWO_K * p);
+    const double ix2 = ix * ix;
+    const double a  = fma(0.25 * h2, ix2 * ix, -x);
+    const double b  = fma(a, a, fma(-0.75 * h2, ix2 * ix2, -1.0));
+    const double au = a * u;
+    x = x - u * fma(-0.5, au, 1.0) / fma(b * u, u * (1.0 / 6.0), 1.0 - au);
+    const double v = 2.0 * x; return v * v;
+}
+#if VGB_HOST_CHECK
+int main() {                                   // transcription check on the CPU: device mirrors == library, bit for bit
+    unsigned long long gs = 0x9E3779B97F4A7C15ULL; auto rnd = [&]() { gs = gs * 6364136223846793005ULL + 1442695040888963407ULL; return (double)(gs >> 11) * (1.0 / 9007199254740992.0); };
+    auto Phi = [](double x) { return 0.5 * std::erfc(-x / std::sqrt(2.0)); };
+    long n = 0, m1 = 0, m0 = 0;
+    while (n < 1000000) { const double h = 1e-4 + 16.2 * rnd() * rnd(), v = 1.85 + 6.15 * rnd();
+        const double c = Phi(0.5 * v - h / v) - std::exp(h) * Phi(-0.5 * v - h / v);
+        if (!(c > 0.0 && c < 1.0) || 1.0 - c < 1e-15 || volfi_annulus::detail::grid_endpoint_route(h, c) != 2) continue; ++n;
+        const double a = d_upper1_variance(h, c), b = volfi_annulus::br::upper_variance(h, c); if (std::memcmp(&a, &b, 8)) ++m1;
+        const double a0 = d_upper_variance(h, c, std::exp(-0.5 * h), std::exp(h)), b0 = volfi_annulus::br::upper_variance_v030(h, c); if (std::memcmp(&a0, &b0, 8)) ++m0; }
+    std::printf("host check, %ld UPPER quotes: d_upper1_variance == br::upper_variance (one step): mismatches = %ld | control, v0.3.0 mirror == v0.3.0 chart: mismatches = %ld\n", n, m1, m0);
+    return (m1 == 0 && m0 == 0) ? 0 : 1;
+}
+#else
 __global__ void near_kernel(const double* h, const double* c, double* w, int n) {
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x)
         w[i] = d_near_variance(h[i], c[i]);
@@ -435,7 +499,7 @@ __global__ void far_kernel(const double* h, const double* c, const double* xh,
 __global__ void upper_kernel(const double* h, const double* c, const double* eh,
                              const double* ehp, double* w, int n) {
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x)
-        w[i] = d_upper_variance(h[i], c[i], eh[i], ehp[i]);
+        w[i] = d_upper1_variance(h[i], c[i]);          // v0.3.1: one step, eh / ehp unused
 }
 __global__ void wing_kernel(const double* h, const double* c, double* w, int n) {
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x)
@@ -783,3 +847,4 @@ int main(int argc, char** argv) {
     }
     return 0;
 }
+#endif // !VGB_HOST_CHECK

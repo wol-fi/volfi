@@ -13,7 +13,9 @@ nvidia-smi --query-gpu=name,driver_version,pcie.link.gen.current,pcie.link.width
 
 echo
 echo "=== build (sm_90, --fmad=false is required: device analogue of -ffp-contract=off) ==="
-nvcc -O3 -arch=sm_90 -std=c++17 --fmad=false -Xptxas -v volfi_gpu_book.cu -o volfi_gpu_book 2> build.log
+nvcc -O3 -arch=sm_90 -std=c++17 --fmad=false -Xptxas -v -I../include/volfi volfi_gpu_book.cu -o volfi_gpu_book 2> build.log
+echo "=== host self-check of the device mirrors (no GPU needed) ==="
+nvcc -O3 -std=c++17 --fmad=false -DVGB_HOST_CHECK=1 -x c++ -I../include/volfi volfi_gpu_book.cu -o vgb_hostcheck && ./vgb_hostcheck
 echo "BUILD OK"
 echo "--- occupancy gate: wing/left/right MUST be 0 bytes stack frame ---"
 grep -E "Compiling entry|stack frame|Used .* registers" build.log

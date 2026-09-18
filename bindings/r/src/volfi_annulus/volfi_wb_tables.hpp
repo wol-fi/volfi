@@ -16,7 +16,8 @@ static constexpr double NW_INV_4PI2 = 2.5330295910584443e-2;   // 1/(4 pi^2): z 
 static constexpr double NW_SA0      = 3.1830988618379067e-1;   // 2/(2 pi): xa = fma(a, NW_SA0, -1) in cell 0
 static constexpr double NW_SU1      = 5.5379290488542976;   // 2/(U_HI-U_LO): xu = fma(u, NW_SU1, NW_BU1), u = 1/sqrt(a)
 static constexpr double NW_BU1      = -1.2093140434512706;   // -(U_LO+U_HI)/(U_HI-U_LO)
-static constexpr int    NW_NG0 = 23, NW_NF1 = 40, NW_MA = 16, NW_NB = 18;
+// v0.3.1 evaluates region A rows 1..15 and region B rows 1..16; the arrays below still carry rows 16 (A) and 17, 18 (B) of v0.3.0.
+static constexpr int    NW_NG0 = 23, NW_NF1 = 40, NW_MA = 15, NW_NB = 16;
 static constexpr double NW_G0[23] = {
   3.8224015853096448e-1,-2.1050116070918079e-2,-3.5630703295439368e-3,
   7.8923839065617598e-4,-1.8688814532319482e-5,-1.9780489425557166e-5,

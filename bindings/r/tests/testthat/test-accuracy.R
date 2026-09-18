@@ -12,7 +12,7 @@ test_that("Annulus reference values match", {
   expect_equal(volfi_iv(ctx, cp, tt), sqrt(ww / tt), tolerance = 1e-14)
   expect_equal(volfi_w_otm(h, cp), ww, tolerance = 1e-14)
   expect_equal(volfi_iv_otm(h, cp, tt), sqrt(ww / tt), tolerance = 1e-14)
-  expect_equal(volfi_version(), "0.3.0")
+  expect_equal(volfi_version(), "0.3.1")
 })
 
 test_that("the book kernel agrees with the routed charts and reports its region", {
