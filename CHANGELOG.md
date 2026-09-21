@@ -51,23 +51,12 @@ one another.
 - `reproduce/book/results/*v031*`: the clean CPU campaign, the gates, the accuracy recomputation
   on every oracle set, the 60-digit recheck, the `UPPER` gate and seed scan, the H100 session.
 
-### Not re-measured
-- The no-SIMD build and the link-time-optimized builds. Their v0.3.0 rows stand in
-  `cpu_all_20260914_185859_clean.txt`.
-- `docs/volfi_v0.3.0_paper.pdf` still describes v0.3.0.
-
-### Repository layout
-- `docs/volfi_v0.3.0_paper.pdf` — the paper reorganized (2026-09-16) into a five-section
-  article followed by its online appendix in one PDF. The article now derives Proposition 1
-  from the deck form of the price equation, `M_rho(z+) = M_rho(z-)` for
-  `M_rho(z) = (Phi(z) + rho)/phi(z)`, which satisfies `M_rho' = 1 + z M_rho` and gives
-  `v'(h) = M_rho(z+-)` along the fixed-`rho` branch; the formal-series proof is unchanged in
-  the appendix. Numeric citations, calibrated accuracy claims, SIAM-style AI statement.
-- README figures `docs/figures/cpu_one_binary.png`, `gpu_book_kernel.png` restyled to the
-  paper's scheme (blue shades = machine precision on the feed, red = the PDE table method),
-  both vertical; `reproduce/book/gen/make_readme_figures.py` updated accordingly.
-- Python and R bindings expose the book kernel (`implied_variance_book`, `volfi_w_book`).
-- `reproduce/make_oracle_sets.py` — the 40-digit oracle generator behind the accuracy sets.
+### Completed on 2026-09-21
+- The no-SIMD and link-time-optimized builds, the routed inverter's chart-pure table, warm start and
+  batch-size sweep were re-measured on the release (`reproduce/results/v0.3.1/paper_rows_2026-09-21/`), and
+  bit identity across GCC 11 and Clang 14 was re-verified (`cross_compiler_2026-09-21.txt`).
+- `docs/volfi_v0.3.1_paper.pdf` replaces the v0.3.0 paper. Every number in it is a v0.3.1 measurement,
+  except the two transfer-bound GPU rows and the third-party runs.
 
 ## v0.3.0 documentation updates (2026-09-16)
 

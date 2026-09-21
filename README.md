@@ -21,7 +21,7 @@ Everything is a fixed sequence of fused multiply-adds shared by the scalar entry
 and AVX2 twins and the CUDA port, so batched results are **bit-identical** across instruction
 sets, compilers and the device.
 
-The accompanying paper (`docs/volfi_v0.3.0_paper.pdf`, which still describes v0.3.0 and will be replaced when the v0.3.1 manuscript is final; *Implied Volatility in One Straight
+The accompanying paper (`docs/volfi_v0.3.1_paper.pdf`, *Implied Volatility in One Straight
 Line: Machine Precision at Vector-Hardware Throughput*) documents the method, the accuracy
 campaigns and the timing methodology in full. The PDF holds the five-section article followed
 by its online appendix, which carries the proof of Proposition 1, the four routed charts, the
@@ -103,10 +103,10 @@ authors' sources at its compile script's flags. Nanoseconds per quote, medians:
 | AVX-512, batches of 64    |                   |                     | 75                    | **18.9**                       |
 | AVX2, full feed           | 192               | 75                  | 263 / 85              | 116 / **23.2**                 |
 | AVX2, batches of 64       |                   |                     | 109                   | **25.1**                       |
+| no SIMD, no hardware fma  | 231               | 92                  | 582 / 599             | 324 / 327                      |
 
-Medians of 31 passes of eight sweeps (`reproduce/results/v0.3.1/cpu_all_v031_20260918_171645_clean.txt`).
-The build without SIMD and without hardware fma was not re-measured for v0.3.1; its v0.3.0 row
-(reference 220, book kernel 342 / 352) is in `reproduce/results/v0.3.0/cpu_all_20260914_185859_clean.txt`.
+Medians of 31 passes of eight sweeps (`reproduce/results/v0.3.1/cpu_all_v031_20260918_171645_clean.txt`,
+the no-SIMD row from `paper_rows_2026-09-21/A_nosimd.txt`).
 
 ![All methods in one binary on the market feed, per instruction set](docs/figures/cpu_one_binary.png)
 
@@ -117,8 +117,9 @@ The book kernel's batch path is **11.6× (AVX-512) and 8.3× (AVX2) the referenc
 vector-capable builds. Branch by branch on region-filtered tiles (`NEAR` / `FAR` / `WING`) the
 batch path takes 15.6 / 16.4 / 20.7 ns against the reference's 186 / 245 / 249, and on a
 synthetic `UPPER` tile (the feed has no such quotes) 33.9 ns against 187, with the scalar entry
-at 161. In v0.3.0 link-time optimization on every side moved the reference's row by three
-percent, so the translation-unit boundary is not what the table measures.
+at 161. Link-time optimization on every side leaves the reference's row unchanged within one
+percent and moves the book kernel's batch path by about five percent, so the translation-unit
+boundary is not what the table measures.
 
 What changed against v0.3.0 (29 / 51 ns) is mostly the batch driver and not the arithmetic. One
 loop over expm1, division, log1p, table and rows is a dependency chain longer than the core's
@@ -245,7 +246,7 @@ every accuracy table run without them; the comparison harnesses take their paths
 
 ## Documentation
 
-- [`docs/volfi_v0.3.0_paper.pdf`](docs/volfi_v0.3.0_paper.pdf) — the paper (method,
+- [`docs/volfi_v0.3.1_paper.pdf`](docs/volfi_v0.3.1_paper.pdf) — the paper (method,
   Proposition 1 with its deck-involution derivation, accuracy campaigns, like-for-like timing
   on CPU and H100) followed by the online appendix (proof, routed charts, hot path, offline
   construction, extended benchmarks, reproducibility).
@@ -272,7 +273,7 @@ routed v0.2 API, which is unchanged. Both report version 0.3.1, and both test su
 ## Citation
 
 If this software, method, or benchmark informs research, software, or published results,
-please cite the repository and the accompanying paper (`docs/volfi_v0.3.0_paper.pdf`). See
+please cite the repository and the accompanying paper (`docs/volfi_v0.3.1_paper.pdf`). See
 [`NOTICE.md`](NOTICE.md).
 
 ## License

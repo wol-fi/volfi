@@ -1,6 +1,6 @@
 # Documentation
 
-- **[volfi_v0.3.0_paper.pdf](volfi_v0.3.0_paper.pdf)** — the paper, *Implied Volatility in
+- **[volfi_v0.3.1_paper.pdf](volfi_v0.3.1_paper.pdf)** — the paper, *Implied Volatility in
   One Straight Line: Machine Precision at Vector-Hardware Throughput*, a five-section article
   followed in the same PDF by its online appendix. The intrinsic coordinates and the exact
   rational rows (Proposition 1, derived in the article from the deck form of the price

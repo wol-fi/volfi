@@ -1,0 +1,9 @@
+== cross-compiler bit identity, v0.3.1 ==  Mon Sep 21 10:42:40 CEST 2026
+g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
+Ubuntu clang version 14.0.0-1ubuntu1.1
+g_512  fingerprint 3cf99a50ac0b (339430 lines)   book hex bed7c8138904 (393807 lines)   2 x mismatches=0
+g_256  fingerprint 3cf99a50ac0b (339430 lines)   book hex bed7c8138904 (393807 lines)   2 x mismatches=0
+g_scl  fingerprint 3cf99a50ac0b (339430 lines)   book hex bed7c8138904 (393807 lines)   2 x mismatches=0
+clang_512  fingerprint 3cf99a50ac0b (339430 lines)   book hex bed7c8138904 (393807 lines)   2 x mismatches=0
+clang_256  fingerprint 3cf99a50ac0b (339430 lines)   book hex bed7c8138904 (393807 lines)   2 x mismatches=0
+distinct fingerprint hashes: 1   distinct book hashes: 1   [both must be 1]

@@ -1,0 +1,14 @@
+== [B] 512, -flto on every side, 31 x 8 ==  Mon Sep 21 11:06:33 CEST 2026   cpu 11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz   load 1.05 0.55 0.22   pin: taskset -c 2 nice -n -5   repo v0.3.1
+=== CPU like-for-like, ISA=AVX-512, feed N=30000, 31 runs x 8 sweeps, one binary (-flto) ===
+  batch == scalar: routed mismatches=0  whole-book mismatches=0  [both must be 0]
+  ns/quote:  tile    |      LBR |  PDE scl  PDE iv1 |   RT scl RT batch |   WB scl WB batch |  LBR/WBb PDE/WBb
+[1] full feed
+  feed         30000 |   193.71 |    89.82    84.30 |   264.25    45.46 |   115.94    15.81 |  12.26  5.68
+  64-chunks    30000 |          |                   |             75.36 |             18.60 |
+[2] branch-wise, region-filtered tiles of 30000 (subset cycled)
+  Near         27574 |   183.60 |    81.85    78.35 |   260.18    25.77 |   114.72    16.47 |  11.14  4.97
+  Far           2084 |   244.91 |    75.77    66.78 |   162.66   225.97 |   129.95    17.27 |  14.18  4.39
+  Wing           342 |   247.76 |    73.89    66.35 |  1243.74   282.61 |   168.03    23.27 |  10.65  3.17
+  Upper*       30000 |   190.49 |   131.11   119.85 |   139.62    57.62 |   161.65    34.98 |   5.45  3.75
+  (* synthetic: feed h, v ~ U[1.9, 6.0], 30000 of 30000 candidates routed Upper; the whole-book columns are its fallback cost)
+load@end 1.10 0.63 0.26

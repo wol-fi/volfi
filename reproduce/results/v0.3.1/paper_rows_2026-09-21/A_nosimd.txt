@@ -1,0 +1,14 @@
+== [A] no SIMD, 31 x 8 ==  Mon Sep 21 11:04:15 CEST 2026   cpu 11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz   load 0.76 0.22 0.07   pin: taskset -c 2 nice -n -5   repo v0.3.1
+=== CPU like-for-like, ISA=scalar, feed N=30000, 31 runs x 8 sweeps, one binary ===
+  batch == scalar: routed mismatches=0  whole-book mismatches=0  [both must be 0]
+  ns/quote:  tile    |      LBR |  PDE scl  PDE iv1 |   RT scl RT batch |   WB scl WB batch |  LBR/WBb PDE/WBb
+[1] full feed
+  feed         30000 |   231.36 |    91.77    92.70 |   581.72   599.11 |   323.73   326.88 |   0.71  0.28
+  64-chunks    30000 |          |                   |            626.21 |            333.75 |
+[2] branch-wise, region-filtered tiles of 30000 (subset cycled)
+  Near         27574 |   215.53 |    83.44    85.43 |   540.40   551.65 |   316.45   322.20 |   0.67  0.26
+  Far           2084 |   280.19 |    74.97    74.62 |   451.62   560.52 |   347.98   351.25 |   0.80  0.21
+  Wing           342 |   282.06 |    76.38    75.84 |  3531.03  3653.70 |   397.95   421.40 |   0.67  0.18
+  Upper*       30000 |   220.35 |   166.45   169.46 |   247.28   435.06 |   298.08   753.86 |   0.29  0.22
+  (* synthetic: feed h, v ~ U[1.9, 6.0], 30000 of 30000 candidates routed Upper; the whole-book columns are its fallback cost)
+load@end 1.05 0.55 0.22

@@ -123,17 +123,19 @@ themselves. The shipped headers `volfi_annulus_upper1_tables.hpp` and
 | paper | harness | result file |
 |---|---|---|
 | Table 2 (accuracy), boundary campaign, market prices | `accuracy/wb_accuracy.cpp`, `wb_truth_score.cpp` | `results/v0.3.1/accuracy_v031_2026-09-18.txt`, `wb_boundary_recheck60_v031_2026-09-18.txt` |
-| Table 3 (CPU) and appendix Table 6, rows without a section mark | `bench/cpu_all_bench.cpp` | `results/v0.3.1/cpu_all_v031_20260918_171645_clean.txt` |
-| appendix Table 6, no-SIMD and LTO rows | `bench/cpu_all_bench.cpp` | `results/v0.3.0/cpu_all_20260914_185859_clean.txt` |
+| Table 3 (CPU) and appendix Table 6, feed and batches-of-64 rows | `bench/cpu_all_bench.cpp` | `results/v0.3.1/cpu_all_v031_20260918_171645_clean.txt` |
+| appendix Table 6, no-SIMD and LTO rows | `bench/cpu_all_bench.cpp` | `results/v0.3.1/paper_rows_2026-09-21/A_nosimd.txt`, `B_lto_*.txt` |
 | Table 4 (GPU), resident rows | `gpu/*.cu` | `results/v0.3.1/gpu_v031_run_2026-09-18.txt` |
 | Table 4, rows with host transfers, and the PDE method on the H100 | `gpu/run_near_gpu.sh`, `run_pde_gpu.sh` | `results/v0.3.0/gpu_near_run_2026-09-14c.txt`, `pde_gpu_run_2026-09-14b.txt` |
 | identity and seam gates | `check/` | `results/v0.3.1/gates_v031_20260918_171537.txt` |
 | one-step `UPPER` chart, seed margin | development harness, not shipped | `results/v0.3.1/upper_one_step_gate_2026-09-17_clean.txt`, `upper_seed_scan_2026-09-17.txt` |
-| appendix Table 7 (routed inverter, five repetitions) | `bench/benchmark_vec.cpp` | `results/v0.2/run512_*.txt`, `run256_*.txt` |
-| batch-size sweep, warm start | `bench/bench_sweep.cpp` | `results/v0.2/batchsweep.txt` |
+| appendix Table 7 (routed inverter, five repetitions), warm start | `bench/benchmark_vec.cpp` | `results/v0.3.1/paper_rows_2026-09-21/C_run512_*.txt`, `C_run256_*.txt` |
+| batch-size sweep | `bench/bench_sweep.cpp` | `results/v0.3.1/paper_rows_2026-09-21/D_batchsweep.txt` |
+| bit identity across GCC 11 and Clang 14 | `check/fingerprint.cpp`, `check/wb_vec_gate.cpp --hex` | `results/v0.3.1/cross_compiler_2026-09-21.txt` |
 | routed charts on the H100, July campaign | `gpu/volfi_gpu_book.cu` | `results/v0.2/gpu_run_2026-07-27.txt` |
 | PDE method per tile and per region, node persistence, fast-vollib | `bench/pde_*.cpp`, `persistence.cpp`, `fastvollib_feed.py` | `results/v0.3.0/` |
 
-The `v0.2` files carry the old chart labels `CENTRAL` / `LEFT` / `RIGHT` for `FAR` / `NEAR` /
-`UPPER`. Their `NEAR`, `FAR` and `WING` rows are still current, because those charts have not
-changed. Their `UPPER` rows describe the three-step chart that v0.3.1 replaced.
+`results/v0.2` and `results/v0.3.0` are the campaigns of the earlier releases, kept for comparison. The
+paper no longer cites them, except for the two transfer-bound GPU rows and the third-party runs
+listed above. The `v0.2` files carry the old chart labels `CENTRAL` / `LEFT` / `RIGHT` for `FAR` /
+`NEAR` / `UPPER`.

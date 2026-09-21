@@ -1,0 +1,59 @@
+== [C] benchmark_vec 512, repetition 2 of 5 ==  Mon Sep 21 11:08:51 CEST 2026   cpu 11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz   load 1.12 0.78 0.36   pin: taskset -c 2 nice -n -5   repo v0.3.1
+=== volfi-annulus Phase-7 BROAD benchmark  ISA=AVX-512 ===
+
+broad random grid: N=120000 feasible (from 250038 draws), v in [0.03,8], h up to 16.5
+
+=== BROAD-DOMAIN COVERAGE (N=120000) ===
+  route counts: WING=84044 NEAR=3106 FAR=19494 UPPER=13356 EDGE=0
+  NEW 4-chart coverage (WING+NEAR+FAR+UPPER) = 120000/120000 = 100.00%
+  OLD in-box fast path (FAR table + WING only)= 109421/120000 = 91.18%   [rest was crude fallback]
+  COVERAGE GAIN: 91.18% -> 100.00%
+
+GRIDBATCH_VS_SCALAR broad grid (canonical noinline entry): mismatches=0 (>1ulp=0)  [must be 0]
+
+=== ACCURACY vs construction v (per chart, rel-sigma) ===
+  WING     n=84044   max=2.461e-14 (110.85 ulp)  median=1.878e-16 (0.85 ulp)
+  NEAR     n=3106    max=1.985e-14 (89.39 ulp)  median=8.534e-16 (3.84 ulp)
+  FAR      n=19494   max=5.505e-15 (24.79 ulp)  median=1.906e-16 (0.86 ulp)
+  UPPER    n=13356   max=5.777e-16 (2.60 ulp)  median=1.153e-16 (0.52 ulp)
+
+=== PER-CHART TIMING (BENCH_RUNS=15 REPEATS=8), mixed broad grid subset per chart ===
+  FAR      n=19494   A_volfi=   78.7  B_lbr=  256.4  C_scalar=   69.7  D_gridbatch=  282.1  (ns/eval, median)
+  NEAR     n=3106    A_volfi=   74.3  B_lbr=  228.3  C_scalar=  174.2  D_gridbatch=   25.3  (ns/eval, median)
+  UPPER    n=13356   A_volfi=   70.3  B_lbr=  192.0  C_scalar=  150.2  D_gridbatch=   28.1  (ns/eval, median)
+  WING     n=84044   A_volfi=   94.4  B_lbr=  316.4  C_scalar= 1297.1  D_gridbatch=  275.6  (ns/eval, median)
+
+=== FULL broad mixed grid (all charts) ===
+TIMING mixed    B_lbr_all              median=  327.15  IQR=[  311.01,  331.48]  ns/eval
+TIMING mixed    C_scalar_all           median=  982.83  IQR=[  914.54, 1060.28]  ns/eval
+TIMING mixed    D_gridbatch_all        median=  285.33  IQR=[  273.22,  303.41]  ns/eval
+  batch speedup vs scalar = 3.44x (blended; FAR subset vectorized, endpoints scalar)
+
+=== FIXED-h SURFACE per chart (ns/eval median; Phase-8 D_batch vectorizes FAR+NEAR+UPPER) ===
+  -- FAR-clean surfaces (v above wing seam h/sqrt7.6, below v=1.85; chart-pure) --
+  FAR      h=1.00 v in [0.41,1.80] n=4096   A_volfi=   49.4  B_lbr=  170.3  C_scalar=   70.1  D_batch=   17.0
+  FAR      h=2.00 v in [0.77,1.80] n=4096   A_volfi=   61.5  B_lbr=  198.3  C_scalar=   68.4  D_batch=   16.1
+  FARc     h=1.00 v in [0.05,1.85] n=4096   A_volfi=   54.6  B_lbr=  195.8  C_scalar=  219.1  D_batch=  176.3  [MIXED: WING=17.4% FAR=82.6%]
+  -- NEAR-heavy surfaces (h<H_ATM_HI, v<=1.60; Phase-8 batch runs NEAR SIMD kernel) --
+  NEAR     h=0.10 v in [0.20,1.60] n=4096   A_volfi=   42.6  B_lbr=  140.4  C_scalar=  143.5  D_batch=   26.0
+  NEAR     h=0.20 v in [0.30,1.60] n=4096   A_volfi=   42.2  B_lbr=  140.4  C_scalar=  141.7  D_batch=   26.0
+  NEAR     h=0.28 v in [0.30,1.60] n=4096   A_volfi=   44.2  B_lbr=  146.2  C_scalar=  146.7  D_batch=   26.2
+  -- UPPER-heavy surfaces (v>2; Phase-8 batch runs UPPER SIMD kernel) --
+  UPPER    h=0.50 v in [2.10,8.00] n=4096   A_volfi=   60.3  B_lbr=  215.4  C_scalar=  143.6  D_batch=   30.6
+  UPPER    h=1.00 v in [2.10,8.00] n=4096   A_volfi=   60.3  B_lbr=  208.1  C_scalar=  143.2  D_batch=   30.7
+  UPPER    h=3.00 v in [2.10,8.00] n=4096   A_volfi=   60.0  B_lbr=  199.7  C_scalar=  142.8  D_batch=   30.4
+
+=== MARKET-REALISTIC FEED (2024 SPX tradeable, actual prices, N=30000) ===
+  GRIDBATCH_VS_SCALAR market feed (speculative driver): mismatches=0  [must be 0]
+  route mix: WING=1.14% NEAR=91.91% FAR=6.95% UPPER=0.00% EDGE=0.00%
+TIMING market   B_lbr_feed             median=  232.70  IQR=[  228.99,  242.74]  ns/eval
+TIMING market   C_scalar_feed          median=  313.43  IQR=[  311.45,  316.44]  ns/eval
+TIMING market   D_gridbatch_feed       median=   50.09  IQR=[   49.48,   51.85]  ns/eval
+  batch speedup vs scalar = 6.26x ; vs LBR scalar = 4.65x
+
+TIMING stream   E_warm2_feed           median=   37.15  IQR=[   36.74,   37.57]  ns/eval
+TIMING stream   E_warm3_feed           median=   56.13  IQR=[   55.90,   57.03]  ns/eval
+  warm-2step vs cold gridbatch = 1.35x faster ; vs LBR = 6.26x
+
+done.
+load@end 1.11 0.83 0.40
