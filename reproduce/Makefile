@@ -4,6 +4,7 @@
 #   make check       smoke, accuracy + scalar==batch identity, warm start, book kernel, seams (native build)
 #   make check-isa   the identity gates on AVX-512, AVX2 and the build without SIMD
 #   make smoke | verify | warm | book | seam      one gate
+#   make certify     ball-arithmetic certificate of the 1e-15 bound at every oracle point (python-flint)
 #   make clean
 #
 # The head-to-head benchmarks need Let's Be Rational and are built by bench/build_all.sh and
@@ -34,6 +35,13 @@ seam: out/seam_gate
 	cd data && ../out/seam_gate
 
 check: smoke verify warm book seam
+
+# Pointwise residual-bracket certificate (needs python-flint): proves the 1e-15 bound at every oracle point.
+PY ?= python3
+certify: | out
+	$(CXX) $(FLAGS) $(ARCH) $(INC) accuracy/bracket_dump.cpp -o out/bracket_dump
+	cd data && for s in wb_truth wb_truth_boundary near_truth upper_truth oracle_heat oracle_stressed oracle_edge; do ../out/bracket_dump $$s.bin > ../out/$$s.hex || exit 1; done
+	$(PY) accuracy/bracket_cert.py out
 
 check-isa: | out
 	for g in verify_vec wb_vec_gate seam_gate; do \

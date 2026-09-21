@@ -47,6 +47,7 @@ Expected from `make check`: `SMOKE PASS`, `BIT-IDENTITY: PASS` with `pts>1e-15 =
 | `accuracy/wb_accuracy.cpp` | LBR | book kernel in front, routed charts alone and Let's Be Rational on any oracle file, per region (the paper's accuracy table) |
 | `accuracy/accuracy_vs_lbr.cpp` | LBR | routed charts against LBR, with `--dump` for the heat map |
 | `accuracy/wb_truth_score.cpp` | nothing | scores any truth file per class and writes the 40 worst points to `<file>.worst`; `data/wb_truth_boundary.bin` is the 20,000-point campaign on every switch of the book kernel |
+| `accuracy/bracket_dump.cpp`, `bracket_cert.py` | python-flint (Arb) | the pointwise residual-bracket certificate of the paper's Appendix D: dumps the returned doubles exactly and proves `C(h,(1-eta)v) < c < C(h,(1+eta)v)` in ball arithmetic, 42,408 of 42,408 points certified at 1e-15 (`results/v0.3.1/bracket_cert_2026-09-21.txt`) |
 | `accuracy/make_oracle_sets.py` | mpmath | the oracle itself: `heat` regenerates `oracle_heat.bin`, `recheck FILE` re-inverts a set at 60 digits |
 
 ```bash

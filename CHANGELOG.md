@@ -1,5 +1,12 @@
 # Changelog
 
+## After v0.3.1 (no code change)
+
+- `make certify` in `reproduce/`: a pointwise certificate of the accuracy bound that needs no root
+  solve. The returned doubles are read back exactly and `C(h,(1-eta)v) < c < C(h,(1+eta)v)` is proved
+  in Arb ball arithmetic. All 42,408 oracle points certify at 1e-15
+  (`reproduce/results/v0.3.1/bracket_cert_2026-09-21.txt`). The paper states the proposition behind it.
+
 ## v0.3.1
 
 Faster everywhere, same accuracy contract. On one core the book kernel's batch path takes 16.6 ns
