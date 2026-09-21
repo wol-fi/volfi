@@ -128,8 +128,7 @@ bit for bit.
 
 One limit, stated the same way in the paper. The accuracy advantage does not show on tradeable
 quotes, where every solver considered is at its design precision. There the case is throughput and
-determinism. The kernels assume hardware fused multiply-add, which every x86 CPU since 2013 and
-every 64-bit ARM core provides.
+determinism. The kernels require hardware fused multiply-add (x86 with FMA3, or 64-bit ARM).
 
 The one public **vectorized** port of the reference, fast-vollib (Saqur 2026, Numba backend,
 one thread, same feed and host, loaded session), takes 411 ns per quote at a worst error of
