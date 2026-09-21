@@ -1,20 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Changed
-- `docs/volfi_v0.3.0_paper.pdf` — the paper reorganized (2026-09-16) into a five-section
-  article followed by its online appendix in one PDF. The article now derives Proposition 1
-  from the deck form of the price equation, `M_rho(z+) = M_rho(z-)` for
-  `M_rho(z) = (Phi(z) + rho)/phi(z)`, which satisfies `M_rho' = 1 + z M_rho` and gives
-  `v'(h) = M_rho(z+-)` along the fixed-`rho` branch; the formal-series proof is unchanged in
-  the appendix. Numeric citations, calibrated accuracy claims, SIAM-style AI statement.
-- README figures `docs/figures/cpu_one_binary.png`, `gpu_book_kernel.png` restyled to the
-  paper's scheme (blue shades = machine precision on the feed, red = the PDE table method),
-  both vertical; `reproduce/book/gen/make_readme_figures.py` updated accordingly.
-- Python and R bindings expose the book kernel (`implied_variance_book`, `volfi_w_book`).
-- `reproduce/make_oracle_sets.py` — the 40-digit oracle generator behind the accuracy sets.
-
 ## v0.3.1
 
 Faster everywhere, same accuracy contract. On one core the book kernel's batch path takes 16.6 ns
@@ -70,6 +55,19 @@ one another.
 - The no-SIMD build and the link-time-optimized builds. Their v0.3.0 rows stand in
   `cpu_all_20260914_185859_clean.txt`.
 - `docs/volfi_v0.3.0_paper.pdf` still describes v0.3.0.
+
+### Repository layout
+- `docs/volfi_v0.3.0_paper.pdf` — the paper reorganized (2026-09-16) into a five-section
+  article followed by its online appendix in one PDF. The article now derives Proposition 1
+  from the deck form of the price equation, `M_rho(z+) = M_rho(z-)` for
+  `M_rho(z) = (Phi(z) + rho)/phi(z)`, which satisfies `M_rho' = 1 + z M_rho` and gives
+  `v'(h) = M_rho(z+-)` along the fixed-`rho` branch; the formal-series proof is unchanged in
+  the appendix. Numeric citations, calibrated accuracy claims, SIAM-style AI statement.
+- README figures `docs/figures/cpu_one_binary.png`, `gpu_book_kernel.png` restyled to the
+  paper's scheme (blue shades = machine precision on the feed, red = the PDE table method),
+  both vertical; `reproduce/book/gen/make_readme_figures.py` updated accordingly.
+- Python and R bindings expose the book kernel (`implied_variance_book`, `volfi_w_book`).
+- `reproduce/make_oracle_sets.py` — the 40-digit oracle generator behind the accuracy sets.
 
 ## v0.3.0 documentation updates (2026-09-16)
 
