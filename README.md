@@ -146,8 +146,8 @@ to about five million quotes:
 |-------------------------------------------------------|-------------:|
 | routed charts, full book, bucket-ordered              | 0.079        |
 | recurrence kernel, `NEAR` feed tile                   | 0.021        |
-| **book kernel, full feed, sorted by `a`**             | **0.031**    |
-| book kernel, full feed, file order                    | 0.061        |
+| **book kernel, full feed, file order**                | **0.061**    |
+| book kernel, full feed, book kept partitioned by `a`  | 0.031        |
 | book kernel with `UPPER` fallback, synthetic `UPPER` tile | 0.054    |
 | `UPPER` chart alone, one step (v0.3.0, three steps: 0.173) | 0.045   |
 | book kernel, with uploads and readback on every pass† | 1.12         |
