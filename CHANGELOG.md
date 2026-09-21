@@ -71,6 +71,22 @@ one another.
   `cpu_all_20260914_185859_clean.txt`.
 - `docs/volfi_v0.3.0_paper.pdf` still describes v0.3.0.
 
+## v0.3.0 documentation updates (2026-09-16)
+
+### Changed
+- `reproduce/` reorganized by purpose: `check/`, `accuracy/`, `bench/`, `gen/`, `data/`, `results/`
+  (per release). One README maps every table of the paper to its harness and result file, and one
+  Makefile runs every gate (`make check`, `make check-isa`). Binaries build into `out/` and run from
+  `data/`. `reproduce/book/` and `reproduce/upper/` no longer exist. Older entries below use the old paths.
+- Generators write to `data/` and `include/volfi/` (they pointed at development-tree folders).
+
+### Removed
+- `include/volfi/volfi.hpp`, `volfi_fastpatch.hpp`, `volfi_logc_libm.hpp`: the v0.1 engine, referenced
+  by nothing. `paper_volfi.hpp` remains, the routed charts use it.
+- `reproduce/fixed_bench.cpp` (covered by `benchmark_vec.cpp`), `run_cpu_bench.sh` and its three
+  `bench_v030_*` outputs, and superseded result files (`gpu_near_run_2026-09-14` and `b`,
+  the first `pde_gpu_run_2026-09-14`). All remain in the git history.
+
 ## v0.3.0
 
 The book kernel. One straight-line evaluation with a single branch and a 63-term table that

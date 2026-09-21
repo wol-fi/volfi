@@ -4,7 +4,7 @@
   (2) R(X, Z): the endpoint surface, x = x0 (1 + zeta R), degree (1,2) in the normalized (x0, zeta), 6 doubles
   (3) erfcx on [-0.40, 0]: the one new special-function piece the one-exponential residual needs (note: bound is -0.3591)
 and of the oracle truth set upper_truth.bin (40-digit inverse of the GIVEN double price, seams over-sampled).
-Writes upper_v031_tables.hpp and upper_truth.bin next to this file.  Needs numpy, mpmath.
+Writes upper_v031_tables.hpp next to this file and ../data/upper_truth.bin.  Needs numpy, mpmath.
 """
 import math, os, struct, sys, random, time
 import numpy as np
@@ -106,7 +106,7 @@ for h, v in Q:
     c = float(C_mp(mp.mpf(h), mp.mpf(v)))
     if not (0.0 < c < 1.0) or 1.0 - c < 1e-15: continue
     out.append((h, c, float(truth(h, c))))
-with open(os.path.join(HERE, "upper_truth.bin"), "wb") as f:
+with open(os.path.join(HERE, "..", "data", "upper_truth.bin"), "wb") as f:
     f.write(struct.pack("<q", len(out)))
     for h, c, v in out: f.write(struct.pack("<3d", h, c, v))
 print("wrote upper_truth.bin: %d points, %.0f s" % (len(out), time.time() - t0))

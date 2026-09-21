@@ -14,4 +14,4 @@
 
 The paper is the authoritative technical reference; the top-level
 [README](../README.md) is the quick-start, [`reproduce/`](../reproduce) reproduces the v0.2.4
-suite and [`reproduce/book/`](../reproduce/book) the v0.3.0 campaign.
+suite, harnesses, generators and raw results.

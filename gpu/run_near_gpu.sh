@@ -9,7 +9,7 @@
 #
 # Expects: /w/include/volfi (the headers), /w/gpu (this script, the .cu, the generated .cuh
 # files from gpu/make_near_cuda.py), and in /w/gpu the run inputs market_feed.csv (not
-# redistributed, see reproduce/book/README.md) and near_truth.bin (copy from reproduce/book).
+# redistributed, see reproduce/README.md) and near_truth.bin (copy from reproduce/data).
 #
 # Three builds, one per book layout (-DNB_LAYOUT=1,2,3).  L1 is the design: one
 # cell over the whole a-range, straight-line, nothing to diverge on.  L2 and L3

@@ -1,109 +1,139 @@
-# Reproduce — verification and benchmarks for the routed inverter (v0.2.4 suite)
+# reproduce: checks, accuracy, benchmarks, generators, results
 
-A self-contained bundle that certifies the two invariants of the routed inverter and
-reproduces the v0.2 timing table. The v0.3.0 campaign of the book kernel lives in
-[`book/`](book/README.md); the routed charts and this suite are unchanged in v0.3.0.
-Note: `oracle_real.bin` (1,150 real-quote points) is no longer redistributed because it derives
-from the licensed OptionMetrics feed; `verify_vec` and the other checks do not use it. The library headers live in `../include/volfi`; the
-harness sources here include them by name, so every command below adds `-I../include/volfi`.
+Everything behind the numbers in the paper and in the top-level README. The folders are by
+purpose. `results/` is by release, because the paper's appendix still cites older campaigns.
 
-Build environment: Linux (or WSL2), GCC ≥ 11 or Clang ≥ 14. `-ffp-contract=off` is
-mandatory — it makes every fused multiply-add explicit in the source, which is what gives the
-scalar and SIMD paths bit-identical output across translation units, instruction sets, and
-compilers. Never use `-ffast-math`.
-
-```bash
-FLAGS="-std=c++17 -O3 -ffp-contract=off -fno-fast-math"
-INC="-I../include/volfi"
+```
+check/      gates without external inputs: accuracy, scalar == batch bit identity, seams
+accuracy/   scoring against the 40-digit oracle sets, with and without Let's Be Rational
+bench/      timing harnesses and their run scripts (need the feed, LBR and/or the PDE method)
+gen/        generators of every shipped table and truth file, and of the README figures
+data/       oracle and truth files; also the run directory of every binary
+results/    raw outputs: v0.3.1/, v0.3.0/, v0.2/
 ```
 
-## Contents
+Build flags everywhere: `-std=c++17 -O3 -ffp-contract=off -fno-fast-math -funroll-loops`, headers
+from `../include/volfi`. `-ffp-contract=off` is mandatory: it makes every fused multiply-add
+explicit in the source, which is what gives scalar, AVX2, AVX-512 and CUDA identical doubles.
+Never use `-ffast-math`. Linux or WSL2, GCC 11 or later.
 
-| file                     | needs LBR | what it certifies / does                                    |
-|--------------------------|-----------|-------------------------------------------------------------|
-| `smoke_test.cpp`         | no        | quick self-check; prints `SMOKE PASS`                       |
-| `verify_vec.cpp`         | no        | accuracy vs `mpmath` oracle + scalar==batch bit-identity    |
-| `warm_test.cpp`          | no        | streaming warm-start accuracy basin                         |
-| `fixed_bench.cpp`        | no        | fixed-`h` surface timing (no reference)                     |
-| `benchmark_vec.cpp`      | yes       | full timing table incl. LBR head-to-head + market feed      |
-| `accuracy_vs_lbr.cpp`    | yes       | side-by-side accuracy heatmap data vs LBR                   |
-| `bench_sweep.cpp`        | yes       | batch-size sweep behind the paper's latency figure          |
-| `bench_phases.cpp`       | no        | cold-driver phase breakdown (route / sort / kernel / drain) |
-| `feed_route_mix.cpp`     | no        | route mix of a quote file under the shipped classifier      |
-| `near_ceiling_sweep.cpp` | no        | the measurement that fixes the shared ceiling at `v = 1.85` |
-| `build_all.sh`           | partly    | builds every harness above in one command                   |
-| `fingerprint.cpp`        | no        | bitwise dump of every driver; proves a refactor changed nothing |
-| `oracle_*.bin`           | —         | 40-digit `mpmath` golden vectors (loaded by the above)      |
-| `make_oracle_sets.py`    | mpmath    | the oracle itself: `heat` regenerates `oracle_heat.bin` from its grid; `recheck FILE` re-inverts any shipped set at 60 digits |
-| `results/run*.txt`       | —         | reference outputs from the paper's quiet-host run           |
-| `results/batchsweep.txt` | —         | batch-size sweep output (the latency figure's data)         |
-| `results/gpu_run_*.txt`  | —         | raw output of the H100 campaign, both passes                |
-
-The checked-in `results/` files were produced by v0.2.3, so their per-chart rows still
-carry the old `CENTRAL`/`LEFT`/`RIGHT` labels. The numbers are unchanged — v0.2.4 is a
-rename only, and bitwise identical (see `fingerprint.cpp`) — so a fresh run reproduces them
-row for row under the new names.
-
-(The v0.1 baseline kernel `paper_volfi.hpp`, pulled in by both the engine and the comparison
-benchmark, ships in `../include/volfi` and is found via `-I../include/volfi`.)
-
-The oracle `.bin` files are loaded by relative path, so run each binary from this directory.
-
-## Standalone checks (no external dependencies)
+## Checks (no external inputs)
 
 ```bash
-g++ $FLAGS -march=native $INC smoke_test.cpp  -o smoke && ./smoke | tail -2
-g++ $FLAGS -march=native $INC verify_vec.cpp  -o vv    && ./vv     # BIT-IDENTITY: PASS, pts>1e-15 = 0
-g++ $FLAGS -march=native $INC warm_test.cpp   -o warm  && ./warm
-g++ $FLAGS -march=native $INC fixed_bench.cpp -o fb    && ./fb
+make check        # native build: smoke, verify, warm, book, seam
+make check-isa    # the identity gates on AVX-512, AVX2 and without SIMD
 ```
 
-Repeat `verify_vec` on the other instruction sets to confirm cross-ISA bit-identity:
+Binaries are built into `out/` and run from `data/`, because the truth files load by relative path.
+
+| file | what it certifies |
+|---|---|
+| `check/smoke_test.cpp` | quick self-check, prints `SMOKE PASS` |
+| `check/verify_vec.cpp` | accuracy on `oracle_vec.bin` per chart, and scalar == grid == permuted == fixed-h bit for bit |
+| `check/warm_test.cpp` | the warm-start basin and its bit identity |
+| `check/wb_vec_gate.cpp` | book kernel: SIMD twin == scalar on 363,806 quotes (393,806 with the feed), 1.99 ULP on the 1,200-point truth set |
+| `check/wb_gate.cpp` | book kernel per region on the truth set (1.69 / 1.99 ULP); with the feed also coverage (29,997 of 30,000) |
+| `check/seam_gate.cpp` | 806,000 quotes on both routing seams and the band edges at -2..+2 ulp: batch == scalar, and the fast scalar route never contradicts the exact route |
+| `check/rec_gate.cpp`, `rec_vec_gate.cpp` | the 11-row recurrence chart, an intermediate design the paper's appendix still measures (needs the feed) |
+| `check/fingerprint.cpp` | bitwise dump of every driver, for cross-compiler comparison or to prove that a refactor changed nothing |
+
+Expected from `make check`: `SMOKE PASS`, `BIT-IDENTITY: PASS` with `pts>1e-15 = 0`, `WARM PASS`,
+`mismatches = 0` three times, and `contradictions 0`.
+
+## Accuracy
+
+| file | needs | what it does |
+|---|---|---|
+| `accuracy/wb_accuracy.cpp` | LBR | book kernel in front, routed charts alone and Let's Be Rational on any oracle file, per region (the paper's accuracy table) |
+| `accuracy/accuracy_vs_lbr.cpp` | LBR | routed charts against LBR, with `--dump` for the heat map |
+| `accuracy/wb_truth_score.cpp` | nothing | scores any truth file per class and writes the 40 worst points to `<file>.worst`; `data/wb_truth_boundary.bin` is the 20,000-point campaign on every switch of the book kernel |
+| `accuracy/make_oracle_sets.py` | mpmath | the oracle itself: `heat` regenerates `oracle_heat.bin`, `recheck FILE` re-inverts a set at 60 digits |
 
 ```bash
-g++ $FLAGS -mavx2 -mfma -mno-avx512f $INC verify_vec.cpp -o vv_avx2 && ./vv_avx2
-g++ $FLAGS -mno-sse4.1 -mno-avx $INC          verify_vec.cpp -o vv_scalar && ./vv_scalar
+mkdir -p out && g++ -std=c++17 -O3 -ffp-contract=off -fno-fast-math -march=native -I../include/volfi accuracy/wb_truth_score.cpp -o out/score
+cd data && ../out/score wb_truth_boundary.bin      # book kernel 5.254e-16 (4 ULP), routed charts 9.203e-16, 0 above 1e-15
 ```
 
-All three must print `BIT-IDENTITY: PASS` and `pts>1e-15 = 0`, with identical accuracy tables.
+Every LBR figure forms its input as `beta = c * exp(-h/2)`. Forming it as `c / exp(h/2)` doubles
+its worst error.
 
-## Full timing table (requires Let's Be Rational)
+`oracle_real.bin` (1,150 real quotes) is not redistributed, because it derives from the licensed feed.
 
-The LBR head-to-head is not runnable out of the box: Jäckel's *Let's Be Rational* is his own
-copyrighted work and is **not** redistributed here. Obtain the sources
-(`lets_be_rational.cpp`, `erf_cody.cpp`, `normaldistribution.cpp`, `rationalcubic.cpp` and the
-`lets_be_rational.h` header) from the author's site, put them in a directory, and point `LBR`
-at it:
+## Benchmarks
+
+Three inputs are not redistributed.
+
+- **Let's Be Rational** (Jäckel, http://www.jaeckel.org/, revision 1520 was used). Put the
+  sources in `bench/third_party/LetsBeRational/` or pass the path.
+- **The PDE table method** (https://github.com/maticivan/PDE-method-for-implied-volatility) with
+  its `loadPartition.txt`, in `bench/third_party/PDE-method-for-implied-volatility/` or by path.
+- **The market feed** `data/market_feed.csv`: 30,000 lines `h c`, resampled from the tradeable
+  2024 S&P 500 population of a licensed OptionMetrics file. To regenerate it from your own
+  licence: one trading year, positive volume and open interest, the tradeability screen of the
+  paper, each option matched to its vendor forward by expiry and settlement convention, puts and
+  in-the-money calls projected to the out-of-the-money call by parity, then `h = |log(K/F)|` and
+  `c` = undiscounted OTM price over `min(F, K)`. Any file of `h c` pairs in that format works.
+
+| file | needs | what it does |
+|---|---|---|
+| `bench/cpu_all_bench.cpp`, `run_cpu_all.sh` | feed, LBR, PDE | THE CPU TABLE: all methods in one binary per instruction set, full feed, batches of 64, `NEAR` / `FAR` / `WING` tiles and a synthetic `Upper*` tile, each also with `-flto` |
+| `bench/run_cpu_tiles.sh` | feed, LBR, PDE | the tile rows alone |
+| `bench/wb_lbr_bench.cpp`, `run_lbr_compare.sh` | feed, LBR | the same without the PDE method |
+| `bench/benchmark_vec.cpp`, `build_all.sh` | LBR | routed inverter: chart-pure fixed-moneyness batches, the broad 120,000-quote grid, market feed, warm start |
+| `bench/bench_sweep.cpp` | LBR | batch-size sweep of the routed drivers |
+| `bench/bench_phases.cpp` | nothing | phase breakdown of the cold routed driver |
+| `bench/pde_compare.cpp`, `pde_branch.cpp`, `pde_regions.cpp` | feed, PDE | the PDE method's accuracy and timing, whole feed, per tile and per region; with `-DPDE_GPU` its OpenCL path |
+| `bench/persistence.cpp` | vendor file | persistence of the `a = 2 pi` partition over consecutive days (needs the licensed yearly file) |
+| `bench/feed_route_mix.cpp` | feed | route mix of a quote file |
+| `bench/dump_feed_ref.cpp`, `fastvollib_feed.py` | feed | reference values for scoring third-party Python libraries |
 
 ```bash
-LBR=/path/to/LetsBeRational
-g++ $FLAGS -march=native $INC -I"$LBR" -DNO_XL_API -w benchmark_vec.cpp \
-    "$LBR"/lets_be_rational.cpp "$LBR"/erf_cody.cpp \
-    "$LBR"/normaldistribution.cpp "$LBR"/rationalcubic.cpp -o bench_512
-
-g++ $FLAGS -mavx2 -mfma -mno-avx512f $INC -I"$LBR" -DNO_XL_API -w benchmark_vec.cpp \
-    "$LBR"/lets_be_rational.cpp "$LBR"/erf_cody.cpp \
-    "$LBR"/normaldistribution.cpp "$LBR"/rationalcubic.cpp -o bench_256
-
-for i in 1 2 3 4 5; do taskset -c 2 nice -n -5 ./bench_512 > results/run512_$i.txt; done
-for i in 1 2 3 4 5; do taskset -c 2 nice -n -5 ./bench_256 > results/run256_$i.txt; done
+BENCH_RUNS=31 REPEATS=8 BENCH_PIN="taskset -c 2 nice -n -5" bash bench/run_cpu_all.sh [LBR dir] [PDE dir]
 ```
 
-See `BENCHMARK_PROTOCOL.md` for machine preparation, the per-line → Table-4 mapping, and the
-invariants each run must satisfy. The reference outputs from the paper's run are in
-`results/`.
+Use 31 passes of eight sweeps. With the older 7 x 4 a batch cell lasts 13 ms at 16 ns per quote and
+its median is bimodal. `BENCH_TILES_ONLY=1` and `BENCH_WB_ONLY=1` restrict the run. Machine
+preparation and the invariants each run must satisfy are in `BENCHMARK_PROTOCOL.md`.
 
-## Market-feed row
+GPU: `../gpu/run_near_gpu.sh` (book driver) and `../gpu/run_gpu.sh` (routed driver), after
+`python3 make_near_cuda.py`, `make_device_constants.py`, `make_device_tables.py` and
+`make_upper1_cuda.py` in `../gpu`. Both drivers have a host self-check that needs no GPU
+(`-DNCG_HOST_CHECK=1`, `-DVGB_HOST_CHECK=1`).
 
-The paper's market row is driven by `market_feed.csv` — 30,000 normalized `(h, c)` pairs
-resampled from the 2024 SPX end-of-day *tradeable* option population. That population is
-derived from a **licensed OptionMetrics feed and is not distributed here.** When the file is
-absent, `benchmark_vec` prints `market_feed.csv not found (skipped)` and reports every other
-row normally.
+## Generators
 
-To regenerate it from your own licensed data: filter to a trading year, drop zero-volume /
-zero-open-interest quotes, match each option to its vendor forward, project puts and ITM calls
-to their OTM-call twin by put–call parity (`C - P = F - K`, undiscounted), and write one
-`h c` pair per line, where `h = |log(K/F)|` and `c` is the undiscounted OTM price divided by
-the forward. A resample of ~30k rows reproduces the paper's route mix (~90/5/5 percent
-left/wing/central).
+| file | needs | output |
+|---|---|---|
+| `gen/rows_exact.py` | mpmath, sympy | the exact rational rows `P_m` of Proposition 1 (`rows_P.json`) |
+| `gen/certified_wb.py` | mpmath | the two-cell table and the conformal rows: `include/volfi/volfi_wb_tables.hpp`, `data/wb_truth.bin` |
+| `gen/gen_upper_v031.py`, `gen_upper_one.py` | numpy, scipy, mpmath | the one-step `UPPER` chart: `erfcx` piece, quantile series, 13-coefficient seed, `data/upper_truth.bin` |
+| `gen/gen_fastroute.cpp` | nothing | the routing seams in the book coordinate, with margins |
+| `gen/make_truth.py`, `make_truth_wb_boundary.py` | mpmath | `data/near_truth.bin`, `data/wb_truth_boundary.bin`; `--recheck FILE` re-inverts a `.worst` file at 60 digits |
+| `gen/near_ceiling_sweep.cpp` | nothing | the measurement that fixes the shared ceiling at `v = 1.85` |
+| `gen/make_readme_figures.py` | matplotlib | the two README figures |
+
+`certified_wb.py` emits the full row arrays of v0.3.0. The shipped header sets `NW_MA = 15` and
+`NW_NB = 16`, so v0.3.1 evaluates sixteen rows in each region and leaves the last one (region A)
+and last two (region B) unused. The `UPPER` generators write research-format tables next to
+themselves. The shipped headers `volfi_annulus_upper1_tables.hpp` and
+`volfi_annulus_fastroute_tables.hpp` hold the same doubles.
+
+## Results, and which table they back
+
+| paper | harness | result file |
+|---|---|---|
+| Table 2 (accuracy), boundary campaign, market prices | `accuracy/wb_accuracy.cpp`, `wb_truth_score.cpp` | `results/v0.3.1/accuracy_v031_2026-09-18.txt`, `wb_boundary_recheck60_v031_2026-09-18.txt` |
+| Table 3 (CPU) and appendix Table 6, rows without a section mark | `bench/cpu_all_bench.cpp` | `results/v0.3.1/cpu_all_v031_20260918_171645_clean.txt` |
+| appendix Table 6, no-SIMD and LTO rows | `bench/cpu_all_bench.cpp` | `results/v0.3.0/cpu_all_20260914_185859_clean.txt` |
+| Table 4 (GPU), resident rows | `gpu/*.cu` | `results/v0.3.1/gpu_v031_run_2026-09-18.txt` |
+| Table 4, rows with host transfers, and the PDE method on the H100 | `gpu/run_near_gpu.sh`, `run_pde_gpu.sh` | `results/v0.3.0/gpu_near_run_2026-09-14c.txt`, `pde_gpu_run_2026-09-14b.txt` |
+| identity and seam gates | `check/` | `results/v0.3.1/gates_v031_20260918_171537.txt` |
+| one-step `UPPER` chart, seed margin | development harness, not shipped | `results/v0.3.1/upper_one_step_gate_2026-09-17_clean.txt`, `upper_seed_scan_2026-09-17.txt` |
+| appendix Table 7 (routed inverter, five repetitions) | `bench/benchmark_vec.cpp` | `results/v0.2/run512_*.txt`, `run256_*.txt` |
+| batch-size sweep, warm start | `bench/bench_sweep.cpp` | `results/v0.2/batchsweep.txt` |
+| routed charts on the H100, July campaign | `gpu/volfi_gpu_book.cu` | `results/v0.2/gpu_run_2026-07-27.txt` |
+| PDE method per tile and per region, node persistence, fast-vollib | `bench/pde_*.cpp`, `persistence.cpp`, `fastvollib_feed.py` | `results/v0.3.0/` |
+
+The `v0.2` files carry the old chart labels `CENTRAL` / `LEFT` / `RIGHT` for `FAR` / `NEAR` /
+`UPPER`. Their `NEAR`, `FAR` and `WING` rows are still current, because those charts have not
+changed. Their `UPPER` rows describe the three-step chart that v0.3.1 replaced.

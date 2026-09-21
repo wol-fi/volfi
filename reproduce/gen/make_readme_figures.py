@@ -2,19 +2,19 @@
 """make_readme_figures.py -- the two README figures of v0.3.0, from the checked-in results.
 
   docs/figures/cpu_one_binary.png   ns/quote on the market feed, all methods in one binary, per ISA
-                                    (reproduce/book/results/cpu_all_20260914_185859_clean.txt)
+                                    (reproduce/results/v0.3.0/cpu_all_20260914_185859_clean.txt)
   docs/figures/gpu_book_kernel.png  ns/quote on one H100 PCIe, kernel-resident and with transfers
                                     (results/gpu_near_run_2026-09-14*.txt, pde_gpu_run_2026-09-14*.txt,
                                     reproduce/results/gpu_run_2026-07-27.txt for the routed book)
 
-Run from anywhere:  python3 reproduce/book/gen/make_readme_figures.py
+Run from anywhere:  python3 reproduce/gen/make_readme_figures.py
 """
 from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-OUT = Path(__file__).resolve().parents[3] / "docs" / "figures"
+OUT = Path(__file__).resolve().parents[2] / "docs" / "figures"
 OUT.mkdir(parents=True, exist_ok=True)
 
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e6e5e1"
@@ -30,7 +30,7 @@ def style(ax):
     ax.yaxis.label.set_color(INK2); ax.xaxis.label.set_color(INK2)
 
 # ---------------------------------------------------------------- CPU, one binary
-# results/cpu_all_v031_20260918_171645_clean.txt, full feed, no LTO: LBR | PDE scalar | routed batch | book batch
+# results/v0.3.1/cpu_all_v031_20260918_171645_clean.txt, full feed, no LTO: LBR | PDE scalar | routed batch | book batch
 # (the no-SIMD build was not re-measured for v0.3.1; its v0.3.0 row is in cpu_all_20260914_185859_clean.txt)
 builds = ["AVX-512", "AVX2"]
 series = [

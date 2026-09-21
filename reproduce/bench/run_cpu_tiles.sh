@@ -4,14 +4,14 @@
 # the feed's Near / Far / Wing tiles and on the synthetic Upper tile, AVX-512 and AVX2 builds,
 # release flags on every side, no LTO.  A subset of run_cpu_all.sh for the tile rows alone.
 #
-#   BENCH_PIN="taskset -c 2 nice -n -5" bash reproduce/book/run_cpu_tiles.sh [LBR dir] [PDE dir]
+#   BENCH_PIN="taskset -c 2 nice -n -5" bash reproduce/bench/run_cpu_tiles.sh [LBR dir] [PDE dir]
 #
 # Same inputs and licences as run_cpu_all.sh (market_feed.csv, the reference's sources, the PDE
-# method's sources and loadPartition.txt, none redistributed).  Report: reproduce/book/out/cpu_tiles_<stamp>.txt.
+# method's sources and loadPartition.txt, none redistributed).  Report: reproduce/bench/out/cpu_tiles_<stamp>.txt.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INC="$(cd "$HERE/../../include/volfi" && pwd)"
-BR="$HERE"
+BR="$(cd "$HERE/../data" && pwd)"
 LBR="${1:-$HERE/third_party/LetsBeRational}"
 PDE="${2:-$HERE/third_party/PDE-method-for-implied-volatility}"
 [ -f "$BR/market_feed.csv" ] || { echo "no market_feed.csv in $BR (not redistributed; see README.md)"; exit 2; }

@@ -51,13 +51,14 @@ gpu/volfi_near_gpu_L*
 gpu/ncheck_L*
 gpu/build_L*.log
 gpu/*.tgz
-reproduce/book/out/
-reproduce/book/third_party/
-reproduce/book/market_feed.csv
-reproduce/book/market_feed_ref.txt
-reproduce/book/spx2024_otmcall_tradeable.csv
-reproduce/book/*.worst
-reproduce/book/loadPartition.txt
+reproduce/out/
+reproduce/bench/out/
+reproduce/bench/third_party/
+reproduce/data/market_feed.csv
+reproduce/data/market_feed_ref.txt
+reproduce/data/spx2024_otmcall_tradeable.csv
+reproduce/data/*.worst
+reproduce/data/loadPartition.txt
 
 # R package build outputs
 bindings/r/src/*.dll
@@ -68,4 +69,3 @@ bindings/r/src/*.o
 gpu/volfi_upper1_cuda.cuh
 gpu/volfi_device_mirrors.cuh
 gpu/vgb_hostcheck
-reproduce/book/wbvg

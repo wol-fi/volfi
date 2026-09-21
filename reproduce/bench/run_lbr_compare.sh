@@ -2,7 +2,7 @@
 # run_lbr_compare.sh -- accuracy on the manuscript's oracle sets and like-for-like market-feed
 # timing of the whole-book chart, the routed inverter and Let's Be Rational, one binary each.
 #
-#   bash reproduce/book/run_lbr_compare.sh [/path/to/LetsBeRational]
+#   bash reproduce/bench/run_lbr_compare.sh [/path/to/LetsBeRational]
 # The reference's sources are not redistributed (http://www.jaeckel.org/); market_feed.csv is
 # not redistributed either (licensed OptionMetrics origin, see README.md).
 #
@@ -15,11 +15,11 @@
 # timing loop exactly as our header-only kernels are; if its row does not move, the call
 # boundary is not what the table measures.
 # Builds: wbacc (native), wblbr_{512,256,scl} and wblbr_{512,256,scl}_lto.  Runs from bench_run.
-# Output: reproduce/book/out/lbr_compare_<stamp>.txt (and to the terminal).
+# Output: reproduce/bench/out/lbr_compare_<stamp>.txt (and to the terminal).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INC="$(cd "$HERE/../../include/volfi" && pwd)"
-BR="$HERE"
+BR="$(cd "$HERE/../data" && pwd)"
 LBR="${1:-$HERE/third_party/LetsBeRational}"
 [ -f "$BR/market_feed.csv" ] || { echo "no market_feed.csv in $BR (not redistributed; see README.md)"; exit 2; }
 [ -f "$LBR/lets_be_rational.cpp" ] || { echo "no lets_be_rational.cpp in $LBR"; exit 2; }
@@ -47,7 +47,7 @@ lbr_objs() {
   echo "   ours $OURS"
   echo
   echo "################ accuracy on the manuscript's oracle sets (native build)"
-  O=$(lbr_objs 512 "") && g++ $OURS -march=native "$HERE/wb_accuracy.cpp" $O -o "$OUT/wbacc" && \
+  O=$(lbr_objs 512 "") && g++ $OURS -march=native "$HERE/../accuracy/wb_accuracy.cpp" $O -o "$OUT/wbacc" && \
     ( cd "$BR" && "$OUT/wbacc" oracle_heat.bin oracle_stressed.bin oracle_edge.bin )
   for isa in 512 256 scl; do
     echo "################ timing $isa"

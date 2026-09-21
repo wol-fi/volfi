@@ -1,5 +1,10 @@
 # Reproducing the timing results
 
+> This protocol was written for the routed inverter (the v0.2 campaign behind appendix Table 7) and is
+> still the reference for machine preparation and for the routed benchmarks. The book kernel's table is
+> produced by `bench/run_cpu_all.sh` with `BENCH_RUNS=31 REPEATS=8`, see `README.md`. Paths below follow
+> the current layout: sources in `check/` and `bench/`, binaries in `out/`, run directory `data/`.
+
 > **Chart names.** The four charts are `NEAR` (small moneyness, `h < 0.3`), `FAR` (the Chebyshev
 > table, `0.3 <= h <= H_BOX`), `WING` (deep OTM, below the wing seam) and `UPPER` (large
 > volatility, above the ceiling). Paper and source use the same names.
@@ -45,11 +50,9 @@ Everything is built by one script, which encodes the flags and the reference-sol
 list. Use it rather than assembling command lines by hand:
 
 ```bash
-cd bench_run
-./build_all.sh "/path/to/LetsBeRational"
+make check-isa                                        # the gates, three instruction sets
+bash bench/build_all.sh "/path/to/LetsBeRational"     # bench_512, bench_256, bench_sweep, bench_phases into out/
 ```
-
-It produces `smoke_512/256/scl`, `vv_512/256/scl`, `bench_512`, `bench_256` and `bp`.
 
 Two things it gets right that a hand-written command line usually does not. The reference
 solver's folder ships Excel, Octave and Python bindings beside the four sources actually
@@ -82,15 +85,14 @@ Timings need a quiet machine; correctness does not.
 ## 3. Correctness gates (host-independent — must pass before any timing)
 
 ```bash
-for b in smoke_512 smoke_256 smoke_scl; do ./$b | tail -1; done
-for b in vv_512 vv_256 vv_scl; do ./$b; done
+make check && make check-isa
 ```
 
-Each `smoke_*` must print `SMOKE PASS`. Each `vv_*` must print:
+`smoke_test` must print `SMOKE PASS`. Each `verify_vec` build must print:
 
 - `BIT-IDENTITY scalar==batch:  grid=0  permuted=0  fixed-h=0`
 - `ACCURACY sqrt(w) vs oracle:  n=3511  pts>1e-15=0`
-- per-chart worst errors `[A] 8.29e-16  [F] 4.49e-16  [N] 8.45e-16  [U] 4.40e-16  [W] 4.16e-16`
+- per-chart worst errors `[A] 8.29e-16  [F] 4.14e-16  [N] 8.45e-16  [U] 2.76e-16  [W] 4.16e-16` (v0.3.1)
 
 All three builds — AVX-512, AVX2, scalar — must print the **same** accuracy numbers and zero
 mismatches. That equality across instruction sets is the determinism claim; a difference
@@ -105,8 +107,9 @@ anywhere is a real failure, not tolerance.
 ## 4. Throughput
 
 ```bash
-for i in 1 2 3 4 5; do taskset -c 2 nice -n -5 ./bench_512 > run512_$i.txt; done
-for i in 1 2 3 4 5; do taskset -c 2 nice -n -5 ./bench_256 > run256_$i.txt; done
+cd data
+for i in 1 2 3 4 5; do taskset -c 2 nice -n -5 ../out/bench_512 > run512_$i.txt; done
+for i in 1 2 3 4 5; do taskset -c 2 nice -n -5 ../out/bench_256 > run256_$i.txt; done
 ```
 
 Take medians across the five repetitions. Each internal row is itself a median over fifteen
@@ -135,7 +138,7 @@ method pays its own per-quote input transform within the timed loop.
 Splits the cold market-feed cost into its components. Needs no reference solver.
 
 ```bash
-g++ $FLAGS -march=native bench_phases.cpp -o bp && taskset -c 2 nice -n -5 ./bp
+cd data && taskset -c 2 nice -n -5 ../out/bench_phases
 ```
 
 ## 6. Reference results

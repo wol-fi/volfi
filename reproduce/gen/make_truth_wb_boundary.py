@@ -117,11 +117,11 @@ for i in range(n_total - len(recs)):
         a = TWO_PI + (A_MAX - TWO_PI) * mp.mpf(rnd.random()) ** 3; h = h_b(a) * mp.mpf(rnd.random()) ** 0.5
     add(h, a, 'fill')
     if len(recs) % 1000 == 0: print("  %d points, %.0f s" % (len(recs), time.time() - t0), flush=True)
-out = os.path.join(HERE, "..", "gate", "wb_truth_boundary.bin")
+out = os.path.join(HERE, "..", "data", "wb_truth_boundary.bin")
 with open(out, "wb") as f:
     f.write(struct.pack("<q", len(recs)))
     for r in recs: f.write(struct.pack("<3d", *r))
-with open(os.path.join(HERE, "..", "gate", "wb_truth_boundary.tags"), "w") as f:
+with open(os.path.join(HERE, "..", "data", "wb_truth_boundary.tags"), "w") as f:
     for t in tags: f.write(t + "\n")
 from collections import Counter
 print("wrote %s: %d points in %.0f s; by class: %s" % (out, len(recs), time.time() - t0, dict(Counter(tags))))

@@ -7,7 +7,7 @@
 # Expects /w/pde/ = the authors' sources + loadPartition.txt (NOT redistributed: clone
 # https://github.com/maticivan/PDE-method-for-implied-volatility, MIT, and fetch its 46 MB table
 # as its README says), /w/gpu/market_feed.csv (not redistributed either), and the harnesses
-# reproduce/book/pde_compare.cpp and pde_branch.cpp copied to /w/gpu; our headers in /w/include/volfi.
+# reproduce/bench/pde_compare.cpp and pde_branch.cpp copied to /w/gpu; our headers in /w/include/volfi.
 set -e
 export PATH=/usr/local/cuda/bin:$PATH
 cd /w/pde

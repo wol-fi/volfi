@@ -4,22 +4,22 @@
 # region-filtered tiles (cpu_all_bench.cpp), plus the accuracy of all of them on the manuscript's
 # oracle sets (wb_accuracy.cpp for LBR/routed/whole-book, pde_regions.cpp for the PDE method).
 #
-#   bash reproduce/book/run_cpu_all.sh [/path/to/LetsBeRational] [/path/to/PDE-method-for-implied-volatility]
+#   bash reproduce/bench/run_cpu_all.sh [/path/to/LetsBeRational] [/path/to/PDE-method-for-implied-volatility]
 #
 # Third-party sources are NOT redistributed here (their licences are not ours to pass on):
 #   Let's Be Rational: the author's sources from http://www.jaeckel.org/ (LetsBeRational.7z)
 #   PDE method:        git clone https://github.com/maticivan/PDE-method-for-implied-volatility
 #                      (MIT) and download its loadPartition.txt (46 MB) as its README says
 # The market feed (market_feed.csv, 30,000 "h c" lines) derives from a licensed OptionMetrics
-# file and is not redistributed either; see reproduce/book/README.md for the recipe.
+# file and is not redistributed either; see reproduce/README.md for the recipe.
 #
 # Flags: the reference at its Makefile's release flags (-O3 -DNDEBUG -ffp-contract=fast); the PDE
 # method at its compile script's (-O2 -fopenmp, std=c++11); ours at -O3 -ffp-contract=off.  Each
-# ISA also once with -flto on every side.  Report: reproduce/book/out/cpu_all_<stamp>.txt.
+# ISA also once with -flto on every side.  Report: reproduce/bench/out/cpu_all_<stamp>.txt.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INC="$(cd "$HERE/../../include/volfi" && pwd)"
-BR="$HERE"                                   # run directory: truth files, market_feed.csv, oracle_*.bin
+BR="$(cd "$HERE/../data" && pwd)"                                   # run directory: truth files, market_feed.csv, oracle_*.bin
 LBR="${1:-$HERE/third_party/LetsBeRational}"
 PDE="${2:-$HERE/third_party/PDE-method-for-implied-volatility}"
 [ -f "$BR/market_feed.csv" ] || { echo "no market_feed.csv in $BR (not redistributed; see README.md)"; exit 2; }
@@ -48,7 +48,7 @@ cp -n "$PDE/loadPartition.txt" "$BR/loadPartition.txt" 2>/dev/null; COPIED_PART=
   echo "   LBR  $LBR  (its Makefile's flags)   PDE $PDE  (its compile script's flags)"
   echo
   echo "################ accuracy on the manuscript's oracle sets"
-  O=$(objs 512 "") && g++ $OURS -march=native "$HERE/wb_accuracy.cpp" $O -o "$OUT/wbacc" && ( cd "$BR" && "$OUT/wbacc" oracle_heat.bin oracle_stressed.bin oracle_edge.bin )
+  O=$(objs 512 "") && g++ $OURS -march=native "$HERE/../accuracy/wb_accuracy.cpp" $O -o "$OUT/wbacc" && ( cd "$BR" && "$OUT/wbacc" oracle_heat.bin oracle_stressed.bin oracle_edge.bin )
   g++ $OURS -march=native "$HERE/pde_regions.cpp" $O -o "$OUT/pde_regions" && ( cd "$BR" && "$OUT/pde_regions" )
   for isa in 512 256 scl; do
     echo "################ timing $isa"

@@ -99,9 +99,9 @@ authors' sources at its compile script's flags. Nanoseconds per quote, medians:
 | AVX2, full feed           | 192               | 75                  | 263 / 85              | 116 / **23.2**                 |
 | AVX2, batches of 64       |                   |                     | 109                   | **25.1**                       |
 
-Medians of 31 passes of eight sweeps (`reproduce/book/results/cpu_all_v031_20260918_171645_clean.txt`).
+Medians of 31 passes of eight sweeps (`reproduce/results/v0.3.1/cpu_all_v031_20260918_171645_clean.txt`).
 The build without SIMD and without hardware fma was not re-measured for v0.3.1; its v0.3.0 row
-(reference 220, book kernel 342 / 352) is in `cpu_all_20260914_185859_clean.txt`.
+(reference 220, book kernel 342 / 352) is in `reproduce/results/v0.3.0/cpu_all_20260914_185859_clean.txt`.
 
 ![All methods in one binary on the market feed, per instruction set](docs/figures/cpu_one_binary.png)
 
@@ -152,7 +152,7 @@ to about five million quotes:
 
 † Bound by the host link and not by the kernel. Both rows are from the v0.3.0 session, in which
 both methods ran on the same card. The other rows are the v0.3.1 session
-(`reproduce/book/results/gpu_v031_run_2026-09-18.txt`).
+(`reproduce/results/v0.3.1/gpu_v031_run_2026-09-18.txt`).
 
 ![GPU throughput, kernel-resident and with host transfers](docs/figures/gpu_book_kernel.png)
 
@@ -161,7 +161,7 @@ double precision at 1/32 to 1/64 rate and will not reproduce it. The PDE method 
 slower under its own transfer-inclusive convention and ten orders of magnitude less accurate on
 the traded feed (`1.2e-5` worst against `6.2e-16`).
 
-Both figures are regenerated from the checked-in results by `reproduce/book/gen/make_readme_figures.py`.
+Both figures are regenerated from the checked-in results by `reproduce/gen/make_readme_figures.py`.
 Sources in [`gpu/`](gpu). The device tables are generated from the CPU headers by
 `gpu/make_near_cuda.py` (book kernel), `gpu/make_device_*.py` (routed charts) and
 `gpu/make_upper1_cuda.py` (one-step `UPPER` constants and the device mirrors the book driver
@@ -205,19 +205,30 @@ g++ -std=c++17 -O3 -march=native -ffp-contract=off -fno-fast-math  your_code.cpp
 
 `-ffp-contract=off` is required for the bit-identity guarantee. Never use `-ffast-math`.
 
+## Headers
+
+Everything is in `include/volfi`. Include one of the two entry headers, the rest follows.
+
+| header | role |
+|---|---|
+| `volfi_wb.hpp`, `volfi_wb_vec.hpp` | **entry point**: the book kernel with the routed charts behind it, scalar and batch (`volfi_wb_tables.hpp` is its table) |
+| `volfi_annulus_all.hpp` | **entry point**: the routed charts alone, scalar, batch, warm start and checked API |
+| `volfi_annulus.hpp`, `volfi_annulus_wing.hpp`, `volfi_annulus_*tables.hpp`, `volfi_annulus_broadrange.hpp`, `volfi_annulus_endpoint_vec.hpp` | the routed charts, their drivers and frozen tables |
+| `volfi_near_certified*.hpp` | the log1p kernel and the intrinsic-coordinate helpers the book kernel uses |
+| `paper_volfi.hpp` | the v0.1 baseline kernel, used by the routed charts for a few shared functions |
+| `volfi_near_rec*.hpp`, `volfi_near_book*.hpp` | **experimental**: two intermediate designs (11-row recurrence chart, 12-cell table) that the paper's appendix and the GPU driver still measure. Not needed to use the library |
+
 ## Verification and benchmarks
 
-`reproduce/` holds the v0.2.4 suite (accuracy, bit-identity, timing, golden oracle vectors,
-the exact build protocol and the reference run outputs), and `reproduce/book/` the v0.3.0 and v0.3.1
-campaign: the book kernel's gates, the 40-digit truth sets including the 20,000-point
-boundary campaign and its scorer, the one-binary CPU harness with the reference and the PDE
-method, the branch-wise harnesses, the node-persistence measurement, the exact-row generator,
-and the raw outputs of the quiet-host and H100 runs. See [`reproduce/README.md`](reproduce/README.md)
-and [`reproduce/book/README.md`](reproduce/book/README.md).
+[`reproduce/`](reproduce/README.md) holds everything behind the numbers, sorted by purpose: `check/` (gates
+without external inputs), `accuracy/` (scoring against the 40-digit oracle sets), `bench/` (timing
+harnesses), `gen/` (generators of every table and truth file), `data/` (oracle and truth files) and
+`results/` (raw outputs per release). Its README maps every table of the paper to a harness and a
+result file.
 
 ```
-make book      # book kernel: SIMD twin == scalar on 393,806 quotes, 2.39 ULP worst on the truth set
-make check     # v0.2.4 suite: SMOKE PASS, BIT-IDENTITY grid=0 permuted=0 fixed-h=0, pts>1e-15 = 0
+make book      # book kernel: SIMD twin == scalar, 1.99 ULP worst on the truth set
+make check     # every gate: SMOKE PASS, BIT-IDENTITY grid=0 permuted=0 fixed-h=0, pts>1e-15 = 0, seams
 ```
 
 Three inputs are **not redistributed** because their licences are not ours to pass on: the

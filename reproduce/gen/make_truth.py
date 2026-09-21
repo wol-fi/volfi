@@ -68,7 +68,7 @@ for (h, c) in pts:
     if res > mp.mpf('1e-32'): continue
     out.append((hd, cd, float(v)))
 
-p = os.path.join(os.path.dirname(__file__), "..", "gate", "near_truth.bin")
+p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "near_truth.bin")
 with open(p, "wb") as f:
     f.write(struct.pack("<q", len(out)))
     for (h, c, v) in out:

@@ -14,11 +14,11 @@ without independent validation and appropriate integration work.
 
 - **Let's Be Rational** (Peter Jäckel) is used only as the reference solver in the optional
   comparison benchmarks (`reproduce/benchmark_vec.cpp`, `reproduce/accuracy_vs_lbr.cpp`,
-  `reproduce/book/wb_accuracy.cpp`, `wb_lbr_bench.cpp`, `cpu_all_bench.cpp`). It is the author's
+  `reproduce/accuracy/wb_accuracy.cpp`, `reproduce/bench/wb_lbr_bench.cpp`, `cpu_all_bench.cpp`). It is the author's
   own copyrighted work and is **not** redistributed here; obtain it from http://www.jaeckel.org/
   to run those files. Nothing else in the repository depends on it.
 - **The PDE method for implied volatility** (Matić, Radoičić, Stefanica; MIT licence) is the
-  second comparison in the paper (`reproduce/book/pde_*.cpp`, `gpu/run_pde_gpu.sh`). Its sources
+  second comparison in the paper (`reproduce/bench/pde_*.cpp`, `gpu/run_pde_gpu.sh`). Its sources
   and its 46 MB coefficient file are **not** redistributed; clone
   https://github.com/maticivan/PDE-method-for-implied-volatility and follow its README.
 - The market-feed workload in the paper's timing table is derived from a **licensed

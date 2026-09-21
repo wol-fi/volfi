@@ -15,7 +15,7 @@ Two regions, one branch at a = 2 pi that also selects the table cell:
 Table of G: cell 0 on [0, 2 pi] in a, cell 1 on [2 pi, A_MAX] in u = 1/sqrt(a).
 Validation of the assembled chart against the 40-digit solve in both regions, a
 conditioning check of the q-series (largest term over |S|), and a truth set for the
-gates (gate/wb_truth.bin).  Emits ../src/volfi_wb_tables.hpp.
+gates (data/wb_truth.bin).  Emits include/volfi/volfi_wb_tables.hpp.
 """
 import os, sys, json, time, struct, random
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -188,7 +188,7 @@ print("  region B (%d pts): worst rel %.3e at (h=%.4g, a=%.4g);  q-series condit
 print("  (%.0fs)" % (time.time() - t0))
 
 # ------------------------------------------------------------- truth set
-tp = os.path.join(HERE, "..", "gate", "wb_truth.bin")
+tp = os.path.join(HERE, "..", "data", "wb_truth.bin")
 rnd = random.Random(23)
 recs = []
 for i in range(1200):
@@ -265,6 +265,6 @@ L.append("};")
 L.append("")
 L.append("} // namespace volfi_wb")
 L.append("#endif")
-out = os.path.join(HERE, "..", "src", "volfi_wb_tables.hpp")
+out = os.path.join(HERE, "..", "..", "include", "volfi", "volfi_wb_tables.hpp")
 open(out, "w", encoding="utf-8").write(chr(10).join(L) + chr(10))
 print("emitted: G %d + %d, P %d, D %d doubles -> %s" % (len(cG0), len(cG1), len(flatP), len(flatD), out))
