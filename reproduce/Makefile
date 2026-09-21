@@ -4,7 +4,7 @@
 #   make check       smoke, accuracy + scalar==batch identity, warm start, book kernel, seams (native build)
 #   make check-isa   the identity gates on AVX-512, AVX2 and the build without SIMD
 #   make smoke | verify | warm | book | seam      one gate
-#   make certify     ball-arithmetic certificate of the 1e-15 bound at every oracle point (python-flint)
+#   make certify     ball-arithmetic certificate of the 1e-15 bound at every oracle point (needs Arb)
 #   make clean
 #
 # The head-to-head benchmarks need Let's Be Rational and are built by bench/build_all.sh and
@@ -36,12 +36,12 @@ seam: out/seam_gate
 
 check: smoke verify warm book seam
 
-# Pointwise residual-bracket certificate (needs python-flint): proves the 1e-15 bound at every oracle point.
-PY ?= python3
+# Pointwise residual-bracket certificate (needs Arb): proves the 1e-15 bound at every oracle point.
+# Arb 2 links with -lflint-arb -lflint, FLINT 3 with ARBLIBS=-lflint.
+ARBLIBS ?= -lflint-arb -lflint
 certify: | out
-	$(CXX) $(FLAGS) $(ARCH) $(INC) accuracy/bracket_dump.cpp -o out/bracket_dump
-	cd data && for s in wb_truth wb_truth_boundary near_truth upper_truth oracle_heat oracle_stressed oracle_edge; do ../out/bracket_dump $$s.bin > ../out/$$s.hex || exit 1; done
-	$(PY) accuracy/bracket_cert.py out
+	$(CXX) $(FLAGS) $(ARCH) $(INC) accuracy/bracket_cert.cpp -o out/bracket_cert $(ARBLIBS)
+	cd data && ../out/bracket_cert 1e-15 wb_truth.bin wb_truth_boundary.bin near_truth.bin upper_truth.bin oracle_heat.bin oracle_stressed.bin oracle_edge.bin
 
 check-isa: | out
 	for g in verify_vec wb_vec_gate seam_gate; do \

@@ -1,21 +1,21 @@
-wb_truth           eps=1e-15  n=  1200 certified=  1200 failed=   0 unresolved=0  min margin -F-/c=7.650e-16 F+/c=5.992e-16  max prec=256
-wb_truth           eps=6e-16  n=  1200 certified=  1200 failed=   0 unresolved=0  min margin -F-/c=3.529e-16 F+/c=2.245e-16  max prec=256
-wb_truth_boundary  eps=1e-15  n= 20000 certified= 20000 failed=   0 unresolved=0  min margin -F-/c=6.045e-16 F+/c=5.043e-16  max prec=256
-wb_truth_boundary  eps=6e-16  n= 20000 certified= 20000 failed=   0 unresolved=0  min margin -F-/c=2.227e-16 F+/c=1.255e-16  max prec=256
-near_truth         eps=1e-15  n=  2600 certified=  2600 failed=   0 unresolved=0  min margin -F-/c=2.034e-16 F+/c=2.770e-16  max prec=256
-near_truth         eps=6e-16  n=  2600 certified=  2588 failed=  12 unresolved=0  min margin -F-/c=3.713e-18 F+/c=2.409e-17  max prec=256
+wb_truth.bin           eps=1e-15 n=  1200 certified=  1200 failed=   0 unresolved=0  min margin -F-/c=7.650e-16 F+/c=5.992e-16  max prec=256
+wb_truth_boundary.bin  eps=1e-15 n= 20000 certified= 20000 failed=   0 unresolved=0  min margin -F-/c=6.045e-16 F+/c=5.043e-16  max prec=256
+near_truth.bin         eps=1e-15 n=  2600 certified=  2600 failed=   0 unresolved=0  min margin -F-/c=2.034e-16 F+/c=2.770e-16  max prec=256
+upper_truth.bin        eps=1e-15 n=  2465 certified=  2465 failed=   0 unresolved=0  min margin -F-/c=1.191e-18 F+/c=1.046e-18  max prec=256
+oracle_heat.bin        eps=1e-15 n= 16039 certified= 16039 failed=   0 unresolved=0  min margin -F-/c=1.188e-18 F+/c=9.752e-19  max prec=256
+oracle_stressed.bin    eps=1e-15 n=    95 certified=    95 failed=   0 unresolved=0  min margin -F-/c=1.624e-18 F+/c=1.020e-18  max prec=256
+oracle_edge.bin        eps=1e-15 n=     9 certified=     9 failed=   0 unresolved=0  min margin -F-/c=1.757e-18 F+/c=1.548e-18  max prec=256
+TOTAL eps=1e-15 n=42408 certified=42408 failed=0 unresolved=0
+wb_truth.bin           eps=6e-16 n=  1200 certified=  1200 failed=   0 unresolved=0  min margin -F-/c=3.529e-16 F+/c=2.245e-16  max prec=256
+wb_truth_boundary.bin  eps=6e-16 n= 20000 certified= 20000 failed=   0 unresolved=0  min margin -F-/c=2.227e-16 F+/c=1.255e-16  max prec=256
      fail h=1.8529536810949945e-05 c=0.4647990199928228 vhat=1.2401876373158938 code=0
      fail h=2.1554767310696874e-05 c=0.54068539212844824 vhat=1.4799681487665459 code=0
      fail h=6.1798555551053423e-05 c=0.61656485856834586 vhat=1.743212228936043 code=0
      fail h=8.1626426944793871e-05 c=0.40786503978957633 vhat=1.0715594555335901 code=0
      fail h=0.064137703108288119 c=0.62380976991689807 vhat=1.8139120833106852 code=0
-upper_truth        eps=1e-15  n=  2465 certified=  2465 failed=   0 unresolved=0  min margin -F-/c=1.191e-18 F+/c=1.046e-18  max prec=256
-upper_truth        eps=6e-16  n=  2465 certified=  2465 failed=   0 unresolved=0  min margin -F-/c=6.779e-19 F+/c=5.275e-19  max prec=256
-oracle_heat        eps=1e-15  n= 16039 certified= 16039 failed=   0 unresolved=0  min margin -F-/c=1.188e-18 F+/c=9.752e-19  max prec=256
-oracle_heat        eps=6e-16  n= 16039 certified= 16039 failed=   0 unresolved=0  min margin -F-/c=7.552e-19 F+/c=5.174e-19  max prec=256
-oracle_stressed    eps=1e-15  n=    95 certified=    95 failed=   0 unresolved=0  min margin -F-/c=1.624e-18 F+/c=1.020e-18  max prec=256
-oracle_stressed    eps=6e-16  n=    95 certified=    95 failed=   0 unresolved=0  min margin -F-/c=1.051e-18 F+/c=4.915e-19  max prec=256
-oracle_edge        eps=1e-15  n=     9 certified=     9 failed=   0 unresolved=0  min margin -F-/c=1.757e-18 F+/c=1.548e-18  max prec=256
-oracle_edge        eps=6e-16  n=     9 certified=     9 failed=   0 unresolved=0  min margin -F-/c=1.096e-18 F+/c=8.873e-19  max prec=256
-TOTAL eps=1e-15 n=42408 certified=42408 unresolved=0
-TOTAL eps=6e-16 n=42408 certified=42396 unresolved=0
+near_truth.bin         eps=6e-16 n=  2600 certified=  2588 failed=  12 unresolved=0  min margin -F-/c=3.713e-18 F+/c=2.409e-17  max prec=256
+upper_truth.bin        eps=6e-16 n=  2465 certified=  2465 failed=   0 unresolved=0  min margin -F-/c=6.779e-19 F+/c=5.275e-19  max prec=256
+oracle_heat.bin        eps=6e-16 n= 16039 certified= 16039 failed=   0 unresolved=0  min margin -F-/c=7.552e-19 F+/c=5.174e-19  max prec=256
+oracle_stressed.bin    eps=6e-16 n=    95 certified=    95 failed=   0 unresolved=0  min margin -F-/c=1.051e-18 F+/c=4.915e-19  max prec=256
+oracle_edge.bin        eps=6e-16 n=     9 certified=     9 failed=   0 unresolved=0  min margin -F-/c=1.096e-18 F+/c=8.873e-19  max prec=256
+TOTAL eps=6e-16 n=42408 certified=42396 failed=12 unresolved=0
