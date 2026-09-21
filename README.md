@@ -1,5 +1,10 @@
-# volfi v0.3.1: Fast Implied Volatility
+# volfi
+Fast Black–Scholes implied volatility.
+- **Machine precision** (worst error 5.3e-16)
+- **Vectorized** (17 ns per quote on one CPU core)
+- **GPU-ready** (0.06 ns per quote on an H100)
 
+---
 `volfi` is a header-only C++17 reference implementation for inverting the Black–Scholes
 price-to-implied-volatility map at machine precision, at vector-hardware throughput.
 
