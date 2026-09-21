@@ -52,7 +52,7 @@ one another.
   on every oracle set, the 60-digit recheck, the `UPPER` gate and seed scan, the H100 session.
 
 ### Completed on 2026-09-21
-- The no-SIMD and link-time-optimized builds, the routed inverter's chart-pure table, warm start and
+- The link-time-optimized builds, the routed inverter's chart-pure table, warm start and
   batch-size sweep were re-measured on the release (`reproduce/results/v0.3.1/paper_rows_2026-09-21/`), and
   bit identity across GCC 11 and Clang 14 was re-verified (`cross_compiler_2026-09-21.txt`).
 - `docs/volfi_v0.3.1_paper.pdf` replaces the v0.3.0 paper. Every number in it is a v0.3.1 measurement,

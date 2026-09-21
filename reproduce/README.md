@@ -124,7 +124,7 @@ themselves. The shipped headers `volfi_annulus_upper1_tables.hpp` and
 |---|---|---|
 | Table 2 (accuracy), boundary campaign, market prices | `accuracy/wb_accuracy.cpp`, `wb_truth_score.cpp` | `results/v0.3.1/accuracy_v031_2026-09-18.txt`, `wb_boundary_recheck60_v031_2026-09-18.txt` |
 | Table 3 (CPU) and appendix Table 6, feed and batches-of-64 rows | `bench/cpu_all_bench.cpp` | `results/v0.3.1/cpu_all_v031_20260918_171645_clean.txt` |
-| appendix Table 6, no-SIMD and LTO rows | `bench/cpu_all_bench.cpp` | `results/v0.3.1/paper_rows_2026-09-21/A_nosimd.txt`, `B_lto_*.txt` |
+| appendix Table 6, LTO rows | `bench/cpu_all_bench.cpp` | `results/v0.3.1/paper_rows_2026-09-21/B_lto_*.txt` |
 | Table 4 (GPU), resident rows | `gpu/*.cu` | `results/v0.3.1/gpu_v031_run_2026-09-18.txt` |
 | Table 4, rows with host transfers, and the PDE method on the H100 | `gpu/run_near_gpu.sh`, `run_pde_gpu.sh` | `results/v0.3.0/gpu_near_run_2026-09-14c.txt`, `pde_gpu_run_2026-09-14b.txt` |
 | identity and seam gates | `check/` | `results/v0.3.1/gates_v031_20260918_171537.txt` |

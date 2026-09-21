@@ -103,10 +103,8 @@ authors' sources at its compile script's flags. Nanoseconds per quote, medians:
 | AVX-512, batches of 64    |                   |                     | 75                    | **18.9**                       |
 | AVX2, full feed           | 192               | 75                  | 263 / 85              | 116 / **23.2**                 |
 | AVX2, batches of 64       |                   |                     | 109                   | **25.1**                       |
-| no SIMD, no hardware fma  | 231               | 92                  | 582 / 599             | 324 / 327                      |
 
-Medians of 31 passes of eight sweeps (`reproduce/results/v0.3.1/cpu_all_v031_20260918_171645_clean.txt`,
-the no-SIMD row from `paper_rows_2026-09-21/A_nosimd.txt`).
+Medians of 31 passes of eight sweeps (`reproduce/results/v0.3.1/cpu_all_v031_20260918_171645_clean.txt`).
 
 ![All methods in one binary on the market feed, per instruction set](docs/figures/cpu_one_binary.png)
 
@@ -128,10 +126,10 @@ passes with short bodies (the coordinate `a` first, then the kernels, region B a
 and a row pass). Every lane executes the same operations as before, and batch == scalar holds
 bit for bit.
 
-Two limits, stated the same way in the paper. On the build without SIMD and without hardware
-fused multiply-add every explicit `fma` becomes a library call, and the reference is the faster
-scalar there. And the accuracy advantage does not show on tradeable quotes, where every solver
-considered is at its design precision; there the case is throughput and determinism.
+One limit, stated the same way in the paper. The accuracy advantage does not show on tradeable
+quotes, where every solver considered is at its design precision. There the case is throughput and
+determinism. The kernels assume hardware fused multiply-add, which every x86 CPU since 2013 and
+every 64-bit ARM core provides.
 
 The one public **vectorized** port of the reference, fast-vollib (Saqur 2026, Numba backend,
 one thread, same feed and host, loaded session), takes 411 ns per quote at a worst error of
